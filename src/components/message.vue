@@ -64,6 +64,7 @@ function copy() {
     margin: 0.25em;
     text-align: justify;
     text-justify: inter-word;
+    padding: 0.4em;
 }
 
 .msg-container {
