@@ -8,6 +8,9 @@ import fg from 'fast-glob';
 
 import vitePluginYamlI18n from './yaml-plugin';
 
+//vue
+import vue from '@vitejs/plugin-vue';
+
 const args = minimist(process.argv.slice(2))
 const isWatch = args.watch || args.w || false
 const devDistDir = "dev"
@@ -50,6 +53,7 @@ export default defineConfig({
                 }
             ],
         }),
+        vue()
     ],
 
     // https://github.com/vitejs/vite/issues/1930

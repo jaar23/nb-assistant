@@ -1,8 +1,8 @@
 {
-  "name": "plugin-sample-vite",
-  "author": "frostime",
-  "url": "https://github.com/frostime/plugin-sample-vite",
-  "version": "0.3.5",
+  "name": "nb-assistant",
+  "author": "jaar23",
+  "url": "https://github.com/jaar23/nb-assistant",
+  "version": "0.1.0",
   "minAppVersion": "3.0.12",
   "backends": [
     "windows",
@@ -19,12 +19,12 @@
     "desktop-window"
   ],
   "displayName": {
-    "en_US": "Plugin sample with vite",
-    "zh_CN": "插件样例 vite 版"
+    "en_US": "Notebook Assistant",
+    "zh_CN": "笔记小助手"
   },
   "description": {
-    "en_US": "SiYuan plugin sample with vite",
-    "zh_CN": "使用 vite 开发的思源插件样例"
+    "en_US": "AI powered assistant for your notebook, you can chat with it or instruct it to tag your note, extract summary and so on.",
+    "zh_CN": "一个可以与你聊天以及做文本摘要的智能助手"
   },
   "readme": {
     "en_US": "README.md",
@@ -36,6 +36,6 @@
     ]
   },
   "keywords": [
-    "plugin", "sample", "插件样例"
+    "ai", "assistant", "助手", "auto-tag", "summary"
   ]
 }

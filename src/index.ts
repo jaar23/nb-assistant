@@ -5,7 +5,6 @@ import {
     Dialog,
     Menu,
     openTab,
-    adaptHotkey,
     getFrontend,
     getBackend,
     IModel,
@@ -21,11 +20,14 @@ import {
 } from "siyuan";
 import "@/index.scss";
 
+// vue
+import {createApp} from "vue";
+import App from "@/App.vue";
 
 import { SettingUtils } from "./libs/setting-utils";
-const STORAGE_NAME = "menu-config";
+const STORAGE_NAME = "nb-assistant-config";
 const TAB_TYPE = "custom_tab";
-const DOCK_TYPE = "dock_tab";
+const DOCK_TYPE = "nbassistant_tab";
 
 export default class PluginSample extends Plugin {
 
@@ -88,44 +90,44 @@ export default class PluginSample extends Plugin {
             element: statusIconTemp.content.firstElementChild as HTMLElement,
         });
 
-        this.customTab = this.addTab({
-            type: TAB_TYPE,
-            init() {
-                this.element.innerHTML = '<p>Hello</p>'
-            }
-        });
-
-        this.addCommand({
-            langKey: "showDialog",
-            hotkey: "⇧⌘O",
-            callback: () => {
-                this.showDialog();
-            },
-            fileTreeCallback: (file: any) => {
-                console.log(file, "fileTreeCallback");
-            },
-            editorCallback: (protyle: any) => {
-                console.log(protyle, "editorCallback");
-            },
-            dockCallback: (element: HTMLElement) => {
-                console.log(element, "dockCallback");
-            },
-        });
-        this.addCommand({
-            langKey: "getTab",
-            hotkey: "⇧⌘M",
-            globalCallback: () => {
-                console.log(this.getOpenedTab());
-            },
-        });
+        // this.customTab = this.addTab({
+        //     type: TAB_TYPE,
+        //     init() {
+        //         this.element.innerHTML = '<p>Hello</p>'
+        //     }
+        // });
+        //
+        // this.addCommand({
+        //     langKey: "showDialog",
+        //     hotkey: "⇧⌘O",
+        //     callback: () => {
+        //         this.showDialog();
+        //     },
+        //     fileTreeCallback: (file: any) => {
+        //         console.log(file, "fileTreeCallback");
+        //     },
+        //     editorCallback: (protyle: any) => {
+        //         console.log(protyle, "editorCallback");
+        //     },
+        //     dockCallback: (element: HTMLElement) => {
+        //         console.log(element, "dockCallback");
+        //     },
+        // });
+        // this.addCommand({
+        //     langKey: "getTab",
+        //     hotkey: "⇧⌘M",
+        //     globalCallback: () => {
+        //         console.log(this.getOpenedTab());
+        //     },
+        // });
 
         this.addDock({
             config: {
-                position: "LeftBottom",
+                position: "RightTop",
                 size: { width: 200, height: 0 },
                 icon: "iconSaving",
-                title: "Custom Dock",
-                hotkey: "⌥⌘W",
+                title: "Notebook Assistant",
+                hotkey: "⌥⌘B",
             },
             data: {
                 text: "This is my custom dock"
@@ -147,21 +149,11 @@ export default class PluginSample extends Plugin {
                         ${dock.data.text}
                     </div>
                     </div>`;
+                    dock.element.innerHTML = `<div id="nb-assistant" style="height: 98%"></div>`;
                 } else {
-                    dock.element.innerHTML = `<div class="fn__flex-1 fn__flex-column">
-                    <div class="block__icons">
-                        <div class="block__logo">
-                            <svg class="block__logoicon"><use xlink:href="#iconEmoji"></use></svg>
-                            Custom Dock
-                        </div>
-                        <span class="fn__flex-1 fn__space"></span>
-                        <span data-type="min" class="block__icon b3-tooltips b3-tooltips__sw" aria-label="Min ${adaptHotkey("⌘W")}"><svg class="block__logoicon"><use xlink:href="#iconMin"></use></svg></span>
-                    </div>
-                    <div class="fn__flex-1 plugin-sample__custom-dock">
-                        ${dock.data.text}
-                    </div>
-                    </div>`;
+                    dock.element.innerHTML = `<div id="nb-assistant" style="height: 98%"></div>`;
                 }
+                createApp(App, {plugin: this}).mount('#nb-assistant')
             },
             destroy() {
                 console.log("destroy dock:", DOCK_TYPE);
