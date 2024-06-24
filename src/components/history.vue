@@ -17,7 +17,7 @@ ul {
     list-style-type: none;
     margin: 0;
     padding: 0;
-    max-height: 75%;
+    max-height: 80%;
     overflow: scroll;
 }
 </style>

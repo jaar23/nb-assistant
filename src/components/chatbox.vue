@@ -101,7 +101,7 @@ defineExpose({
 <template>
   <div class="input-area">
     <loading v-model:active="isLoading"
-                 :can-cancel="true"
+                 :can-cancel="false"
                  :on-cancel="loadingCancel"
                  loader="bars"
                  background-color="#eee"
