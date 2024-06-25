@@ -49,7 +49,7 @@ export default class PluginSample extends Plugin {
 
         const topBarElement = this.addTopBar({
             icon: "iconChat",
-            title: "Notebook Assistant",
+            title: this.i18n.pluginName,
             position: "right",
             callback: () => {
                 if (this.isMobile) {
@@ -73,9 +73,9 @@ export default class PluginSample extends Plugin {
         this.addDock({
             config: {
                 position: "RightTop",
-                size: { width: 350, height: 0 },
+                size: { width: 400, height: 0 },
                 icon: "iconChat",
-                title: "Notebook Assistant",
+                title: this.i18n.pluginName,
                 hotkey: "⌥⌘B",
             },
             data: {
@@ -102,7 +102,7 @@ export default class PluginSample extends Plugin {
         });
 
         const notebooks = await lsNotebooks();
-        let nbOptions = { "-": "Please select" };
+        let nbOptions = { "-": this.i18n.pleaseSelect };
         for (const nb of notebooks.notebooks) {
             nbOptions[nb.id] = nb.name;
         }
@@ -114,11 +114,10 @@ export default class PluginSample extends Plugin {
 
         this.settingUtils.addItem({
             key: "chatSaveNotebook",
-            value: "",
+            value: "-",
             type: "select",
-            title: "Save chat history to Notebook",
-            description:
-                "Select the notebook where you want to save your chat history.",
+            title: this.i18n.saveChatTitle,
+            description: this.i18n.saveChatDesc,
             options: nbOptions,
             action: {
                 // Called when focus is lost and content changes
@@ -134,22 +133,22 @@ export default class PluginSample extends Plugin {
             key: "systemPrompt",
             value: "PA",
             type: "select",
-            title: "Role",
-            description: "Set a default role for your LLM",
+            title: this.i18n.role,
+            description: this.i18n.roleDesc,
             options: {
-                PA: "Personal Assistant",
-                CD: "Programmer",
-                SE: "Software Engineer",
-                SA: "Software Architect",
-                ET: "English Teacher",
-                TG: "Travel Guide",
-                PC: "Plagiarism Checker",
-                ST: "Storyteller",
-                MT: "Math Teacher",
-                CS: "Cyber Security Specialist",
-                FA: "Financial Analyst",
-                ML: "Machine Learning Engineer",
-                DS: "Data Scientist",
+                PA: this.i18n.PA,
+                CD: this.i18n.CD,
+                SE: this.i18n.SE,
+                SA: this.i18n.SA,
+                ET: this.i18n.ET,
+                TG: this.i18n.TG,
+                PC: this.i18n.PC,
+                ST: this.i18n.ST,
+                MT: this.i18n.MT,
+                CS: this.i18n.CS,
+                FA: this.i18n.FA,
+                ML: this.i18n.ML,
+                DS: this.i18n.DS,
             },
             action: {
                 callback: () => {
@@ -163,9 +162,8 @@ export default class PluginSample extends Plugin {
             key: "aiEmoji",
             value: "[AI]",
             type: "textinput",
-            title: "Emoji / Text",
-            description: `Auto inject in front of the AI generated content to indicate it is AI content. Copy the emoji from your document and paste is the best way! 
-                There is a risk in using AI, one of it will be disinformation and over / under reliance of AI.`,
+            title: this.i18n.aiEmoji,
+            description: this.i18n.aiEmojiDesc,
             action: {
                 callback: () => {
                     // Return data and save it in real time
@@ -175,29 +173,29 @@ export default class PluginSample extends Plugin {
             },
         });
 
-        this.settingUtils.addItem({
-            key: "checkToken",
-            value: true,
-            type: "checkbox",
-            title: "Estimate token used on every calls",
-            description: `This is a simply word counting feature, do not match with the actual token consume on the LLM.
-                ONLY USING THIS FOR REFERENCE!`,
-            action: {
-                callback: () => {
-                    // Return data and save it in real time
-                    let value = !this.settingUtils.get("checkToken");
-                    this.settingUtils.setAndSave("checkToken", value);
-                    console.log(value);
-                },
-            },
-        });
-
+        // this.settingUtils.addItem({
+        //     key: "checkToken",
+        //     value: true,
+        //     type: "checkbox",
+        //     title: "Estimate token used on every calls",
+        //     description: `This is a simply word counting feature, do not match with the actual token consume on the LLM.
+        //         ONLY USING THIS FOR REFERENCE!`,
+        //     action: {
+        //         callback: () => {
+        //             // Return data and save it in real time
+        //             let value = !this.settingUtils.get("checkToken");
+        //             this.settingUtils.setAndSave("checkToken", value);
+        //             console.log(value);
+        //         },
+        //     },
+        // });
+        
         this.settingUtils.addItem({
             key: "enterToSend",
             value: true,
             type: "checkbox",
-            title: "Press enter to send",
-            description: `When typing in chat box, press Enter button to send message`,
+            title: this.i18n.enterToSend,
+            description: this.i18n.enterToSendDesc,
             action: {
                 callback: () => {
                     // Return data and save it in real time
@@ -212,9 +210,8 @@ export default class PluginSample extends Plugin {
             key: "customSystemPrompt",
             value: "",
             type: "textarea",
-            title: "Custom System Prompt",
-            description:
-                "Customize your system prompt to instruct how LLM should work. Using this will override the role setting.",
+            title: this.i18n.customSystemPrompt,
+            description: this.i18n.customSystemPromptDesc,
             action: {
                 callback: () => {
                     // Read data in real time
@@ -228,9 +225,8 @@ export default class PluginSample extends Plugin {
             key: "customUserPrompt",
             value: "",
             type: "textarea",
-            title: "Custom User Prompt",
-            description:
-                "Customize your user prompt. This will be adding to your prompt when you are using LLM inferencing.",
+            title: this.i18n.customUserPrompt,
+            description: this.i18n.customUserPromptDesc,
             action: {
                 callback: () => {
                     // Read data in real time
@@ -260,7 +256,7 @@ export default class PluginSample extends Plugin {
 
     async onunload() {
         console.log(this.i18n.byePlugin);
-        showMessage("Goodbye SiYuan Plugin");
+        showMessage("Goodbye Notebook Assistant");
         console.log("onunload");
     }
 
@@ -274,7 +270,7 @@ export default class PluginSample extends Plugin {
         });
         menu.addItem({
             icon: "iconSettings",
-            label: "Notebook Assistant settings",
+            label: this.i18n.settings,
             click: () => {
                 this.openSetting();
             },

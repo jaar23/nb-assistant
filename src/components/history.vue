@@ -31,18 +31,22 @@ ul {
 }
 
 .question {
-  background-color: var(--b3-theme-primary);
+  background-color: var(--b3-theme-background-light);
   border-radius: 20px 20px 0px 20px;
   width: 85%;
   float: right;
+  border: 1px solid var(--b3-empty-color);
+  padding: 1em;
 }
 
 .answer {
-  /*background-color: var(--b3-theme-secondary);*/
+  background-color: var(--b3-theme-background-light);
   border-radius: 20px 20px 20px 0px;
   width: 85%;
   float: left;
   padding: 1em;
   line-height: 15pt;
+  border: 1px solid var(--b3-empty-color);
+
 }
 </style>

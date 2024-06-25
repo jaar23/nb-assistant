@@ -5,17 +5,40 @@ save: 保存
 byeMenu: 再见，菜单！
 helloPlugin: 你好，插件！
 byePlugin: 再见，插件！
-showDialog: 弹出一个对话框
-removedData: 数据已删除
-confirmRemove: 确认删除 ${name} 中的数据？
-insertEmoji: 插入表情
-removeSpace: 移除空格
-getTab: 在日志中打印出已打开的所有自定义页签
-name: 思源
-hello:
-  makesure: 使用这个模板之前，请阅读<a href="https://github.com/siyuan-note/plugin-sample">官方教程</a>,
-    确保自己已经理解了插件的基本开发流程。
-hintTitle: 关于
-hintDesc: "<a href='https://github.com/siyuan-note/plugin-sample-vite-svelte'>\U0001F517
-  plugin-sample-vite-svelte</a><br>\U0001F4BB @frostime<br>\U0001F4BB @88250<br>\U0001F4BB
-  @zxkmm"
+summarize: "总结"
+autoTag: 生成标记
+saveChat: 保存
+clear: 清楚
+chatPlaceHolder: 您好，我是你的笔记小助手！
+send: 发送
+saveChatTitle: 保存到
+saveChatDesc: 插件会使用当前选择来保存聊天记录
+role: 角色扮演
+roleDesc: 让LLM扮演一个角色，让它能更精准提供回复
+aiEmoji: 表情包或文字
+aiEmojiDesc: 当你抄下人工智能对话时，会使用该表情包来标记这是人工智能生成的内容，用以提醒用户。当然我们不能完全相信人工智能的话，所以推荐用户标记起来
+enterToSend: 快捷键
+enterToSendDesc: 按下Enter将发送信息
+customSystemPrompt: 个性化LLM系统提示
+customSystemPromptDesc: 如果以上角色没有你需要的，你可以选择这个个性化LLM系统提示，让LLM更好的服务你。 使用这个功能将改变原有选择的角色。
+customUserPrompt: 个性化用户提问提示
+customUserPromptDesc: 这段话会被复制到每一条LLM对话信息里，增强语境
+settings: 笔记小助手的设置
+pluginName: 笔记小助手
+pleaseSelect: 请选择
+noAIDetected: 这个插件需要激活AI的功能才可以使用。
+noAIDetected2: 在Setting 》AI的目录打开功能
+PA: 个人助理
+CD: 程序员
+SE: 软件工程师
+SA: 方案架构师
+ET: 英语老师
+TG: 导游
+PC: 抄袭检查器
+ST: 说故事的人
+MT: 数学老师
+CS: 网络安全专家
+FA: 金融分析师
+ML: 机器学习工程师
+DS: 数据科学家
+noNotebookSelected: 请在插件设置里选择一个文本用以保存记录  

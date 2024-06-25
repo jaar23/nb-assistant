@@ -94,10 +94,10 @@ defineExpose({
     <textarea
       class="textarea b3-text-field"
       v-model="chatInput"
-      placeholder="how can I help you today?"
+      :placeholder="plugin.i18n.chatPlaceHolder"
       @keypress="typing"
     ></textarea>
-    <button class="button b3-button" @click="prompt">Send</button>
+    <button class="button b3-button" @click="prompt">{{ plugin.i18n.send}}</button>
   </div>
 </template>
 

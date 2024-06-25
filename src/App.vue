@@ -73,13 +73,17 @@ async function saveChat(title: string) {
         markdown += "\n";
       }
     }
-    await createDocWithMd(notebookId, `/${title}`, markdown);
-    await pushMsg("Successfully saved chat");
-    inferencing .value = false;
+    if (notebookId === "-") {
+      throw props.plugin.i18n.noNotebookSelected;
+    } else {
+      await createDocWithMd(notebookId, `/${title}`, markdown);
+      await pushMsg("Successfully saved chat");
+      inferencing.value = false;
+    }
   } catch (err) {
     console.error(err);
-    await pushErrMsg(err.message);
-    inferencing .value = false;
+    await pushErrMsg(err);
+    inferencing.value = false;
   }
 }
 
@@ -98,7 +102,7 @@ onMounted(async () => {
   console.log("ai configure? ", isAIEnable.value);
   console.log("context length? ", historyRetain.value);
   console.log("system conf: ", systemConf.conf.ai);
-  console.log("settings: ", props.plugin.settingUtils);
+  console.log("i18n: ", props.plugin.i18n);
   aiEmoji.value = props.plugin.settingUtils.dump().aiEmoji;
   enterToSend.value = props.plugin.settingUtils.dump().enterToSend;
 
@@ -113,7 +117,11 @@ onMounted(async () => {
 <template>
   <div class="nb-container">
     <div v-if="isAIEnable">
-      <history class="history" v-model="historyMessages" v-if="historyMessages.length > 0"></history>
+      <history
+        class="history"
+        v-model="historyMessages"
+        v-if="historyMessages.length > 0"
+      ></history>
       <shortcut
         class="shortcut"
         v-model:inferencing="inferencing"
@@ -137,8 +145,8 @@ onMounted(async () => {
     </div>
     <div v-else>
       <div>
-        <p>You need to configure the AI setting before using this plugin.</p>
-        <p>Under Setting > AI</p>
+        <p>{{ this.i18n.noAIDetected }}</p>
+        <p>{{ this.i18n.noAIDetected2 }}</p>
       </div>
     </div>
   </div>
@@ -164,7 +172,7 @@ onMounted(async () => {
   max-height: 80px;
   position: absolute;
   width: 95%;
-  top: 83%;
+  top: 82%;
   /*display: flex;*/
   padding: 1em;
 }

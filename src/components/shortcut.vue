@@ -73,7 +73,7 @@ async function autoTagOpenDoc(ev: any) {
     );
     emit("response", { question: "", answer: respMessage });
     isLoading.value = false;
-    selectedSumTab.value = "";
+    selectedTagTab.value = "";
   } catch (err) {
     isLoading.value = false;
     await pushErrMsg(err);
@@ -172,7 +172,9 @@ defineExpose({
       @focus="getOpenTabs"
       v-if="shortcutShow"
     >
-      <option class="b3-option" disabled value="">Summarize</option>
+      <option class="b3-option" disabled value="">
+        {{ plugin.i18n.summarize }}
+      </option>
       <option
         class="b3-option"
         v-for="opt in openTabs"
@@ -189,7 +191,9 @@ defineExpose({
       @focus="getOpenTabs"
       v-if="shortcutShow"
     >
-      <option class="b3-option" disabled value="">Auto-tag</option>
+      <option class="b3-option" disabled value="">
+        {{ plugin.i18n.autoTag }}
+      </option>
       <option
         class="b3-option"
         v-for="opt in openTabs"
@@ -249,7 +253,7 @@ defineExpose({
       @click="clearChat"
       v-if="shortcutShow"
     >
-      Clear
+      {{ plugin.i18n.clear }}
     </button>
 
     <button
@@ -257,7 +261,7 @@ defineExpose({
       @click="saveChat"
       v-if="shortcutShow"
     >
-      Save Chat
+      {{ plugin.i18n.saveChat }}
     </button>
   </div>
 </template>
