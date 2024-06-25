@@ -16,24 +16,22 @@ import {
     lockScreen,
     ICard,
     ICardData,
-    fetchPost
+    fetchPost,
 } from "siyuan";
 import "@/index.scss";
 
 // vue
-import {createApp} from "vue";
+import { createApp } from "vue";
 import App from "@/App.vue";
+import { lsNotebooks } from "./api";
 
 import { SettingUtils } from "./libs/setting-utils";
 const STORAGE_NAME = "nb-assistant-config";
-const TAB_TYPE = "custom_tab";
 const DOCK_TYPE = "nbassistant_tab";
 
 export default class PluginSample extends Plugin {
-
     customTab: () => IModel;
     private isMobile: boolean;
-    private blockIconEventBindThis = this.blockIconEvent.bind(this);
     private settingUtils: SettingUtils;
 
     async onload() {
@@ -44,16 +42,14 @@ export default class PluginSample extends Plugin {
         const frontEnd = getFrontend();
         this.isMobile = frontEnd === "mobile" || frontEnd === "browser-mobile";
         // 图标的制作参见帮助文档
-        this.addIcons(`<symbol id="iconFace" viewBox="0 0 32 32">
-<path d="M13.667 17.333c0 0.92-0.747 1.667-1.667 1.667s-1.667-0.747-1.667-1.667 0.747-1.667 1.667-1.667 1.667 0.747 1.667 1.667zM20 15.667c-0.92 0-1.667 0.747-1.667 1.667s0.747 1.667 1.667 1.667 1.667-0.747 1.667-1.667-0.747-1.667-1.667-1.667zM29.333 16c0 7.36-5.973 13.333-13.333 13.333s-13.333-5.973-13.333-13.333 5.973-13.333 13.333-13.333 13.333 5.973 13.333 13.333zM14.213 5.493c1.867 3.093 5.253 5.173 9.12 5.173 0.613 0 1.213-0.067 1.787-0.16-1.867-3.093-5.253-5.173-9.12-5.173-0.613 0-1.213 0.067-1.787 0.16zM5.893 12.627c2.28-1.293 4.040-3.4 4.88-5.92-2.28 1.293-4.040 3.4-4.88 5.92zM26.667 16c0-1.040-0.16-2.040-0.44-2.987-0.933 0.2-1.893 0.32-2.893 0.32-4.173 0-7.893-1.92-10.347-4.92-1.4 3.413-4.187 6.093-7.653 7.4 0.013 0.053 0 0.12 0 0.187 0 5.88 4.787 10.667 10.667 10.667s10.667-4.787 10.667-10.667z"></path>
+        this.addIcons(`<symbol id="iconChat" viewBox="0 0 32 32">
+<?xml version="1.0" encoding="UTF-8"?><svg width="32px" height="32px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke-width="1.5"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.25 16.5C1.25 13.0482 4.04822 10.25 7.5 10.25C10.9518 10.25 13.75 13.0482 13.75 16.5C13.75 19.9518 10.9518 22.75 7.5 22.75C6.4644 22.75 5.48586 22.4976 4.6244 22.0505L2.41228 22.4623C2.16923 22.5076 1.91949 22.4301 1.74467 22.2553C1.56985 22.0805 1.49242 21.8308 1.53767 21.5877L1.94953 19.3756C1.50244 18.5141 1.25 17.5356 1.25 16.5Z"></path><path fill-rule="evenodd" clip-rule="evenodd" d="M22.7499 10C22.7499 5.16751 18.8325 1.25 13.9999 1.25C9.73442 1.25 5.90197 4.4993 5.33758 8.7588C5.33709 8.76059 5.33669 8.76183 5.33638 8.76263C5.33741 8.74858 5.33662 8.75058 5.33597 8.75509C5.33532 8.75961 5.33481 8.76664 5.33638 8.76263C5.33561 8.77306 5.33385 8.79231 5.33029 8.82591C5.32628 8.86551 5.32098 8.92185 5.3153 8.99325C5.31354 9.01533 5.31174 9.03885 5.30994 9.06378C6.00443 8.85957 6.73944 8.75 7.50004 8.75C11.7803 8.75 15.25 12.2198 15.25 16.5C15.25 17.2591 15.1409 17.9927 14.9375 18.6859C15.0164 18.6798 15.086 18.6736 15.1454 18.6678C15.2187 18.6607 15.2765 18.6542 15.3171 18.6493L15.365 18.6434L15.3789 18.6416L15.3832 18.641L15.3848 18.6408L15.3859 18.6406L15.4016 18.6383C16.3735 18.4817 17.2918 18.165 18.1285 17.7165L21.4627 18.3373C21.7057 18.3826 21.9555 18.3051 22.1303 18.1303C22.3051 17.9555 22.3825 17.7058 22.3373 17.4627L21.7165 14.1285C22.3761 12.8981 22.7499 11.4917 22.7499 10Z"></path></svg>
 </symbol>
-<symbol id="iconSaving" viewBox="0 0 32 32">
-<path d="M20 13.333c0-0.733 0.6-1.333 1.333-1.333s1.333 0.6 1.333 1.333c0 0.733-0.6 1.333-1.333 1.333s-1.333-0.6-1.333-1.333zM10.667 12h6.667v-2.667h-6.667v2.667zM29.333 10v9.293l-3.76 1.253-2.24 7.453h-7.333v-2.667h-2.667v2.667h-7.333c0 0-3.333-11.28-3.333-15.333s3.28-7.333 7.333-7.333h6.667c1.213-1.613 3.147-2.667 5.333-2.667 1.107 0 2 0.893 2 2 0 0.28-0.053 0.533-0.16 0.773-0.187 0.453-0.347 0.973-0.427 1.533l3.027 3.027h2.893zM26.667 12.667h-1.333l-4.667-4.667c0-0.867 0.12-1.72 0.347-2.547-1.293 0.333-2.347 1.293-2.787 2.547h-8.227c-2.573 0-4.667 2.093-4.667 4.667 0 2.507 1.627 8.867 2.68 12.667h2.653v-2.667h8v2.667h2.68l2.067-6.867 3.253-1.093v-4.707z"></path>
-</symbol>`);
+`);
 
         const topBarElement = this.addTopBar({
-            icon: "iconFace",
-            title: this.i18n.addTopBarIcon,
+            icon: "iconChat",
+            title: "Notebook Assistant",
             position: "right",
             callback: () => {
                 if (this.isMobile) {
@@ -65,72 +61,25 @@ export default class PluginSample extends Plugin {
                         rect = document.querySelector("#barMore").getBoundingClientRect();
                     }
                     if (rect.width === 0) {
-                        rect = document.querySelector("#barPlugins").getBoundingClientRect();
+                        rect = document
+                            .querySelector("#barPlugins")
+                            .getBoundingClientRect();
                     }
                     this.addMenu(rect);
                 }
-            }
+            },
         });
-
-        const statusIconTemp = document.createElement("template");
-        statusIconTemp.innerHTML = `<div class="toolbar__item ariaLabel" aria-label="Remove plugin-sample Data">
-    <svg>
-        <use xlink:href="#iconTrashcan"></use>
-    </svg>
-</div>`;
-        statusIconTemp.content.firstElementChild.addEventListener("click", () => {
-            confirm("⚠️", this.i18n.confirmRemove.replace("${name}", this.name), () => {
-                this.removeData(STORAGE_NAME).then(() => {
-                    this.data[STORAGE_NAME] = { readonlyText: "Readonly" };
-                    showMessage(`[${this.name}]: ${this.i18n.removedData}`);
-                });
-            });
-        });
-        this.addStatusBar({
-            element: statusIconTemp.content.firstElementChild as HTMLElement,
-        });
-
-        // this.customTab = this.addTab({
-        //     type: TAB_TYPE,
-        //     init() {
-        //         this.element.innerHTML = '<p>Hello</p>'
-        //     }
-        // });
-        //
-        // this.addCommand({
-        //     langKey: "showDialog",
-        //     hotkey: "⇧⌘O",
-        //     callback: () => {
-        //         this.showDialog();
-        //     },
-        //     fileTreeCallback: (file: any) => {
-        //         console.log(file, "fileTreeCallback");
-        //     },
-        //     editorCallback: (protyle: any) => {
-        //         console.log(protyle, "editorCallback");
-        //     },
-        //     dockCallback: (element: HTMLElement) => {
-        //         console.log(element, "dockCallback");
-        //     },
-        // });
-        // this.addCommand({
-        //     langKey: "getTab",
-        //     hotkey: "⇧⌘M",
-        //     globalCallback: () => {
-        //         console.log(this.getOpenedTab());
-        //     },
-        // });
 
         this.addDock({
             config: {
                 position: "RightTop",
-                size: { width: 200, height: 0 },
-                icon: "iconSaving",
+                size: { width: 350, height: 0 },
+                icon: "iconChat",
                 title: "Notebook Assistant",
                 hotkey: "⌥⌘B",
             },
             data: {
-                text: "This is my custom dock"
+                text: "",
             },
             type: DOCK_TYPE,
             resize() {
@@ -141,201 +90,163 @@ export default class PluginSample extends Plugin {
             },
             init: (dock) => {
                 if (this.isMobile) {
-                    dock.element.innerHTML = `<div class="toolbar toolbar--border toolbar--dark">
-                    <svg class="toolbar__icon"><use xlink:href="#iconEmoji"></use></svg>
-                        <div class="toolbar__text">Custom Dock</div>
-                    </div>
-                    <div class="fn__flex-1 plugin-sample__custom-dock">
-                        ${dock.data.text}
-                    </div>
-                    </div>`;
                     dock.element.innerHTML = `<div id="nb-assistant" style="height: 98%"></div>`;
                 } else {
                     dock.element.innerHTML = `<div id="nb-assistant" style="height: 98%"></div>`;
                 }
-                createApp(App, {plugin: this}).mount('#nb-assistant')
+                createApp(App, { plugin: this }).mount("#nb-assistant");
             },
             destroy() {
                 console.log("destroy dock:", DOCK_TYPE);
-            }
+            },
         });
 
+        const notebooks = await lsNotebooks();
+        let nbOptions = { "-": "Please select" };
+        for (const nb of notebooks.notebooks) {
+            nbOptions[nb.id] = nb.name;
+        }
+
         this.settingUtils = new SettingUtils({
-            plugin: this, name: STORAGE_NAME
+            plugin: this,
+            name: STORAGE_NAME,
         });
+
         this.settingUtils.addItem({
-            key: "Input",
+            key: "chatSaveNotebook",
             value: "",
-            type: "textinput",
-            title: "Readonly text",
-            description: "Input description",
+            type: "select",
+            title: "Save chat history to Notebook",
+            description:
+                "Select the notebook where you want to save your chat history.",
+            options: nbOptions,
             action: {
                 // Called when focus is lost and content changes
                 callback: () => {
                     // Return data and save it in real time
-                    let value = this.settingUtils.takeAndSave("Input");
+                    let value = this.settingUtils.takeAndSave("chatSaveNotebook");
                     console.log(value);
-                }
-            }
+                },
+            },
         });
+
         this.settingUtils.addItem({
-            key: "InputArea",
-            value: "",
-            type: "textarea",
-            title: "Readonly text",
-            description: "Input description",
-            // Called when focus is lost and content changes
+            key: "systemPrompt",
+            value: "PA",
+            type: "select",
+            title: "Role",
+            description: "Set a default role for your LLM",
+            options: {
+                PA: "Personal Assistant",
+                CD: "Programmer",
+                SE: "Software Engineer",
+                SA: "Software Architect",
+                ET: "English Teacher",
+                TG: "Travel Guide",
+                PC: "Plagiarism Checker",
+                ST: "Storyteller",
+                MT: "Math Teacher",
+                CS: "Cyber Security Specialist",
+                FA: "Financial Analyst",
+                ML: "Machine Learning Engineer",
+                DS: "Data Scientist",
+            },
             action: {
                 callback: () => {
-                    // Read data in real time
-                    let value = this.settingUtils.get("InputArea");
-                    console.log(value);
-                }
-            }
+                    let selected = this.settingUtils.takeAndSave("systemPrompt");
+                    console.log(selected);
+                },
+            },
         });
+
         this.settingUtils.addItem({
-            key: "Check",
-            value: true,
-            type: "checkbox",
-            title: "Checkbox text",
-            description: "Check description",
+            key: "aiEmoji",
+            value: "[AI]",
+            type: "textinput",
+            title: "Emoji / Text",
+            description: `Auto inject in front of the AI generated content to indicate it is AI content. Copy the emoji from your document and paste is the best way! 
+                There is a risk in using AI, one of it will be disinformation and over / under reliance of AI.`,
             action: {
                 callback: () => {
                     // Return data and save it in real time
-                    let value = !this.settingUtils.get("Check");
-                    this.settingUtils.set("Check", value);
+                    let value = this.settingUtils.takeAndSave("aiEmoji");
                     console.log(value);
-                }
-            }
-        });
-        this.settingUtils.addItem({
-            key: "Select",
-            value: 1,
-            type: "select",
-            title: "Select",
-            description: "Select description",
-            options: {
-                1: "Option 1",
-                2: "Option 2"
+                },
             },
+        });
+
+        this.settingUtils.addItem({
+            key: "checkToken",
+            value: true,
+            type: "checkbox",
+            title: "Estimate token used on every calls",
+            description: `This is a simply word counting feature, do not match with the actual token consume on the LLM.
+                ONLY USING THIS FOR REFERENCE!`,
+            action: {
+                callback: () => {
+                    // Return data and save it in real time
+                    let value = !this.settingUtils.get("checkToken");
+                    this.settingUtils.setAndSave("checkToken", value);
+                    console.log(value);
+                },
+            },
+        });
+
+        this.settingUtils.addItem({
+            key: "enterToSend",
+            value: true,
+            type: "checkbox",
+            title: "Press enter to send",
+            description: `When typing in chat box, press Enter button to send message`,
+            action: {
+                callback: () => {
+                    // Return data and save it in real time
+                    let value = !this.settingUtils.get("enterToSend");
+                    this.settingUtils.setAndSave("enterToSend", value);
+                    console.log(value);
+                },
+            },
+        });
+
+        this.settingUtils.addItem({
+            key: "customSystemPrompt",
+            value: "",
+            type: "textarea",
+            title: "Custom System Prompt",
+            description:
+                "Customize your system prompt to instruct how LLM should work. Using this will override the role setting.",
             action: {
                 callback: () => {
                     // Read data in real time
-                    let value = this.settingUtils.get("Select");
+                    let value = this.settingUtils.takeAndSave("customSystemPrompt");
                     console.log(value);
-                }
-            }
-        });
-        this.settingUtils.addItem({
-            key: "Slider",
-            value: 50,
-            type: "slider",
-            title: "Slider text",
-            description: "Slider description",
-            direction: "column",
-            slider: {
-                min: 0,
-                max: 100,
-                step: 1,
+                },
             },
-            action:{
-                callback: () => {
-                    // Read data in real time
-                    let value = this.settingUtils.take("Slider");
-                    console.log(value);
-                }
-            }
-        });
-        this.settingUtils.addItem({
-            key: "Btn",
-            value: "",
-            type: "button",
-            title: "Button",
-            description: "Button description",
-            button: {
-                label: "Button",
-                callback: () => {
-                    showMessage("Button clicked");
-                }
-            }
-        });
-        this.settingUtils.addItem({
-            key: "Custom Element",
-            value: "",
-            type: "custom",
-            direction: "row",
-            title: "Custom Element",
-            description: "Custom Element description",
-            //Any custom element must offer the following methods
-            createElement: (currentVal: any) => {
-                let div = document.createElement('div');
-                div.style.border = "1px solid var(--b3-theme-primary)";
-                div.contentEditable = "true";
-                div.textContent = currentVal;
-                return div;
-            },
-            getEleVal: (ele: HTMLElement) => {
-                return ele.textContent;
-            },
-            setEleVal: (ele: HTMLElement, val: any) => {
-                ele.textContent = val;
-            }
-        });
-        this.settingUtils.addItem({
-            key: "Hint",
-            value: "",
-            type: "hint",
-            title: this.i18n.hintTitle,
-            description: this.i18n.hintDesc,
         });
 
+        this.settingUtils.addItem({
+            key: "customUserPrompt",
+            value: "",
+            type: "textarea",
+            title: "Custom User Prompt",
+            description:
+                "Customize your user prompt. This will be adding to your prompt when you are using LLM inferencing.",
+            action: {
+                callback: () => {
+                    // Read data in real time
+                    let value = this.settingUtils.takeAndSave("customUserPrompt");
+                    console.log(value);
+                },
+            },
+        });
         try {
             this.settingUtils.load();
         } catch (error) {
-            console.error("Error loading settings storage, probably empty config json:", error);
+            console.error(
+                "Error loading settings storage, probably empty config json:",
+                error,
+            );
         }
-
-
-        this.protyleSlash = [{
-            filter: ["insert emoji 😊", "插入表情 😊", "crbqwx"],
-            html: `<div class="b3-list-item__first"><span class="b3-list-item__text">${this.i18n.insertEmoji}</span><span class="b3-list-item__meta">😊</span></div>`,
-            id: "insertEmoji",
-            callback(protyle: Protyle) {
-                protyle.insert("😊");
-            }
-        }];
-
-        this.protyleOptions = {
-            toolbar: ["block-ref",
-                "a",
-                "|",
-                "text",
-                "strong",
-                "em",
-                "u",
-                "s",
-                "mark",
-                "sup",
-                "sub",
-                "clear",
-                "|",
-                "code",
-                "kbd",
-                "tag",
-                "inline-math",
-                "inline-memo",
-                "|",
-                {
-                    name: "insert-smail-emoji",
-                    icon: "iconEmoji",
-                    hotkey: "⇧⌘I",
-                    tipPosition: "n",
-                    tip: this.i18n.insertEmoji,
-                    click(protyle: Protyle) {
-                        protyle.insert("😊");
-                    }
-                }],
-        };
 
         console.log(this.i18n.helloPlugin);
     }
@@ -344,12 +255,7 @@ export default class PluginSample extends Plugin {
         // this.loadData(STORAGE_NAME);
         this.settingUtils.load();
         console.log(`frontend: ${getFrontend()}; backend: ${getBackend()}`);
-        console.log(
-            "Official settings value calling example:\n" +
-            this.settingUtils.get("InputArea") + "\n" +
-            this.settingUtils.get("Slider") + "\n" +
-            this.settingUtils.get("Select") + "\n"
-        );
+        console.log("nb-assistant settings", this.settingUtils.dump());
     }
 
     async onunload() {
@@ -362,521 +268,16 @@ export default class PluginSample extends Plugin {
         console.log("uninstall");
     }
 
-    async updateCards(options: ICardData) {
-        options.cards.sort((a: ICard, b: ICard) => {
-            if (a.blockID < b.blockID) {
-                return -1;
-            }
-            if (a.blockID > b.blockID) {
-                return 1;
-            }
-            return 0;
-        });
-        return options;
-    }
-
-    private eventBusPaste(event: any) {
-        // 如果需异步处理请调用 preventDefault， 否则会进行默认处理
-        event.preventDefault();
-        // 如果使用了 preventDefault，必须调用 resolve，否则程序会卡死
-        event.detail.resolve({
-            textPlain: event.detail.textPlain.trim(),
-        });
-    }
-
-    private eventBusLog({ detail }: any) {
-        console.log(detail);
-    }
-
-    private blockIconEvent({ detail }: any) {
-        detail.menu.addItem({
-            iconHTML: "",
-            label: this.i18n.removeSpace,
-            click: () => {
-                const doOperations: IOperation[] = [];
-                detail.blockElements.forEach((item: HTMLElement) => {
-                    const editElement = item.querySelector('[contenteditable="true"]');
-                    if (editElement) {
-                        editElement.textContent = editElement.textContent.replace(/ /g, "");
-                        doOperations.push({
-                            id: item.dataset.nodeId,
-                            data: item.outerHTML,
-                            action: "update"
-                        });
-                    }
-                });
-                detail.protyle.getInstance().transaction(doOperations);
-            }
-        });
-    }
-
-    private showDialog() {
-        const dialog = new Dialog({
-            title: `SiYuan ${Constants.SIYUAN_VERSION}`,
-            content: `<div class="b3-dialog__content">
-    <div>appId:</div>
-    <div class="fn__hr"></div>
-    <div class="plugin-sample__time">${this.app?.appId}</div>
-    <div class="fn__hr"></div>
-    <div class="fn__hr"></div>
-    <div>API demo:</div>
-    <div class="fn__hr"></div>
-    <div class="plugin-sample__time">System current time: <span id="time"></span></div>
-    <div class="fn__hr"></div>
-    <div class="fn__hr"></div>
-    <div>Protyle demo:</div>
-    <div class="fn__hr"></div>
-    <div id="protyle" style="height: 360px;"></div>
-</div>`,
-            width: this.isMobile ? "92vw" : "560px",
-            height: "540px",
-        });
-        new Protyle(this.app, dialog.element.querySelector("#protyle"), {
-            blockId: "20200812220555-lj3enxa",
-        });
-        fetchPost("/api/system/currentTime", {}, (response) => {
-            dialog.element.querySelector("#time").innerHTML = new Date(response.data).toString();
-        });
-    }
-
     private addMenu(rect?: DOMRect) {
-        const menu = new Menu("topBarSample", () => {
+        const menu = new Menu("nb-assistant", () => {
             console.log(this.i18n.byeMenu);
         });
         menu.addItem({
-            icon: "iconInfo",
-            label: "Dialog(open help first)",
-            accelerator: this.commands[0].customHotkey,
-            click: () => {
-                this.showDialog();
-            }
-        });
-        if (!this.isMobile) {
-            menu.addItem({
-                icon: "iconFace",
-                label: "Open Custom Tab",
-                click: () => {
-                    const tab = openTab({
-                        app: this.app,
-                        custom: {
-                            icon: "iconFace",
-                            title: "Custom Tab",
-                            data: {
-                                text: "This is my custom tab",
-                            },
-                            id: this.name + TAB_TYPE
-                        },
-                    });
-                    console.log(tab);
-                }
-            });
-            menu.addItem({
-                icon: "iconImage",
-                label: "Open Asset Tab(open help first)",
-                click: () => {
-                    const tab = openTab({
-                        app: this.app,
-                        asset: {
-                            path: "assets/paragraph-20210512165953-ag1nib4.svg"
-                        }
-                    });
-                    console.log(tab);
-                }
-            });
-            menu.addItem({
-                icon: "iconFile",
-                label: "Open Doc Tab(open help first)",
-                click: async () => {
-                    const tab = await openTab({
-                        app: this.app,
-                        doc: {
-                            id: "20200812220555-lj3enxa",
-                        }
-                    });
-                    console.log(tab);
-                }
-            });
-            menu.addItem({
-                icon: "iconSearch",
-                label: "Open Search Tab",
-                click: () => {
-                    const tab = openTab({
-                        app: this.app,
-                        search: {
-                            k: "SiYuan"
-                        }
-                    });
-                    console.log(tab);
-                }
-            });
-            menu.addItem({
-                icon: "iconRiffCard",
-                label: "Open Card Tab",
-                click: () => {
-                    const tab = openTab({
-                        app: this.app,
-                        card: {
-                            type: "all"
-                        }
-                    });
-                    console.log(tab);
-                }
-            });
-            menu.addItem({
-                icon: "iconLayout",
-                label: "Open Float Layer(open help first)",
-                click: () => {
-                    this.addFloatLayer({
-                        ids: ["20210428212840-8rqwn5o", "20201225220955-l154bn4"],
-                        defIds: ["20230415111858-vgohvf3", "20200813131152-0wk5akh"],
-                        x: window.innerWidth - 768 - 120,
-                        y: 32
-                    });
-                }
-            });
-            menu.addItem({
-                icon: "iconOpenWindow",
-                label: "Open Doc Window(open help first)",
-                click: () => {
-                    openWindow({
-                        doc: {id: "20200812220555-lj3enxa"}
-                    });
-                }
-            });
-        } else {
-            menu.addItem({
-                icon: "iconFile",
-                label: "Open Doc(open help first)",
-                click: () => {
-                    openMobileFileById(this.app, "20200812220555-lj3enxa");
-                }
-            });
-        }
-        menu.addItem({
-            icon: "iconLock",
-            label: "Lockscreen",
-            click: () => {
-                lockScreen(this.app);
-            }
-        });
-        menu.addItem({
-            icon: "iconScrollHoriz",
-            label: "Event Bus",
-            type: "submenu",
-            submenu: [{
-                icon: "iconSelect",
-                label: "On ws-main",
-                click: () => {
-                    this.eventBus.on("ws-main", this.eventBusLog);
-                }
-            }, {
-                icon: "iconClose",
-                label: "Off ws-main",
-                click: () => {
-                    this.eventBus.off("ws-main", this.eventBusLog);
-                }
-            }, {
-                icon: "iconSelect",
-                label: "On click-blockicon",
-                click: () => {
-                    this.eventBus.on("click-blockicon", this.blockIconEventBindThis);
-                }
-            }, {
-                icon: "iconClose",
-                label: "Off click-blockicon",
-                click: () => {
-                    this.eventBus.off("click-blockicon", this.blockIconEventBindThis);
-                }
-            }, {
-                icon: "iconSelect",
-                label: "On click-pdf",
-                click: () => {
-                    this.eventBus.on("click-pdf", this.eventBusLog);
-                }
-            }, {
-                icon: "iconClose",
-                label: "Off click-pdf",
-                click: () => {
-                    this.eventBus.off("click-pdf", this.eventBusLog);
-                }
-            }, {
-                icon: "iconSelect",
-                label: "On click-editorcontent",
-                click: () => {
-                    this.eventBus.on("click-editorcontent", this.eventBusLog);
-                }
-            }, {
-                icon: "iconClose",
-                label: "Off click-editorcontent",
-                click: () => {
-                    this.eventBus.off("click-editorcontent", this.eventBusLog);
-                }
-            }, {
-                icon: "iconSelect",
-                label: "On click-editortitleicon",
-                click: () => {
-                    this.eventBus.on("click-editortitleicon", this.eventBusLog);
-                }
-            }, {
-                icon: "iconClose",
-                label: "Off click-editortitleicon",
-                click: () => {
-                    this.eventBus.off("click-editortitleicon", this.eventBusLog);
-                }
-            }, {
-                icon: "iconSelect",
-                label: "On click-flashcard-action",
-                click: () => {
-                    this.eventBus.on("click-flashcard-action", this.eventBusLog);
-                }
-            }, {
-                icon: "iconClose",
-                label: "Off click-flashcard-action",
-                click: () => {
-                    this.eventBus.off("click-flashcard-action", this.eventBusLog);
-                }
-            }, {
-                icon: "iconSelect",
-                label: "On open-noneditableblock",
-                click: () => {
-                    this.eventBus.on("open-noneditableblock", this.eventBusLog);
-                }
-            }, {
-                icon: "iconClose",
-                label: "Off open-noneditableblock",
-                click: () => {
-                    this.eventBus.off("open-noneditableblock", this.eventBusLog);
-                }
-            }, {
-                icon: "iconSelect",
-                label: "On loaded-protyle-static",
-                click: () => {
-                    this.eventBus.on("loaded-protyle-static", this.eventBusLog);
-                }
-            }, {
-                icon: "iconClose",
-                label: "Off loaded-protyle-static",
-                click: () => {
-                    this.eventBus.off("loaded-protyle-static", this.eventBusLog);
-                }
-            }, {
-                icon: "iconSelect",
-                label: "On loaded-protyle-dynamic",
-                click: () => {
-                    this.eventBus.on("loaded-protyle-dynamic", this.eventBusLog);
-                }
-            }, {
-                icon: "iconClose",
-                label: "Off loaded-protyle-dynamic",
-                click: () => {
-                    this.eventBus.off("loaded-protyle-dynamic", this.eventBusLog);
-                }
-            }, {
-                icon: "iconSelect",
-                label: "On switch-protyle",
-                click: () => {
-                    this.eventBus.on("switch-protyle", this.eventBusLog);
-                }
-            }, {
-                icon: "iconClose",
-                label: "Off switch-protyle",
-                click: () => {
-                    this.eventBus.off("switch-protyle", this.eventBusLog);
-                }
-            }, {
-                icon: "iconSelect",
-                label: "On destroy-protyle",
-                click: () => {
-                    this.eventBus.on("destroy-protyle", this.eventBusLog);
-                }
-            }, {
-                icon: "iconClose",
-                label: "Off destroy-protyle",
-                click: () => {
-                    this.eventBus.off("destroy-protyle", this.eventBusLog);
-                }
-            }, {
-                icon: "iconSelect",
-                label: "On open-menu-doctree",
-                click: () => {
-                    this.eventBus.on("open-menu-doctree", this.eventBusLog);
-                }
-            }, {
-                icon: "iconClose",
-                label: "Off open-menu-doctree",
-                click: () => {
-                    this.eventBus.off("open-menu-doctree", this.eventBusLog);
-                }
-            }, {
-                icon: "iconSelect",
-                label: "On open-menu-blockref",
-                click: () => {
-                    this.eventBus.on("open-menu-blockref", this.eventBusLog);
-                }
-            }, {
-                icon: "iconClose",
-                label: "Off open-menu-blockref",
-                click: () => {
-                    this.eventBus.off("open-menu-blockref", this.eventBusLog);
-                }
-            }, {
-                icon: "iconSelect",
-                label: "On open-menu-fileannotationref",
-                click: () => {
-                    this.eventBus.on("open-menu-fileannotationref", this.eventBusLog);
-                }
-            }, {
-                icon: "iconClose",
-                label: "Off open-menu-fileannotationref",
-                click: () => {
-                    this.eventBus.off("open-menu-fileannotationref", this.eventBusLog);
-                }
-            }, {
-                icon: "iconSelect",
-                label: "On open-menu-tag",
-                click: () => {
-                    this.eventBus.on("open-menu-tag", this.eventBusLog);
-                }
-            }, {
-                icon: "iconClose",
-                label: "Off open-menu-tag",
-                click: () => {
-                    this.eventBus.off("open-menu-tag", this.eventBusLog);
-                }
-            }, {
-                icon: "iconSelect",
-                label: "On open-menu-link",
-                click: () => {
-                    this.eventBus.on("open-menu-link", this.eventBusLog);
-                }
-            }, {
-                icon: "iconClose",
-                label: "Off open-menu-link",
-                click: () => {
-                    this.eventBus.off("open-menu-link", this.eventBusLog);
-                }
-            }, {
-                icon: "iconSelect",
-                label: "On open-menu-image",
-                click: () => {
-                    this.eventBus.on("open-menu-image", this.eventBusLog);
-                }
-            }, {
-                icon: "iconClose",
-                label: "Off open-menu-image",
-                click: () => {
-                    this.eventBus.off("open-menu-image", this.eventBusLog);
-                }
-            }, {
-                icon: "iconSelect",
-                label: "On open-menu-av",
-                click: () => {
-                    this.eventBus.on("open-menu-av", this.eventBusLog);
-                }
-            }, {
-                icon: "iconClose",
-                label: "Off open-menu-av",
-                click: () => {
-                    this.eventBus.off("open-menu-av", this.eventBusLog);
-                }
-            }, {
-                icon: "iconSelect",
-                label: "On open-menu-content",
-                click: () => {
-                    this.eventBus.on("open-menu-content", this.eventBusLog);
-                }
-            }, {
-                icon: "iconClose",
-                label: "Off open-menu-content",
-                click: () => {
-                    this.eventBus.off("open-menu-content", this.eventBusLog);
-                }
-            }, {
-                icon: "iconSelect",
-                label: "On open-menu-breadcrumbmore",
-                click: () => {
-                    this.eventBus.on("open-menu-breadcrumbmore", this.eventBusLog);
-                }
-            }, {
-                icon: "iconClose",
-                label: "Off open-menu-breadcrumbmore",
-                click: () => {
-                    this.eventBus.off("open-menu-breadcrumbmore", this.eventBusLog);
-                }
-            }, {
-                icon: "iconSelect",
-                label: "On open-menu-inbox",
-                click: () => {
-                    this.eventBus.on("open-menu-inbox", this.eventBusLog);
-                }
-            }, {
-                icon: "iconClose",
-                label: "Off open-menu-inbox",
-                click: () => {
-                    this.eventBus.off("open-menu-inbox", this.eventBusLog);
-                }
-            }, {
-                icon: "iconSelect",
-                label: "On input-search",
-                click: () => {
-                    this.eventBus.on("input-search", this.eventBusLog);
-                }
-            }, {
-                icon: "iconClose",
-                label: "Off input-search",
-                click: () => {
-                    this.eventBus.off("input-search", this.eventBusLog);
-                }
-            }, {
-                icon: "iconSelect",
-                label: "On paste",
-                click: () => {
-                    this.eventBus.on("paste", this.eventBusPaste);
-                }
-            }, {
-                icon: "iconClose",
-                label: "Off paste",
-                click: () => {
-                    this.eventBus.off("paste", this.eventBusPaste);
-                }
-            }, {
-                icon: "iconSelect",
-                label: "On open-siyuan-url-plugin",
-                click: () => {
-                    this.eventBus.on("open-siyuan-url-plugin", this.eventBusLog);
-                }
-            }, {
-                icon: "iconClose",
-                label: "Off open-siyuan-url-plugin",
-                click: () => {
-                    this.eventBus.off("open-siyuan-url-plugin", this.eventBusLog);
-                }
-            }, {
-                icon: "iconSelect",
-                label: "On open-siyuan-url-block",
-                click: () => {
-                    this.eventBus.on("open-siyuan-url-block", this.eventBusLog);
-                }
-            }, {
-                icon: "iconClose",
-                label: "Off open-siyuan-url-block",
-                click: () => {
-                    this.eventBus.off("open-siyuan-url-block", this.eventBusLog);
-                }
-            }]
-        });
-        menu.addSeparator();
-        menu.addItem({
             icon: "iconSettings",
-            label: "Official Setting Dialog",
+            label: "Notebook Assistant settings",
             click: () => {
                 this.openSetting();
-            }
-        });
-        menu.addItem({
-            icon: "iconSparkles",
-            label: this.data[STORAGE_NAME].readonlyText || "Readonly",
-            type: "readonly",
+            },
         });
         if (this.isMobile) {
             menu.fullscreen();

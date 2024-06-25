@@ -19,12 +19,13 @@ const markdown = new MarkdownIt()
   .use(MarkdownItTasklists);
 
 const props = defineProps({
-    msg: String
+    msg: String,
+    aiEmoji: String
 })
 
 function copy() {
-    console.log(props.msg + " copied...")
-    window.navigator.clipboard.writeText(props.msg);
+    console.log(props.aiEmoji + " " + props.msg + " copied...")
+    window.navigator.clipboard.writeText(`${props.aiEmoji} ${props.msg}`);
 }
 
 </script>
