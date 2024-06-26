@@ -26,12 +26,11 @@ ul {
   list-style-type: none;
   margin: 0;
   padding: 0;
-  max-height: 80%;
   overflow: scroll;
 }
 
 .question {
-  background-color: var(--b3-theme-background-light);
+  background-color: var(--b3-theme-background);
   border-radius: 20px 20px 0px 20px;
   width: 85%;
   float: right;
@@ -40,7 +39,7 @@ ul {
 }
 
 .answer {
-  background-color: var(--b3-theme-background-light);
+  background-color: var(--b3-theme-background);
   border-radius: 20px 20px 20px 0px;
   width: 85%;
   float: left;

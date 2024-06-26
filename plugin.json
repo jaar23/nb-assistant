@@ -4,20 +4,8 @@
   "url": "https://github.com/jaar23/nb-assistant",
   "version": "0.1.0",
   "minAppVersion": "3.0.12",
-  "backends": [
-    "windows",
-    "linux",
-    "darwin",
-    "ios",
-    "android"
-  ],
-  "frontends": [
-    "desktop",
-    "mobile",
-    "browser-desktop",
-    "browser-mobile",
-    "desktop-window"
-  ],
+  "backends": ["all"],
+  "frontends": ["all"],
   "displayName": {
     "en_US": "Notebook Assistant",
     "zh_CN": "笔记小助手"
@@ -31,11 +19,7 @@
     "zh_CN": "README_zh_CN.md"
   },
   "funding": {
-    "custom": [
-      ""
-    ]
+    "custom": [""]
   },
-  "keywords": [
-    "ai", "assistant", "助手", "auto-tag", "summary"
-  ]
+  "keywords": ["ai", "assistant", "助手", "auto-tag", "summary"]
 }

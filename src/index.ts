@@ -89,11 +89,11 @@ export default class PluginSample extends Plugin {
                 console.log(DOCK_TYPE + " update");
             },
             init: (dock) => {
-                if (this.isMobile) {
-                    dock.element.innerHTML = `<div id="nb-assistant" style="height: 98%"></div>`;
-                } else {
-                    dock.element.innerHTML = `<div id="nb-assistant" style="height: 98%"></div>`;
-                }
+                // if (this.isMobile) {
+                //     dock.element.innerHTML = `<div id="nb-assistant" style="height: 98%"></div>`;
+                // } else {
+                // }
+                dock.element.innerHTML = `<div id="nb-assistant" style="height: 98%"></div>`;
                 createApp(App, { plugin: this }).mount("#nb-assistant");
             },
             destroy() {

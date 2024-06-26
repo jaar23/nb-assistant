@@ -11,7 +11,7 @@ const emit = defineEmits(["response"]);
 const chatHistory = ref([]);
 const isLoading = defineModel("inferencing");
 const saveFileName = defineModel("saveFilename");
-const shortcutShow = ref(true);
+const shortcutShow = ref(false);
 const savingState = ref("");
 const plugin = defineModel("plugin");
 
@@ -109,7 +109,7 @@ function exitSave() {
 function updateHistory(history) {
   chatHistory.value = [];
   chatHistory.value = history;
-  console.log("chatbox history", chatHistory.value);
+  console.log("shortcut history", chatHistory.value);
 }
 
 function clearChat() {
@@ -119,6 +119,7 @@ function clearChat() {
 
 function expandOrClose() {
   shortcutShow.value = !shortcutShow.value;
+  emit("onShortcutView")
 }
 
 onMounted(async () => {
@@ -131,8 +132,118 @@ defineExpose({
 </script>
 
 <template>
-  <div class="shortcut-container" v-if="openTabs.length > 0">
-    <div class="input-container">
+  <div class="dropdown" v-if="openTabs.length > 0">
+    <button
+      class="b3-button dropdown-btn"
+      @click="expandOrClose"
+      v-if="shortcutShow"
+    >
+      <svg
+        width="32px"
+        height="32px"
+        stroke-width="1.5"
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        color="#000000"
+      >
+        <path
+          d="M6 12H18"
+          stroke="#000000"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        ></path>
+      </svg>
+    </button>
+    <button
+      class="b3-button dropdown-btn"
+      @click="expandOrClose"
+      v-if="!shortcutShow"
+    >
+      <svg
+        width="32px"
+        height="32px"
+        stroke-width="1.5"
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        color="#000000"
+      >
+        <path
+          d="M6 12H12M18 12H12M12 12V6M12 12V18"
+          stroke="#000000"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        ></path>
+      </svg>
+    </button>
+    <ul v-if="savingState === ''">
+      <li>
+        <button
+          class="b3-button button-confirm"
+          @click="saveChat"
+          v-if="shortcutShow"
+          :disabled="chatHistory.length === 0"
+        >
+          {{ plugin.i18n.saveChat }}
+        </button>
+      </li>
+      <li>
+        <button
+          class="b3-button button-warning"
+          @click="clearChat"
+          v-if="shortcutShow"
+          :disabled="chatHistory.length === 0"
+        >
+          {{ plugin.i18n.clear }}
+        </button>
+      </li>
+      <li>
+        <select
+          class="b3-select"
+          v-model="selectedSumTab"
+          :disabled="isLoading"
+          @change="summarizeOpenDoc"
+          @focus="getOpenTabs"
+          v-if="shortcutShow"
+        >
+          <option class="b3-option" disabled value="">
+            {{ plugin.i18n.summarize }}
+          </option>
+          <option
+            class="b3-option"
+            v-for="opt in openTabs"
+            :value="opt.children.blockId + '|' + opt.title"
+          >
+            {{ opt.title }}
+          </option>
+        </select>
+      </li>
+      <li>
+        <select
+          class="b3-select"
+          v-model="selectedTagTab"
+          :disabled="isLoading"
+          @change="autoTagOpenDoc"
+          @focus="getOpenTabs"
+          v-if="shortcutShow"
+        >
+          <option class="b3-option" disabled value="">
+            {{ plugin.i18n.autoTag }}
+          </option>
+          <option
+            class="b3-option"
+            v-for="opt in openTabs"
+            :value="opt.children.blockId + '|' + opt.title"
+          >
+            {{ opt.title }}
+          </option>
+        </select>
+      </li>
+    </ul>
+    <div class="dropdown-content" v-if="savingState === 'PENDING'">
       <input
         class="input-container b3-text-field"
         v-model="saveFileName"
@@ -163,116 +274,60 @@ defineExpose({
           ></path>
         </svg>
       </button>
+      <button
+        class="b3-button button-confirm"
+        @click="saveChat"
+        v-if="savingState === 'PENDING'"
+      >
+        <svg
+          width="32px"
+          height="32px"
+          stroke-width="1.5"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          color="#000000"
+        >
+          <path
+            d="M5 13L9 17L19 7"
+            stroke="#000000"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          ></path>
+        </svg>
+      </button>
     </div>
-    <select
-      class="b3-select"
-      v-model="selectedSumTab"
-      :disabled="isLoading"
-      @change="summarizeOpenDoc"
-      @focus="getOpenTabs"
-      v-if="shortcutShow"
-    >
-      <option class="b3-option" disabled value="">
-        {{ plugin.i18n.summarize }}
-      </option>
-      <option
-        class="b3-option"
-        v-for="opt in openTabs"
-        :value="opt.children.blockId + '|' + opt.title"
-      >
-        {{ opt.title }}
-      </option>
-    </select>
-    <select
-      class="b3-select"
-      v-model="selectedTagTab"
-      :disabled="isLoading"
-      @change="autoTagOpenDoc"
-      @focus="getOpenTabs"
-      v-if="shortcutShow"
-    >
-      <option class="b3-option" disabled value="">
-        {{ plugin.i18n.autoTag }}
-      </option>
-      <option
-        class="b3-option"
-        v-for="opt in openTabs"
-        :value="opt.children.blockId + '|' + opt.title"
-      >
-        {{ opt.title }}
-      </option>
-    </select>
-    <button
-      class="b3-button button-warning"
-      @click="expandOrClose"
-      v-if="shortcutShow"
-    >
-      <svg
-        width="32px"
-        height="32px"
-        stroke-width="1.5"
-        viewBox="0 0 24 24"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        color="#000000"
-      >
-        <path
-          d="M6 12H18"
-          stroke="#000000"
-          stroke-width="1.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        ></path>
-      </svg>
-    </button>
-    <button
-      class="b3-button button-warning"
-      @click="expandOrClose"
-      v-if="!shortcutShow"
-    >
-      <svg
-        width="32px"
-        height="32px"
-        stroke-width="1.5"
-        viewBox="0 0 24 24"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        color="#000000"
-      >
-        <path
-          d="M6 12H12M18 12H12M12 12V6M12 12V18"
-          stroke="#000000"
-          stroke-width="1.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        ></path>
-      </svg>
-    </button>
-    <button
-      class="b3-button button-warning"
-      @click="clearChat"
-      v-if="shortcutShow"
-    >
-      {{ plugin.i18n.clear }}
-    </button>
-
-    <button
-      class="b3-button button-confirm"
-      @click="saveChat"
-      v-if="shortcutShow"
-    >
-      {{ plugin.i18n.saveChat }}
-    </button>
   </div>
 </template>
 <style scoped>
-select {
+.dropdown {
+  z-index: 1;
+}
+
+.dropdown ul {
+  list-style: none;
+  padding-top: 35px;
+}
+
+.dropdown select {
   margin: 4px;
-  max-width: 25%;
+  max-width: 80%;
+  float: right;
+}
+
+.dropdown button {
+  float: right;
+}
+
+.dropdown-btn {
+  background-color: var(--b3-empty-color) !important;
 }
 
 .input-container {
   width: 100%;
+  height: 35px;
+  margin-top: 45px;
   display: flex;
   flex-direction: row;
   padding: 1px;
@@ -290,19 +345,23 @@ input {
   height: 26px;
   margin: 0.4em 0.5em;
   width: 90px;
-  float: right;
 }
 
 .button-warning {
   height: 26px;
   margin: 0.4em 0.5em;
   background-color: var(--b3-theme-surface);
-  float: right;
   border: 1px solid var(--b3-theme-secondary);
 }
 
 .button-cancel {
-  background-color: transparent;
-  border: 0px;
+  background-color: var(--b3-theme-secondary);
+  margin: 0.4em 0.5em;
+  height: 26px;
+  width: 90px;
+}
+
+.dropdown-btn {
+  float: right;
 }
 </style>

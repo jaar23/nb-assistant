@@ -28,6 +28,8 @@ const inferencing = defineModel("inferencing");
 const aiEmoji = ref("");
 const enterToSend = ref(false);
 const tokenCount = ref(0);
+const onShortcut = ref(false);
+
 
 function updateHistory(response) {
   console.log(response);
@@ -37,11 +39,13 @@ function updateHistory(response) {
   response.aiEmoji = aiEmoji.value;
   historyMessages.value.push(response);
   chatboxCompRef.value.updateHistory(historyMessages.value);
+  shortcutCompRef.value.updateHistory(historyMessages.value);
 }
 
 function updateHistoryWithoutKeepTrack(response) {
   response.aiEmoji = aiEmoji.value;
   historyMessages.value.push(response);
+  shortcutCompRef.value.updateHistory(historyMessages.value);
 }
 
 function clearChat() {
@@ -54,6 +58,10 @@ function showTokenCount(count: number) {
   setTimeout(() => {
     tokenCount.value = 0;
   }, 10000);
+}
+
+function onShortcutView() {
+  onShortcut.value = !onShortcut.value;
 }
 
 async function saveChat(title: string) {
@@ -116,12 +124,9 @@ onMounted(async () => {
 
 <template>
   <div class="nb-container">
-    <div v-if="isAIEnable">
-      <history
-        class="history"
-        v-model="historyMessages"
-        v-if="historyMessages.length > 0"
-      ></history>
+    <div class="backdrop" v-if="onShortcut"></div>
+    <div class="header">
+      <h3>nb</h3>
       <shortcut
         class="shortcut"
         v-model:inferencing="inferencing"
@@ -131,7 +136,15 @@ onMounted(async () => {
         @response="updateHistoryWithoutKeepTrack"
         @clear="clearChat"
         @save="saveChat"
+        @onShortcutView="onShortcutView"
       ></shortcut>
+    </div>
+    <div v-if="isAIEnable">
+      <history
+        class="history"
+        v-model="historyMessages"
+        v-if="historyMessages.length > 0"
+      ></history>
       <chatbox
         class="chat"
         ref="chatboxCompRef"
@@ -153,28 +166,40 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.history {
-  height: 80%;
+.header {
   width: 100%;
-  top: 2px;
+  background-color: var(--b3-theme-surface);
+  height: 40px;
+  display: flex;
+  border-bottom: 1px solid var(--b3-border-color)
+}
+
+.header h3 {
+  display: inline;
+  width: 5%;
+  padding: 0.65em;
+}
+
+.history {
+  height: 85%;
+  width: 100%;
+  top: 42px;
   position: absolute;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .chat {
-  height: 12%;
+  height: 10%;
   bottom: 1px;
   position: absolute;
   width: 95%;
 }
 
 .shortcut {
-  height: 7%;
-  max-height: 80px;
-  position: absolute;
-  width: 95%;
-  top: 82%;
-  /*display: flex;*/
-  padding: 1em;
+  height: 40px;
+  width: 90%;
+  padding: 0.5em;
 }
 
 .token-count {
@@ -186,10 +211,19 @@ onMounted(async () => {
 .nb-container {
   height: 100%;
   position: relative;
+  overflow-x: hidden;
 }
 
 p {
   padding: 1em;
   text-align: center;
+}
+
+.backdrop {
+  backdrop-filter: blur(8px);
+  height: 100%;
+  width: 100%;
+  z-index: 1;
+  position: absolute;
 }
 </style>
