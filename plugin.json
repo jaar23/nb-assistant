@@ -7,8 +7,8 @@
   "backends": ["all"],
   "frontends": ["all"],
   "displayName": {
-    "en_US": "Notebook Assistant",
-    "zh_CN": "笔记小助手"
+    "en_US": "Notebook Assistant (Preview)",
+    "zh_CN": "笔记小助手 (预览）"
   },
   "description": {
     "en_US": "AI powered assistant for your notebook, you can chat with it or instruct it to tag your note, extract summary and so on.",
