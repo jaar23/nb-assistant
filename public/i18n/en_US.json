@@ -41,5 +41,6 @@
     "noAIDetected": "You need to configure the AI setting before using this plugin.",
     "noAIDetected2": "Under Setting > AI",
     "noNotebookSelected": "No notebook is selected to save chat history, select it via pluggin setting.",
-    "AIConfig": "Please note that this plugin leverage on SiYuan default AI setting, you will be to configure the AI setting before using it."
+    "AIConfigTitle": "NOTE",
+    "AIConfigDesc": "Please note that this plugin leverage on SiYuan default AI setting, you will be to configure the AI setting before you start using Notebook Assistant."
 }

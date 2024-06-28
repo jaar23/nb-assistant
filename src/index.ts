@@ -113,6 +113,14 @@ export default class PluginSample extends Plugin {
         });
 
         this.settingUtils.addItem({
+          key: "Hint",
+          value: "",
+          type: "hint",
+          title: this.i18n.AIConfigTitle,
+          description: this.i18n.AIConfigDesc,
+        });
+
+        this.settingUtils.addItem({
             key: "chatSaveNotebook",
             value: "-",
             type: "select",

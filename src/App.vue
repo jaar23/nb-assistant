@@ -181,7 +181,7 @@ onMounted(async () => {
 }
 
 .history {
-  height: 85%;
+  height: 81%;
   width: 100%;
   top: 42px;
   position: absolute;

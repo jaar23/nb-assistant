@@ -42,4 +42,5 @@ FA: 金融分析师
 ML: 机器学习工程师
 DS: 数据科学家
 noNotebookSelected: 请在插件设置里选择一个文本用以保存记录  
-AIConfig: 注意！这个插件使用思源原生AI设置，你需要完成AI设置才能使用这个插件。
+AIConfigTitle: 注意
+AIConfigDesc: 这个插件使用思源原生AI设置，你需要完成AI设置才能使用这个插件。
