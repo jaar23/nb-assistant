@@ -2,7 +2,7 @@
   "name": "nb-assistant",
   "author": "jaar23",
   "url": "https://github.com/jaar23/nb-assistant",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "minAppVersion": "3.0.12",
   "backends": ["all"],
   "frontends": ["all"],

@@ -25,6 +25,11 @@ It has the following features:
 
 ✅ Change of role
 
+To use the plugin, you will first complete default SiYuan AI setting, for example:
+
+![demo4](./images/demo5.png)
+
+*btw, the settings above can be apply for using local llama or llamafile (https://github.com/Mozilla-Ocho/llamafile) as well. Since SiYuan default AI settings support for OpenAI API spec, you can try to connect with other service provider too.*
 
 Features plan in the future roadmap:
 

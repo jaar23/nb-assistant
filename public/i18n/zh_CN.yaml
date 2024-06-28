@@ -8,11 +8,11 @@ byePlugin: 再见，插件！
 summarize: "总结"
 autoTag: 生成标记
 saveChat: 保存
-clear: 清楚
-chatPlaceHolder: 您好，我是你的笔记小助手！
+clear: 清除
+chatPlaceHolder: 您好，我是您的笔记小助手！
 send: 发送
 saveChatTitle: 保存到
-saveChatDesc: 插件会使用当前选择来保存聊天记录
+saveChatDesc: 插件会使用当前选择的笔记本来保存聊天记录
 role: 角色扮演
 roleDesc: 让LLM扮演一个角色，让它能更精准提供回复
 aiEmoji: 表情包或文字
@@ -42,3 +42,4 @@ FA: 金融分析师
 ML: 机器学习工程师
 DS: 数据科学家
 noNotebookSelected: 请在插件设置里选择一个文本用以保存记录  
+AIConfig: 注意！这个插件使用思源原生AI设置，你需要完成AI设置才能使用这个插件。

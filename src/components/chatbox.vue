@@ -25,14 +25,16 @@ async function prompt() {
       systemConf.conf.ai.openAI.apiModel !== "" &&
       systemConf.conf.ai.openAI.apiProvider !== ""
     ) {
-      emit("response", { question: chatInput.value, answer: "" });
-      
       isLoading.value = true;
-      const history = chatHistory.value.map(
-        (x) =>
-          `${x.question !== "" ? "Question: " + x.question : ""} ${x.answer !== "" ? "Answer: " + x.answer : ""}---\n`,
-      );
-      
+      let history = ""; 
+      if (chatHistory.value.length > 0) {
+        history = chatHistory.value.map(
+          (x) =>
+          `${x.question !== "" ? "Question: " + x.question : ""} ${x.answer !== "" ? "Answer: " + x.answer : ""}`,
+        ).join("\n");
+      };
+      emit("response", { question: chatInput.value, answer: "" });
+
       emit("tokenCount", countWords(chatInput.value + (previousRole.value !== pluginSetting.systemPrompt ? "" : history)))
 
       const respMessage = await promptAI(
