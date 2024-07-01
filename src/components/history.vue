@@ -1,22 +1,22 @@
 <script setup lang="ts">
 import message from "./message.vue";
-const messages = defineModel<{ question: string; answer: string, aiEmoji: string }>();
+import action from "./action.vue";
+
+const messages = defineModel<{
+  question: string;
+  answer: string;
+  aiEmoji: string;
+  actionable: boolean;
+  actionType: string;
+}>();
 </script>
 
 <template>
   <ul>
     <li v-for="(msg, index) in messages">
-      <message
-        class="question"
-        v-if="msg.question != ''"
-        :msg="msg.question"
-      ></message>
-      <message
-        class="answer"
-        v-if="msg.answer != ''"
-        :msg="msg.answer"
-        :aiEmoji="msg.aiEmoji"
-      ></message>
+      <message class="question" v-if="msg.question != '' && !msg.actionable" :msg="msg.question"></message>
+      <message class="answer" v-if="msg.answer != '' && !msg.actionable" :msg="msg.answer" :aiEmoji="msg.aiEmoji"></message>
+      <action class="answer" v-if="msg.answer != '' && msg.actionable" :msg="msg.answer" :aiEmoji="msg.aiEmoji"></action>
     </li>
   </ul>
 </template>
@@ -46,6 +46,5 @@ ul {
   padding: 1em;
   line-height: 15pt;
   border: 1px solid var(--b3-empty-color);
-
 }
 </style>

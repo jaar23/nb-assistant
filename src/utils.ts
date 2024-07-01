@@ -20,7 +20,7 @@ export function getCurrentTabs(uiLayout: any): Array<{
 
 export function countWords(text: string): number {
     const arr = text.split(" ");
-    console.log(arr)
+    console.log(arr);
     return arr.length;
 }
 
@@ -153,5 +153,14 @@ export async function promptAI(
     } catch (err) {
         console.error(err);
         return err.message;
+    }
+}
+
+export function parseTags(tagsStr: string) {
+    try {
+        const tags = tagsStr.split(",");
+        return tags.map((x) => x.trim());
+    } catch (err) {
+        return [];
     }
 }
