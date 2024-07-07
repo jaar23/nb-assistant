@@ -63,3 +63,37 @@ interface IResExportResources {
     path: string;
 }
 
+
+interface IResFile {
+    alias: string;
+    bookmark: string;
+    count: number;
+    ctime: number;
+    dueFlashcardCount: number;
+    hCtime: string;
+    hMtime: string;
+    hSize: string;
+    hiddle: boolean;
+    icon: string;
+    id: string;
+    memo: string;
+    mtime: number;
+    name: string;
+    name1: string;
+    newFlashcardCount: number;
+    path: string;
+    size: number;
+    sort: number;
+    subFileCount: number;
+}
+
+interface IResListDocPath {
+    box: string;
+    files: IResFile[];
+    path: string;
+}
+
+interface IResExportMD {
+    content: string;
+    hPath: string;
+}

@@ -1,4 +1,4 @@
-function flat(array: any) {
+export function flat(array: any) {
     var result = [];
     array.forEach(function(a: any) {
         result.push(a);
@@ -163,4 +163,9 @@ export function parseTags(tagsStr: string) {
     } catch (err) {
         return [];
     }
+}
+
+export async function sleep(ms: number) {
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    await sleep(ms);
 }

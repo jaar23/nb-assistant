@@ -2,6 +2,10 @@
 import chatbox from "@/components/chatbox.vue";
 import history from "@/components/history.vue";
 import shortcut from "@/components/shortcut.vue";
+import vectordb from "@/components/vectordb.vue";
+import vdbheader from "@/components/vdbheader.vue";
+import search from "@/components/search.vue";
+
 import { ref, onMounted } from "vue";
 import { SettingUtils } from "./libs/setting-utils";
 import {
@@ -11,7 +15,11 @@ import {
   pushMsg,
   pushErrMsg,
 } from "./api.ts";
-import { getCurrentTabs } from "./utils.ts";
+import { getCurrentTabs, flat } from "./utils.ts";
+
+// embeddings
+import { embed } from "./model";
+import { store, getAllDocsByNotebook } from "./embedding";
 
 const props = defineProps({ plugin: Object });
 const chatInput = defineModel("chatInput");
@@ -26,12 +34,15 @@ const historyRetain = ref(7);
 const isAIEnable = ref(false);
 const chatboxCompRef = ref(null);
 const shortcutCompRef = ref(null);
+const vdbheadrCompRef = ref(null);
 const inferencing = defineModel("inferencing");
 const aiEmoji = ref("");
 const enterToSend = ref(false);
 const tokenCount = ref(0);
 const onShortcut = ref(false);
-
+const onVectorDb = ref(false);
+const onSearch = ref(false);
+const viewState = ref("vectordb");
 
 function updateHistory(response) {
   console.log(response);
@@ -64,6 +75,18 @@ function showTokenCount(count: number) {
 
 function onShortcutView() {
   onShortcut.value = !onShortcut.value;
+}
+
+function onVectorDbView() {
+  onVectorDb.value = !onVectorDb.value;
+  onSearch.value = false;
+  console.log("on vdb view", onVectorDb.value);
+  viewState.value = onVectorDb.value ? "vectordb" : "chat";
+}
+
+function onSearchView() {
+  onSearch.value = true;
+  viewState.value = onSearch.value ? "vectordb": "chat";
 }
 
 async function saveChat(title: string) {
@@ -126,43 +149,37 @@ onMounted(async () => {
 
 <template>
   <div class="nb-container">
-    <div class="backdrop" v-if="onShortcut"></div>
-    <div class="header">
-      <h3>nb</h3>
-      <shortcut
-        class="shortcut"
-        v-model:inferencing="inferencing"
-        v-model:plugin="props.plugin"
-        v-model:tokenCount="tokenCount"
-        ref="shortcutCompRef"
-        @response="updateHistoryWithoutKeepTrack"
-        @clear="clearChat"
-        @save="saveChat"
-        @onShortcutView="onShortcutView"
-      ></shortcut>
-    </div>
-    <div v-if="isAIEnable">
-      <history
-        class="history"
-        v-model="historyMessages"
-        v-if="historyMessages.length > 0"
-      ></history>
-      <chatbox
-        class="chat"
-        ref="chatboxCompRef"
-        v-model:inferencing="inferencing"
-        v-model:chatInput="chatInput"
-        v-model:plugin="props.plugin"
-        v-model:enterToSend="enterToSend"
-        @tokenCount="showTokenCount"
-        @response="updateHistory"
-      />
-    </div>
-    <div v-else>
-      <div>
-        <p>{{ this.i18n.noAIDetected }}</p>
-        <p>{{ this.i18n.noAIDetected2 }}</p>
+    <div v-if="viewState === 'chat'">
+      <div class="backdrop" v-if="onShortcut"></div>
+      <div class="header">
+        <h3>nb</h3>
+        <shortcut class="shortcut" v-model:inferencing="inferencing" v-model:plugin="props.plugin"
+          v-model:tokenCount="tokenCount" ref="shortcutCompRef" @response="updateHistoryWithoutKeepTrack"
+          @clear="clearChat" @save="saveChat" @onShortcutView="onShortcutView" @onVectorDbView="onVectorDbView"
+          @onSearchView="onSearchView">
+        </shortcut>
       </div>
+      <div v-if="isAIEnable">
+        <history class="history" v-model="historyMessages" v-if="historyMessages.length > 0"></history>
+        <chatbox class="chat" ref="chatboxCompRef" v-model:inferencing="inferencing" v-model:chatInput="chatInput"
+          v-model:plugin="props.plugin" v-model:enterToSend="enterToSend" @tokenCount="showTokenCount"
+          @response="updateHistory" />
+      </div>
+      <div v-else>
+        <div>
+          <p>{{ this.i18n ? this.i18n.noAIDetected : "" }}</p>
+          <p>{{ this.i18n ? this.i18n.noAIDetected2 : "" }}</p>
+        </div>
+      </div>
+    </div>
+    <div v-if="viewState === 'vectordb'">
+      <div class="header">
+        <h3>nb</h3>
+        <vdbheader class="shortcut" v-model:plugin="props.plugin" 
+        @onVectorDbView="onVectorDbView" @onSearchView="onSearchView"></vdbheader>
+      </div>
+      <vectordb v-if="!onSearch" v-model:plugin="props.plugin"/>
+      <search v-if="onSearch" v-model:plugin="props.plugin"></search>
     </div>
   </div>
 </template>
@@ -173,7 +190,7 @@ onMounted(async () => {
   background-color: var(--b3-theme-surface);
   height: 40px;
   display: flex;
-  border-bottom: 1px solid var(--b3-border-color)
+  border-bottom: 1px solid var(--b3-border-color);
 }
 
 .header h3 {

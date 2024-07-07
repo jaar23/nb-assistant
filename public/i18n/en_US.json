@@ -42,5 +42,7 @@
     "noAIDetected2": "Under Setting > AI",
     "noNotebookSelected": "No notebook is selected to save chat history, select it via pluggin setting.",
     "AIConfigTitle": "NOTE",
-    "AIConfigDesc": "Please note that this plugin leverage on SiYuan default AI setting, you will be to configure the AI setting before you start using Notebook Assistant."
+    "AIConfigDesc": "Please note that this plugin leverage on SiYuan default AI setting, you will be to configure the AI setting before you start using Notebook Assistant.",
+    "dbEnabled": "Enable Database",
+    "dbEnabledDesc": "Enable database will persist your notebook and document for nb-assistant to perform similarity search. This feature is required for RAG. All the data is stored within SiYuan application (IndexedDb)."
 }

@@ -454,3 +454,17 @@ export async function version(): Promise<string> {
 export async function currentTime(): Promise<number> {
     return request('/api/system/currentTime', {});
 }
+
+// **************************************** Document ****************************************
+
+export async function listDocsByPath(notebookId: string, path: string): Promise<IResListDocPath> {
+    const url = "/api/filetree/listDocsByPath";
+    let payload = {
+        notebook: notebookId,
+        path: path
+    };
+    return request(url, payload);
+}
+
+
+

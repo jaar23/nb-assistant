@@ -23,7 +23,8 @@ import "@/index.scss";
 // vue
 import { createApp } from "vue";
 import App from "@/App.vue";
-import { lsNotebooks } from "./api";
+import { lsNotebooks, pushMsg, pushErrMsg } from "./api";
+import { createModel, createEmbedding } from "./model";
 
 import { SettingUtils } from "./libs/setting-utils";
 const STORAGE_NAME = "nb-assistant-config";
@@ -84,6 +85,19 @@ export default class PluginSample extends Plugin {
             type: DOCK_TYPE,
             resize() {
                 console.log(DOCK_TYPE + " resize");
+                // if (window.navigator.storage && window.navigator.storage.persist) {
+                //     window.navigator.storage.persist().then(function(persistent) {
+                //         if (persistent)
+                //             console.log(
+                //                 "Storage will not be cleared except by explicit user action",
+                //             );
+                //         else
+                //             console.log(
+                //                 "Storage may be cleared by the UA under storage pressure.",
+                //             );
+                //     });
+                // }
+                // store().then(() => "store ended...");
             },
             update() {
                 console.log(DOCK_TYPE + " update");
@@ -113,11 +127,11 @@ export default class PluginSample extends Plugin {
         });
 
         this.settingUtils.addItem({
-          key: "Hint",
-          value: "",
-          type: "hint",
-          title: this.i18n.AIConfigTitle,
-          description: this.i18n.AIConfigDesc,
+            key: "Hint",
+            value: "",
+            type: "hint",
+            title: this.i18n.AIConfigTitle,
+            description: this.i18n.AIConfigDesc,
         });
 
         this.settingUtils.addItem({
@@ -197,7 +211,7 @@ export default class PluginSample extends Plugin {
         //         },
         //     },
         // });
-        
+
         this.settingUtils.addItem({
             key: "enterToSend",
             value: true,
@@ -243,6 +257,41 @@ export default class PluginSample extends Plugin {
                 },
             },
         });
+
+        this.settingUtils.addItem({
+            key: "dbEnable",
+            value: false,
+            type: "checkbox",
+            title: this.i18n.dbEnabled,
+            description: this.i18n.dbEnabledDesc,
+            action: {
+                callback: () => {
+                    // Return data and save it in real time
+                    let value = !this.settingUtils.get("dbEnable");
+                    this.settingUtils.setAndSave("dbEnable", value);
+                    console.log(value);
+                    if (value) {
+                        pushMsg("Downloading model from huggingface and setup onyxruntime")
+                            .then(() => createModel())
+                            .then((model) => {
+                                pushMsg("Embedding model is setup");
+                                console.log("model created");
+                                return model;
+                            })
+                            .then((model) => createEmbedding(model, "hello"))
+                            .then((embeddings) => {
+                                console.log("embedding created", embeddings);
+                                pushMsg("Successfully created embeddings");
+                            })
+                            .catch((err) => {
+                                console.error(err);
+                                pushErrMsg(`unable to setup vectordb, ${err}`);
+                            });
+                    }
+                },
+            },
+        });
+
         try {
             this.settingUtils.load();
         } catch (error) {

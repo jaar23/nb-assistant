@@ -44,3 +44,6 @@ DS: 数据科学家
 noNotebookSelected: 请在插件设置里选择一个文本用以保存记录  
 AIConfigTitle: 注意
 AIConfigDesc: 这个插件使用思源原生AI设置，你需要完成AI设置才能使用这个插件。
+dbEnabled: "Enable Database"
+dbEnabledDesc: "Enable database will persist your notebook and document for nb-assistant to perform similarity search. This feature is required for RAG. All the data is stored within SiYuan application (IndexedDb)."
+

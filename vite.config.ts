@@ -10,6 +10,7 @@ import vitePluginYamlI18n from './yaml-plugin';
 
 //vue
 import vue from '@vitejs/plugin-vue';
+import { nodePolyfills } from "vite-plugin-node-polyfills";
 
 const args = minimist(process.argv.slice(2))
 const isWatch = args.watch || args.w || false
@@ -26,8 +27,7 @@ export default defineConfig({
         }
     },
 
-    plugins: [
-
+    plugins: [  
         vitePluginYamlI18n({
             inDir: 'public/i18n',
             outDir: `${distDir}/i18n`
@@ -53,7 +53,16 @@ export default defineConfig({
                 }
             ],
         }),
-        vue()
+        vue(),
+        nodePolyfills({
+            include: ['process', 'stream', 'buffer', "child_process"],
+            globals: {
+                Buffer: true, // can also be 'build', 'dev', or false
+                global: true,
+                process: true,
+            },
+            protocolImports: true,
+        }),
     ],
 
     // https://github.com/vitejs/vite/issues/1930
@@ -71,7 +80,7 @@ export default defineConfig({
         emptyOutDir: false,
 
         // 构建后是否生成 source map 文件
-        sourcemap: false,
+        sourcemap: true,
 
         // 设置为 false 可以禁用最小化混淆
         // 或是用来指定是应用哪种混淆器
@@ -118,7 +127,6 @@ export default defineConfig({
             // make sure to externalize deps that shouldn't be bundled
             // into your library
             external: ["siyuan", "process"],
-
             output: {
                 entryFileNames: "[name].js",
                 assetFileNames: (assetInfo) => {
@@ -128,6 +136,6 @@ export default defineConfig({
                     return assetInfo.name
                 },
             },
-        },
+        }
     }
 })
