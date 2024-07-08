@@ -15,6 +15,9 @@ export async function createEmbedding(model: any, sentences: string) {
     try {
         //await sleep(100);
         // Compute sentence embeddings
+        if (sentences == undefined || sentences == null) {
+            return null;
+        }
         const output = await model(sentences.trim(), {
             pooling: "mean",
             normalize: true,
@@ -23,8 +26,7 @@ export async function createEmbedding(model: any, sentences: string) {
         return output.data;
     } catch (err) {
         console.log("sentences: ", sentences);
-        console.log("sentences length", sentences.trim().length);
-
+        console.log("sentences length", sentences.length);
         console.error(err);
     }
 }

@@ -467,4 +467,38 @@ export async function listDocsByPath(notebookId: string, path: string): Promise<
 }
 
 
+export async function getChildBlocksContents(blockId: BlockId): Promise<IResBlock[]> {
+    const blockChild = await getChildBlocks(blockId);
+    const blockIds = blockChild.map(x => x.id);
+    // console.log(blockIds)
+    if (blockIds.length > 0) {
+        let ids = "(";
+        for (const id of blockIds) {
+            ids = ids + "'" + id + "',";
+        }
+        ids = ids.substring(0, ids.length - 1);
+        ids = ids + ")";
+        const blocks: IResBlock[] = await sql(`select * from blocks where id in ${ids}`);
+        //console.log(blocks);
+        return blocks;
+    } else {
+        return [];
+    }
+    
+}
+
+export async function getBlocksByIds(blockIds: BlockId[]): Promise<IResBlock[]> {
+    if (blockIds.length > 0) {
+        let ids = "(";
+        for (const id of blockIds) {
+            ids = ids + "'" + id + "',";
+        }
+        ids = ids.substring(0, ids.length - 1);
+        ids = ids + ")";
+        const blocks: IResBlock[] = await sql(`select * from blocks where id in ${ids}`);
+        return blocks;
+    } else {
+        return [];
+    }
+}
 

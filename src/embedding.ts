@@ -1,43 +1,30 @@
 import { HNSW, HNSWWithDB } from "hnsw";
-import { listDocsByPath, exportMdContent, pushMsg, pushErrMsg } from "@/api";
+import {
+  listDocsByPath,
+  exportMdContent,
+  pushMsg,
+  pushErrMsg,
+  getChildBlocksContents,
+} from "@/api";
 import { MarkdownTextSplitter } from "@langchain/textsplitters";
 import { createEmbedding, createModel } from "@/model";
 import { openDB, deleteDB } from "idb";
-export async function store() {
-  // With persistence
-  const index = await HNSWWithDB.create(200, 16, "my-index");
-
-  // Make some data
-  const data = [
-    { id: 1, vector: [1, 2, 3, 4, 5] },
-    { id: 2, vector: [2, 3, 4, 5, 6] },
-    { id: 3, vector: [3, 4, 5, 6, 7] },
-    { id: 4, vector: [4, 5, 6, 7, 8] },
-    { id: 5, vector: [5, 6, 7, 8, 9] },
-  ];
-
-  // Build the index
-  await index.buildIndex(data);
-  await index.saveIndex();
-  await index.loadIndex();
-
-  // Search for nearest neighbors
-  const results2 = index.searchKNN([2, 3, 4, 5, 6], 2);
-  console.log(results2);
-
-  // // Delete the index
-  // await index2.deleteIndex();
-}
+import { flat, sleep, blockSplitter } from "@/utils";
 
 export const promptPersistPermission = async () => {
   if (window.navigator.storage && window.navigator.storage.persist) {
     window.navigator.storage.persist().then(function(persistent) {
-      if (persistent)
+      if (persistent) {
+        pushMsg("Storage will be persisted");
         console.log(
           "Storage will not be cleared except by explicit user action",
         );
-      else
+      } else {
+        pushMsg(
+          "Storage is not persisted, embedding will lost after application exit",
+        );
         console.log("Storage may be cleared by the UA under storage pressure.");
+      }
     });
   }
 };
@@ -76,12 +63,9 @@ export async function getMDTextDb(dbInstance: any): Promise<any[]> {
 export async function queryMDTextDb(dbInstance: any, ids: number[]) {
   const mdJson = await getMDTextDb(dbInstance);
   let result = [];
-  // include before and after chunk for bigger context
   let idss = [];
   for (const id of ids) {
-    // idss.push(id - 1);
     idss.push(id);
-    //idss.push(id + 1);
   }
 
   for (const md of mdJson) {
@@ -153,14 +137,22 @@ export async function initDb(
     await deleteVectorDb(nbId);
     await deleteMDTextDb(`${nbId}-md`);
     let flatlist = [];
-    transformDocToList(flatlist, nbDocs, nbName, nbId, 1);
+    // transformDocToList(flatlist, nbDocs, nbName, nbId, 1);
+    transformBlocksToList(flatlist, nbDocs, nbName, nbId, 1);
     if (flatlist.length === 0) {
       await pushMsg(
         "Nothing is transform, double check if the notebook is empty. If not, please open a ticket to developer on github",
       );
+      return;
     }
+    console.log("transformed list size:", flatlist.length);
+    console.log("start embeeding at ", new Date());
+    await pushMsg(
+      `This process may take approximately ${Math.round((flatlist.length * 3) / 60)} minutes`,
+    );
     //console.log("init db list", flatlist);
     const vectors = await embedDocList(model, flatlist);
+    console.log("end embedding at ", new Date());
     //console.log("init db vectors", vectors);
     const vectordb = await createVectorDb(256, 16, nbId);
     await saveVector(vectordb, vectors);
@@ -197,23 +189,40 @@ export function queryMemVector(
   return instance.searchKNN(vector, resultLimit);
 }
 
-export async function queryMdChunk(notebookId: string, queryText: string) {
+export async function queryMdChunk(
+  notebookId: string,
+  queryText: string,
+  minScore = 0.25,
+  resultLimit = 50,
+) {
   const model = await createModel();
   const embedding = await createEmbedding(model, queryText);
   const vectordb = await getMemVectorDb(notebookId);
-  const embeddingResult = queryMemVector(vectordb, embedding, 25);
-  console.log("embedding result", embeddingResult);
+  const embeddingResult = queryMemVector(vectordb, embedding, resultLimit);
+  // console.log("embedding result", embeddingResult);
   const closestResult = embeddingResult
-    .filter((embd) => embd.score > 0.25)
+    .filter((embd) => embd.score > minScore)
     .map((embd) => embd.id);
   const mdTextDb = await getMDTextDbInstance(`${notebookId}-md`);
-  const chunkResult = await queryMDTextDb(mdTextDb, closestResult);
+  let chunkResult = await queryMDTextDb(mdTextDb, closestResult);
+  chunkResult.sort((a, b) => (a.score > b.score ? a : b));
+  for (let chunk of chunkResult) {
+    // always return one since id is unique index
+    const embd = embeddingResult.filter((e) => e.id == chunk.id);
+    // console.log("embd", embd);
+    if (embd.length > 0) {
+      chunk["score"] = embd[0].score;
+    } else {
+      chunk["score"] = 0;
+    }
+  }
   return chunkResult;
 }
 
 export async function getAllDocsByNotebook(
   notebookId: string,
   path = "/",
+  chunkSize = 256,
 ): Promise<any[]> {
   let docs = [];
   const notebook = await listDocsByPath(notebookId, path);
@@ -227,22 +236,24 @@ export async function getAllDocsByNotebook(
         // console.log(doc)
         const markdown = await exportMdContent(doc.id);
         const mdSplitter = new MarkdownTextSplitter({
-          chunkSize: 384,
+          chunkSize: chunkSize,
           chunkOverlap: 0,
           keepSeparator: false,
         });
         const blocks = await mdSplitter.createDocuments([markdown.content]);
+        await sleep(100);
         doc["blocks"] = blocks;
       }
       docs.push({ id: nb.id, name: nb.name, docs: subDocs });
     } else {
       const markdown = await exportMdContent(nb.id);
       const mdSplitter = new MarkdownTextSplitter({
-        chunkSize: 384,
+        chunkSize: chunkSize,
         chunkOverlap: 0,
         keepSeparator: false,
       });
       const blocks = await mdSplitter.createDocuments([markdown.content]);
+      await sleep(100);
       nb["blocks"] = blocks;
       docs.push(nb);
     }
@@ -250,22 +261,68 @@ export async function getAllDocsByNotebook(
   return docs;
 }
 
+export async function getAllBlocksByNotebook(
+  notebookId: string,
+  path = "/",
+  chunkSize = 128,
+): Promise<any[]> {
+  let docs = [];
+  const notebook = await listDocsByPath(notebookId, path);
+  // console.log("notebook: ", notebookId, notebook)
+  if (notebook == null) return docs;
+  for (let nb of notebook.files ?? []) {
+    if (nb.subFileCount > 0) {
+      let subDocs = await getAllBlocksByNotebook(notebookId, nb.path);
+      // console.log("sub docs", subDocs)
+      for (let doc of subDocs) {
+        // console.log(doc)
+        const blockContents = await getChildBlocksContents(doc.id);
+        const blockChunks = blockSplitter(blockContents, chunkSize);
+        // await sleep(100);
+        doc["blocks"] = blockChunks;
+      }
+      docs.push({ id: nb.id, name: nb.name, docs: subDocs });
+    } else {
+      const blockContents = await getChildBlocksContents(nb.id);
+      const blockChunks = blockSplitter(blockContents, chunkSize);
+
+      // await sleep(100);
+      nb["blocks"] = blockChunks;
+      docs.push(nb);
+    }
+  }
+  //console.log("all blocks", docs);
+  return docs;
+}
+
 export async function embedDoc(model: any, docs: any[], startId: number) {
   // console.log("embedding doc", docs);
   let vectors = [];
   let id = startId;
+  let enableSleep = false;
+  if (docs.length > 500) {
+    enableSleep = true;
+  }
   for (let doc of docs) {
     // console.log("doc length", doc);
     if (doc.hasOwnProperty("blocks")) {
       for (let ddblock of doc.blocks) {
         const embedding = await createEmbedding(model, ddblock.pageContent);
+        if (embedding == null) {
+          continue;
+        }
         ddblock["embedding"] = embedding;
         id = id + 1;
         ddblock["id"] = id;
         vectors.push({ id, vector: embedding });
+        if (enableSleep) {
+          await sleep(100);
+        } else {
+          await sleep(100);
+        }
       }
     } else {
-      embedDoc(model, doc.docs, id);
+      await embedDoc(model, doc.docs, id);
     }
   }
   return vectors;
@@ -273,9 +330,33 @@ export async function embedDoc(model: any, docs: any[], startId: number) {
 
 export async function embedDocList(model: any, docList: any[]) {
   let vectors = [];
+  let enableSleep = false;
+  if (docList.length > 500) {
+    enableSleep = true;
+    await pushMsg(`Remaining ${docList.length} to process`);
+  }
+  let count = 0;
   for (const doc of docList) {
+    // console.log(doc);
+    if (doc.content == null) {
+      continue;
+    }
     const embedding = await createEmbedding(model, doc.content);
+    if (embedding == null) {
+      continue;
+    }
     vectors.push({ id: doc.id, vector: embedding });
+    if (enableSleep) {
+      await sleep(200);
+    } else {
+      await sleep(200);
+    }
+    count = count + 1;
+    if (count % 100 === 0) {
+      await pushMsg(
+        `Processed ${count} chunks, remaining ${docList.length - count} to process`,
+      );
+    }
   }
   return vectors;
 }
@@ -313,6 +394,40 @@ export function transformDocToList(
     } else {
       // console.log("has doc");
       transformDocToList(list, doc.docs, nbName, nbId, id);
+    }
+  }
+  // console.log("list return", list);
+  return list;
+}
+
+export function transformBlocksToList(
+  list: any[],
+  blocks: any[],
+  nbName: string,
+  nbId: string,
+  startId: number,
+) {
+  let id = startId;
+  //let list = [];
+  for (const block of blocks) {
+    if (block.hasOwnProperty("blocks")) {
+      for (const b of block.blocks) {
+        list.push({
+          id: id,
+          notebookId: nbId,
+          notebookName: nbName,
+          blockIds: b.ids,
+          content: b.chunk,
+        });
+        id = id + 1;
+        // console.log("has list", id);
+      }
+      if (block.hasOwnProperty("docs")) {
+        transformBlocksToList(list, block.docs, nbName, nbId, id);
+      }
+    } else {
+      // console.log("has doc");
+      transformBlocksToList(list, block.docs, nbName, nbId, id);
     }
   }
   // console.log("list return", list);

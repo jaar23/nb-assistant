@@ -1,9 +1,36 @@
 <script setup lang="ts">
-import { lsNotebooks, getNotebookConf, pushMsg, pushErrMsg } from "@/api";
+import {
+    lsNotebooks,
+    getNotebookConf,
+    pushMsg,
+    pushErrMsg,
+    getChildBlocksContents,
+    getBlocksByIds,
+} from "@/api";
+import { blockSplitter } from "@/utils";
 import { ref, onMounted } from "vue";
 import Loading from "vue-loading-overlay";
 import "vue-loading-overlay/dist/css/index.css";
 import { queryMdChunk } from "@/embedding";
+import MarkdownIt from "markdown-it";
+import MarkdownItAbbr from "markdown-it-abbr";
+import MarkdownItAnchor from "markdown-it-anchor";
+import MarkdownItFootnote from "markdown-it-footnote";
+import MarkdownItHighlightjs from "markdown-it-highlightjs";
+import MarkdownItSub from "markdown-it-sub";
+import MarkdownItSup from "markdown-it-sup";
+import MarkdownItTasklists from "markdown-it-task-lists";
+import MarkdownItTOC from "markdown-it-toc-done-right";
+import hljs from "highlight.js";
+
+const markdown = new MarkdownIt()
+    .use(MarkdownItAbbr)
+    .use(MarkdownItAnchor)
+    .use(MarkdownItFootnote)
+    .use(MarkdownItHighlightjs, { inline: true })
+    .use(MarkdownItSub)
+    .use(MarkdownItSup)
+    .use(MarkdownItTasklists);
 
 const selectedNotebook = defineModel("selectedNotebook");
 const searchInput = defineModel("searchInput");
@@ -13,6 +40,8 @@ const vectorizedDb = ref([]);
 const dbEnable = ref(false);
 const plugin = defineModel("plugin");
 const searchResult = ref([]);
+const searchNote = `Similarity search is a search method that retrieves objects based on their similarity to a 
+query object, rather than exact keyword matching.`;
 
 async function search(ev) {
     let entered = false;
@@ -24,15 +53,24 @@ async function search(ev) {
         isLoading.value = true;
         const notebookId = selectedNotebook.value;
         const chunkResult = await queryMdChunk(notebookId, searchInput.value);
-        searchResult.value = chunkResult;
-        console.log(chunkResult);
-        // for (const chunk of chunkResult) {
-        //     console.log(chunk.content);
-        //
-        // }
+        // console.log("chunk result", chunkResult);
+        searchResult.value = [];
+        for (const chunk of chunkResult) {
+            const blocks = await getBlocksByIds(chunk.blockIds);
+            let div = [];
+            for (const block of blocks) {
+                div.push({ id: block.id, markdown: block.markdown });
+            }
+            searchResult.value.push({ blocks: div, score: chunk.score });
+        }
+        searchResult.value.sort((a, b) => (a.score > b.score ? a : b));
+        // console.log(searchResult.value);
+        if (chunkResult.length === 0) {
+            await pushMsg("Nothing is found");
+        }
         isLoading.value = false;
     } catch (err) {
-        await pushErrMsg(err);
+        await pushErrMsg(err.stack);
         isLoading.value = false;
     }
 }
@@ -46,6 +84,10 @@ async function checkVectorizedDb() {
         }
     }
     console.log("vectorized db", vectorizedDb.value);
+}
+
+function disableSelection(nbName: string) {
+    return vectorizedDb.value.filter((x) => x === nbName).length === 0;
 }
 
 onMounted(async () => {
@@ -66,11 +108,11 @@ onMounted(async () => {
             background-color="#eee" opacity="0.25" :is-full-page="false" />
 
         <div class="container-row">
-            <label> Search Notebook </label>
+            <label :title="searchNote"> Search Notebook </label>
             <select class="b3-select" v-model="selectedNotebook" placeholder="Select a notebook">
                 <option value="" disabled>Please select</option>
                 <option value="*">All notebooks</option>
-                <option v-for="nb in notebooks" :value="nb.id">
+                <option v-for="nb in notebooks" :value="nb.id" :disabled="disableSelection(nb.name)">
                     {{ nb.name }}
                 </option>
             </select>
@@ -79,19 +121,22 @@ onMounted(async () => {
             an embeddings copies.
         </div>
 
-        <div class="container-row" style="height: 32px;">
+        <div class="container-row" style="height: 32px">
             <input class="b3-text-field" :disabled="selectedNotebook === ''" @keypress="search" v-model="searchInput"
                 placeholder="search for your document" />
         </div>
         <small v-if="searchResult.length > 0">
-            Result found: {{ searchResult.length}}
+            Result found: {{ searchResult.length }}
         </small>
 
-        <div class="result-row">
+        <div class="result-row" v-if="!isLoading">
             <ul v-if="searchResult.length > 0">
                 <li v-for="result in searchResult">
                     <div class="result-card">
-                        {{ result.content }}
+                        <span v-for="block in result.blocks" data-type="block-ref" data-subtype="d" :data-id="block.id"
+                            v-html="markdown.render(block.markdown)">
+                        </span>
+                        <small>Similarity {{ result.score }}</small>
                     </div>
                 </li>
             </ul>
@@ -117,7 +162,7 @@ onMounted(async () => {
 
 .container-row {
     margin: 10px 0px;
-    height: 90px;
+    height: 95px;
 }
 
 .result-row {
@@ -127,11 +172,11 @@ onMounted(async () => {
     margin: 10px 0px;
     position: absolute;
     bottom: 5px;
-    top: 215px;
+    top: 225px;
 }
 
 small {
-    color: #b9b9b9;
+    color: #7e7e7e;
     padding: 0px 0.5em;
 }
 
@@ -140,10 +185,10 @@ small {
 }
 
 .result-card {
-    border: 1px solid #eee;
+    border: 1px solid #353535;
     border-radius: 5px;
     min-height: 125px;
-    padding: 1em;
+    padding: 1.25em;
     width: 90%;
     margin: 5px auto;
 }
@@ -155,5 +200,6 @@ small {
     margin: 2px;
     display: inline;
     border-radius: 8px;
+    line-height: 2.5;
 }
 </style>

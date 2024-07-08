@@ -18,11 +18,11 @@ export function getCurrentTabs(uiLayout: any): Array<{
     return tabs;
 }
 
-export function countWords(text: string): number {
-    const arr = text.split(" ");
-    console.log(arr);
-    return arr.length;
-}
+// export function countWords(text: string): number {
+//     const arr = text.split(" ");
+//     console.log(arr);
+//     return arr.length;
+// }
 
 export async function promptAI(
     systemConf: any,
@@ -168,4 +168,35 @@ export function parseTags(tagsStr: string) {
 export async function sleep(ms: number) {
     const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     await sleep(ms);
+}
+
+export function countWords(str: string) {
+  return str.trim().split(/\s+/).length;
+}
+
+export function blockSplitter(
+    blocks: IBlock[],
+    chunkSize = 128,
+): { chunk: string; ids: string[] }[] {
+    let chunks = [];
+    let ids = [];
+    let chunk = "";
+    for (const block of blocks) {
+        const wordsCount = countWords(chunk + block.markdown);
+        if (wordsCount > chunkSize) {
+            chunks.push({ ids, chunk });
+            chunk = "";
+            ids = [];
+            chunk = block.markdown;
+            ids.push(block.id);
+        } else {
+            chunk = chunk + block.markdown + "\n";
+            ids.push(block.id);
+        }
+    }
+    if (chunk !== "" && ids.length > 0) {
+        chunks.push({ ids, chunk });
+    }
+    // console.log("chunks", chunks);
+    return chunks;
 }
