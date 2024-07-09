@@ -1,3 +1,5 @@
+import { engStopWords, zhStopWords } from "./stopwords";
+
 export function flat(array: any) {
     var result = [];
     array.forEach(function(a: any) {
@@ -171,7 +173,7 @@ export async function sleep(ms: number) {
 }
 
 export function countWords(str: string) {
-  return str.trim().split(/\s+/).length;
+    return str.trim().split(/[\u00ff-\uffff]|\s+/).length;
 }
 
 export function blockSplitter(
@@ -199,4 +201,63 @@ export function blockSplitter(
     }
     // console.log("chunks", chunks);
     return chunks;
+}
+
+export function tokenize(str: string): string[] {
+    return str.trim().match(/[\u00ff-\uffff]|\S+/g);
+}
+
+export function smallcap(str: string): string {
+    return str.toLowerCase();
+}
+
+export function removeStopWord(strs: string[]): string[] {
+    let words = [];
+    for (const s of strs) {
+        let isStopWord = false;
+        if (engStopWords.includes(s)) {
+            isStopWord = true;
+        }
+        if (zhStopWords.includes(s)) {
+            isStopWord = true;
+        }
+        if (!isStopWord) {
+            words.push(s);
+        }
+    }
+    return words;
+}
+
+// export function lemmatizeWords(strs: string[]): string[] {
+//     let lemwords = [];
+//     for (const s of strs) {
+//         lemwords.push(lemmatize(s));
+//     }
+//     return lemwords;
+// }
+
+export function nlpPipe(str: string): string {
+    const tokens = tokenize(str);
+    console.log("tokens--->>\n", tokens);
+    const words = removeStopWord(tokens);
+    console.log("words---->>\n", words);
+    // const lemwords = lemmatizeWords(words);
+    // console.log("lemwords---->>\n", lemwords);
+    const lowercase = smallcap(words.join(" "));
+    return lowercase;
+}
+
+export function mergeSearchResult(ftsResult: any, chunkResult: any[]) {
+    let mergeResult = [];
+    for (let result of ftsResult.blocks) {
+        result["score"] = 0.99;
+        result["blockIds"] = [result.id];
+        result["fts"] = true;
+        mergeResult.push(result);
+    }
+    for (let result of chunkResult) {
+        result["fts"] = false;
+    }
+    mergeResult.push(...chunkResult);
+    return mergeResult;
 }

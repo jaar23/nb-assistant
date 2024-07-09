@@ -9,7 +9,30 @@ import {
 import { MarkdownTextSplitter } from "@langchain/textsplitters";
 import { createEmbedding, createModel } from "@/model";
 import { openDB, deleteDB } from "idb";
-import { flat, sleep, blockSplitter } from "@/utils";
+import { flat, sleep, blockSplitter, nlpPipe } from "@/utils";
+
+
+export class PriorityQueue<T> {
+  private items: T[] = [];
+
+  constructor(private compare: (a: T, b: T) => number) {}
+
+  push(item: T) {
+    let i = 0;
+    while (i < this.items.length && this.compare(item, this.items[i]) > 0) {
+      i++;
+    }
+    this.items.splice(i, 0, item);
+  }
+
+  pop(): T | undefined {
+    return this.items.shift();
+  }
+
+  isEmpty(): boolean {
+    return this.items.length === 0;
+  }
+}
 
 export const promptPersistPermission = async () => {
   if (window.navigator.storage && window.navigator.storage.persist) {
@@ -150,11 +173,11 @@ export async function initDb(
     await pushMsg(
       `This process may take approximately ${Math.round((flatlist.length * 3) / 60)} minutes`,
     );
-    //console.log("init db list", flatlist);
+    console.log("init db list", flatlist);
     const vectors = await embedDocList(model, flatlist);
     console.log("end embedding at ", new Date());
     //console.log("init db vectors", vectors);
-    const vectordb = await createVectorDb(256, 16, nbId);
+    const vectordb = await createVectorDb(200, 32, nbId);
     await saveVector(vectordb, vectors);
     vectordb.db.close();
 
@@ -178,6 +201,52 @@ export async function createMemVectorDb(
   return new HNSW(numOfNeighbors, efConstruction, dimension, metric);
 }
 
+
+ function searchKNNWithScore(hnsw: HNSW, query: Float32Array | number[], k: number, score: number): { id: number; score: number }[] {
+    const result: { id: number; score: number }[] = [];
+    const visited: Set<number> = new Set<number>();
+
+    const candidates = new PriorityQueue<number>((a, b) => {
+      const aNode = hnsw.nodes.get(a)!;
+      const bNode = hnsw.nodes.get(b)!;
+      return hnsw.similarityFunction(query, bNode.vector) - hnsw.similarityFunction(query, aNode.vector);
+    });
+
+    candidates.push(hnsw.entryPointId);
+    let level = hnsw.levelMax;
+
+    while (!candidates.isEmpty() && result.length < k) {
+      const currentId = candidates.pop()!;
+      if (visited.has(currentId)) continue;
+
+      visited.add(currentId);
+
+      const currentNode = hnsw.nodes.get(currentId)!;
+      const similarity = hnsw.similarityFunction(currentNode.vector, query);
+
+      if (similarity > 0 && similarity >= score) {
+        result.push({ id: currentId, score: similarity });
+      }
+
+      if (currentNode.level === 0) {
+        continue;
+      }
+
+      level = Math.min(level, currentNode.level - 1);
+
+      for (let i = level; i >= 0; i--) {
+        const neighbors = currentNode.neighbors[i];
+        for (const neighborId of neighbors) {
+          if (!visited.has(neighborId)) {
+            candidates.push(neighborId);
+          }
+        }
+      }
+    }
+
+    return result.slice(0, k);
+  }
+
 // close to 1, very similar
 // close to 0, unlikely similar
 // close to -1, not similar
@@ -185,8 +254,9 @@ export function queryMemVector(
   instance: HNSW,
   vector: number[] | Float32Array,
   resultLimit: number = 10,
+  minScore: number = 0.25
 ) {
-  return instance.searchKNN(vector, resultLimit);
+  return searchKNNWithScore(instance, vector, resultLimit, minScore);
 }
 
 export async function queryMdChunk(
@@ -205,7 +275,7 @@ export async function queryMdChunk(
     .map((embd) => embd.id);
   const mdTextDb = await getMDTextDbInstance(`${notebookId}-md`);
   let chunkResult = await queryMDTextDb(mdTextDb, closestResult);
-  chunkResult.sort((a, b) => (a.score > b.score ? a : b));
+  //chunkResult.sort((a, b) => (a.score > b.score ? a : b));
   for (let chunk of chunkResult) {
     // always return one since id is unique index
     const embd = embeddingResult.filter((e) => e.id == chunk.id);
@@ -295,6 +365,7 @@ export async function getAllBlocksByNotebook(
   return docs;
 }
 
+//// deprecated
 export async function embedDoc(model: any, docs: any[], startId: number) {
   // console.log("embedding doc", docs);
   let vectors = [];
@@ -341,7 +412,8 @@ export async function embedDocList(model: any, docList: any[]) {
     if (doc.content == null) {
       continue;
     }
-    const embedding = await createEmbedding(model, doc.content);
+    const words = nlpPipe(doc.content)
+    const embedding = await createEmbedding(model, words);
     if (embedding == null) {
       continue;
     }
@@ -412,6 +484,9 @@ export function transformBlocksToList(
   for (const block of blocks) {
     if (block.hasOwnProperty("blocks")) {
       for (const b of block.blocks) {
+        if (b.chunk.trim().length === 0) {
+          continue;
+        }
         list.push({
           id: id,
           notebookId: nbId,
@@ -430,6 +505,6 @@ export function transformBlocksToList(
       transformBlocksToList(list, block.docs, nbName, nbId, id);
     }
   }
-  // console.log("list return", list);
+  //console.log("list return", list);
   return list;
 }

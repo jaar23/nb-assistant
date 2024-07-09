@@ -2,7 +2,10 @@ import { pipeline } from "@xenova/transformers";
 import { sleep } from "@/utils";
 
 export async function createModel() {
-    const pipe = await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2");
+    //const pipe = await pipeline("feature-extraction", "Xenova/all-MiniLM-L12-v2");
+    //const pipe = await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2");
+    const pipe = await pipeline("feature-extraction", "Xenova/paraphrase-MiniLM-L6-v2");
+
     return pipe;
 }
 

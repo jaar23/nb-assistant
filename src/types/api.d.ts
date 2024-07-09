@@ -106,7 +106,7 @@ interface IResBlock {
     fcontent: string;
     hash: string;
     hpath: string;
-    ial: string;
+    ial: any;
     id: string;
     length: number;
     markdown: string;
