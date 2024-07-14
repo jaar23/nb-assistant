@@ -7,12 +7,15 @@ import {
   getChildBlocksContents,
   getBlocksByIds,
   fullTextSearchBlock,
+  checkBlockExist,
+  readDir,
 } from "@/api";
-import { blockSplitter, nlpPipe, mergeSearchResult } from "@/utils";
+import { blockSplitter, nlpPipe, mergeSearchResult, searchNotebook } from "@/utils";
+import { reranker, createModel } from "@/model";
 import { ref, onMounted } from "vue";
 import Loading from "vue-loading-overlay";
 import "vue-loading-overlay/dist/css/index.css";
-import { queryMdChunk } from "@/embedding";
+import { queryMdChunk, dataPath } from "@/embedding";
 import MarkdownIt from "markdown-it";
 import MarkdownItAbbr from "markdown-it-abbr";
 import MarkdownItAnchor from "markdown-it-anchor";
@@ -42,64 +45,91 @@ const plugin = defineModel("plugin");
 const searchResult = ref([]);
 const searchNote = `Similarity search is a search method that retrieves objects based on their similarity to a 
 query object, rather than exact keyword matching.`;
+const dir = ref([]);
 
 async function search(ev) {
-  let entered = false;
   if (ev.key === "Enter" && !ev.shiftKey) {
-    entered = true;
-  }
-  if (!entered) return;
-  try {
-    isLoading.value = true;
-    const notebookId = selectedNotebook.value;
-    const words = nlpPipe(searchInput.value);
-    console.log("searching", words);
-    const chunkResult = await queryMdChunk(notebookId, words);
-    const ftsResult = await fullTextSearchBlock(notebookId, searchInput.value);
-    const result = mergeSearchResult(ftsResult, chunkResult);
-    searchResult.value = [];
-
-    for (const chunk of result) {
-      const blocks = await getBlocksByIds(chunk.blockIds);
-      let div = [];
-      for (const block of blocks) {
-        if (block.content.length === 0 && block.content === "") {
-          continue;
-        }
-        div.push({ id: block.id, markdown: block.markdown });
-      }
-      if (div.length > 0) {
-        searchResult.value.push({ blocks: div, score: chunk.score.toFixed(2), fts: chunk.fts});
-      }
+    try {
+      isLoading.value = true;
+      searchResult.value = await searchNotebook(selectedNotebook.value, searchInput.value);
+      // const notebookId = selectedNotebook.value;
+      // const words = nlpPipe(searchInput.value);
+      // console.log("searching", words);
+      // const chunkResult = await queryMdChunk(notebookId, words, 0.2, 25);
+      // // const rerankModel = createModel("rerank");
+      // // const rerankResult = await reranker(rerankModel, searchInput.value, chunkResult.map(cr => cr.content));
+      // const ftsResult = await fullTextSearchBlock(
+      //   notebookId,
+      //   searchInput.value,
+      // );
+      // const result = mergeSearchResult(ftsResult, chunkResult);
+      // searchResult.value = [];
+      //
+      // for (const chunk of result) {
+      //   const blocks = await getBlocksByIds(chunk.blockIds);
+      //   let div = [];
+      //   for (const block of blocks) {
+      //     if (
+      //       (block.content.length === 0 && block.content === "") ||
+      //       block.markdown === ""
+      //     ) {
+      //       continue;
+      //     }
+      //     div.push({ id: block.id, markdown: block.markdown });
+      //   }
+      //   if (div.length > 0) {
+      //     searchResult.value.push({
+      //       blocks: div,
+      //       score: chunk.score.toFixed(2),
+      //       fts: chunk.fts,
+      //     });
+      //   }
+      // }
+      //
+      // searchResult.value.sort((a, b) =>
+      //   a.score > b.score ? -1 : b.score > a.score ? 0 : 1,
+      // );
+      //
+      // if (searchResult.value.length === 0) {
+      //   await pushMsg("Nothing is found");
+      // }
+      isLoading.value = false;
+    } catch (err) {
+      await pushErrMsg(err.stack);
+      isLoading.value = false;      
     }
-
-    searchResult.value.sort((a, b) =>
-      a.score > b.score ? -1 : b.score > a.score ? 0 : 1,
-    );
-
-    if (chunkResult.length === 0) {
-      await pushMsg("Nothing is found");
-    }
-    isLoading.value = false;
-  } catch (err) {
-    await pushErrMsg(err.stack);
-    isLoading.value = false;
   }
 }
+
 async function checkVectorizedDb() {
   vectorizedDb.value = [];
-  const databases = await window.indexedDB.databases();
+  const dir = await readDir(dataPath);
   const notebooks = await lsNotebooks();
   for (const nb of notebooks.notebooks) {
-    if (databases.filter((db) => db.name === nb.id).length > 0) {
+    if (dir.filter((f) => f.name.includes(nb.id)).length > 0) {
       vectorizedDb.value.push(nb.name);
     }
   }
+  console.log(dir);
+  // const databases = await window.indexedDB.databases();
+  //     vectorizedDb.value.push(nb.name);
+  //   }
+  // }
   console.log("vectorized db", vectorizedDb.value);
 }
 
 function disableSelection(nbName: string) {
   return vectorizedDb.value.filter((x) => x === nbName).length === 0;
+}
+
+async function openBlock(blockId) {
+  const url = "siyuan://blocks/";
+  const blockExist = await checkBlockExist(blockId);
+  if (!blockExist) {
+    await pushMsg("Block not found, it may be deleted or removed");
+    return;
+  }
+  window.openFileByURL(url + blockId);
 }
 
 onMounted(async () => {
@@ -116,30 +146,15 @@ onMounted(async () => {
 
 <template>
   <div class="search-container">
-    <loading
-      v-model:active="isLoading"
-      :can-cancel="false"
-      :on-cancel="loadingCancel"
-      loader="bars"
-      background-color="#eee"
-      opacity="0.25"
-      :is-full-page="false"
-    />
+    <loading v-model:active="isLoading" :can-cancel="false" :on-cancel="loadingCancel" loader="bars"
+      background-color="#eee" opacity="0.25" :is-full-page="false" />
 
     <div class="container-row">
       <label :title="searchNote"> Search Notebook </label>
-      <select
-        class="b3-select"
-        v-model="selectedNotebook"
-        placeholder="Select a notebook"
-      >
+      <select class="b3-select" v-model="selectedNotebook" placeholder="Select a notebook">
         <option value="" disabled>Please select</option>
         <option value="*">All notebooks</option>
-        <option
-          v-for="nb in notebooks"
-          :value="nb.id"
-          :disabled="disableSelection(nb.name)"
-        >
+        <option v-for="nb in notebooks" :value="nb.id" :disabled="disableSelection(nb.name)">
           {{ nb.name }}
         </option>
       </select>
@@ -149,13 +164,8 @@ onMounted(async () => {
     </div>
 
     <div class="container-row" style="height: 32px">
-      <input
-        class="b3-text-field"
-        :disabled="selectedNotebook === ''"
-        @keypress="search"
-        v-model="searchInput"
-        placeholder="search for your document"
-      />
+      <input class="b3-text-field" :disabled="selectedNotebook === ''" @keypress="search" v-model="searchInput"
+        placeholder="search for your document" />
     </div>
     <small v-if="searchResult.length > 0">
       Result found: {{ searchResult.length }}
@@ -165,14 +175,8 @@ onMounted(async () => {
       <ul v-if="searchResult.length > 0">
         <li v-for="result in searchResult">
           <div class="result-card">
-            <span
-              class="block"
-              v-for="block in result.blocks"
-              data-type="block-ref"
-              data-subtype="d"
-              :data-id="block.id"
-              v-html="markdown.render(block.markdown)"
-            >
+            <span @click="openBlock(block.id)" class="block" v-for="block in result.blocks" data-type="block-ref"
+              data-subtype="d" :data-id="block.id" v-html="markdown.render(block.markdown)">
             </span>
             <small>Similarity {{ result.score }}</small>
             <small v-if="result.fts">full text search</small>
@@ -244,5 +248,6 @@ small {
 }
 
 .block {
+  cursor: pointer;
 }
 </style>

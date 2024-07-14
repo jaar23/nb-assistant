@@ -1,4 +1,6 @@
 import { engStopWords, zhStopWords } from "./stopwords";
+import { queryMdChunk } from "./embedding";
+import { fullTextSearchBlock, getBlocksByIds, pushMsg, pushErrMsg } from "./api";
 
 export function flat(array: any) {
     var result = [];
@@ -186,7 +188,7 @@ export function blockSplitter(
     for (const block of blocks) {
         const wordsCount = countWords(chunk + block.markdown);
         if (wordsCount > chunkSize) {
-            chunks.push({ ids, chunk });
+            chunks.push({ ids, chunk: chunk + block.markdown });
             chunk = "";
             ids = [];
             chunk = block.markdown;
@@ -238,9 +240,9 @@ export function removeStopWord(strs: string[]): string[] {
 
 export function nlpPipe(str: string): string {
     const tokens = tokenize(str);
-    console.log("tokens--->>\n", tokens);
+    // console.log("tokens--->>\n", tokens);
     const words = removeStopWord(tokens);
-    console.log("words---->>\n", words);
+    // console.log("words---->>\n", words);
     // const lemwords = lemmatizeWords(words);
     // console.log("lemwords---->>\n", lemwords);
     const lowercase = smallcap(words.join(" "));
@@ -260,4 +262,63 @@ export function mergeSearchResult(ftsResult: any, chunkResult: any[]) {
     }
     mergeResult.push(...chunkResult);
     return mergeResult;
+}
+
+export function strToFile(str: string, filename = "tmp", mimetype: string): File {
+    const jsonBlob = new Blob([str], { type: mimetype });
+    const file = new File([jsonBlob], filename, { type: mimetype, lastModified: Date.now() });
+    return file;
+}
+
+export async function checkIfDbExist(dbName: string): Promise<boolean> {
+    return (await window.indexedDB.databases()).map(db => db.name).includes(dbName);
+}
+
+export async function searchNotebook(notebookId: string, query: string, minScore=0.2, resultLimit=25) {
+    try {
+        let searchResult = [];
+        const words = nlpPipe(query);
+        console.log("searching", words);
+        const chunkResult = await queryMdChunk(notebookId, words, minScore, resultLimit);
+        // const rerankModel = createModel("rerank");
+        // const rerankResult = await reranker(rerankModel, searchInput.value, chunkResult.map(cr => cr.content));
+        const ftsResult = await fullTextSearchBlock(
+            notebookId,
+            query,
+        );
+        const result = mergeSearchResult(ftsResult, chunkResult);
+
+        for (const chunk of result) {
+            const blocks = await getBlocksByIds(chunk.blockIds);
+            let div = [];
+            for (const block of blocks) {
+                if (
+                    (block.content.length === 0 && block.content === "") ||
+                    block.markdown === ""
+                ) {
+                    continue;
+                }
+                div.push({ id: block.id, markdown: block.markdown });
+            }
+            if (div.length > 0) {
+                searchResult.push({
+                    blocks: div,
+                    score: chunk.score.toFixed(2),
+                    fts: chunk.fts,
+                });
+            }
+        }
+
+        searchResult.sort((a, b) =>
+            a.score > b.score ? -1 : b.score > a.score ? 0 : 1,
+        );
+
+        if (searchResult.length === 0) {
+            await pushMsg("Nothing is found");
+        }
+        return searchResult;
+    } catch (err) {
+        await pushErrMsg(err.stack);
+        throw new Error(err);
+    }
 }

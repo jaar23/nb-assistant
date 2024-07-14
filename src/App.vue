@@ -42,7 +42,7 @@ const tokenCount = ref(0);
 const onShortcut = ref(false);
 const onVectorDb = ref(false);
 const onSearch = ref(false);
-const viewState = ref("vectordb");
+const viewState = ref("chat");
 
 function updateHistory(response) {
   console.log(response);
@@ -138,7 +138,6 @@ onMounted(async () => {
   console.log("i18n: ", props.plugin.i18n);
   aiEmoji.value = props.plugin.settingUtils.dump().aiEmoji;
   enterToSend.value = props.plugin.settingUtils.dump().enterToSend;
-
   // get current doc
   // const openTabs = getCurrentTabs(systemConf.conf.uiLayout.layout)
   // console.log("tabs: ", openTabs)
@@ -167,8 +166,8 @@ onMounted(async () => {
       </div>
       <div v-else>
         <div>
-          <p>{{ this.i18n ? this.i18n.noAIDetected : "" }}</p>
-          <p>{{ this.i18n ? this.i18n.noAIDetected2 : "" }}</p>
+          <p>{{ props.plugin.i18n ? props.plugin.i18n.noAIDetected : "" }}</p>
+          <p>{{ props.plugin.i18n ? props.plugin.i18n.noAIDetected2 : "" }}</p>
         </div>
       </div>
     </div>
@@ -178,7 +177,7 @@ onMounted(async () => {
         <vdbheader class="shortcut" v-model:plugin="props.plugin" 
         @onVectorDbView="onVectorDbView" @onSearchView="onSearchView"></vdbheader>
       </div>
-      <vectordb v-if="!onSearch" v-model:plugin="props.plugin"/>
+      <vectordb v-if="!onSearch" v-model:plugin="props.plugin" v-model:worker="props.worker"/>
       <search v-if="onSearch" v-model:plugin="props.plugin"></search>
     </div>
   </div>

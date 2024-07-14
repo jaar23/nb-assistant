@@ -5,17 +5,26 @@ import {
   pushMsg,
   pushErrMsg,
   getChildBlocksContents,
+  putFile,
+  getFile,
 } from "@/api";
 import { MarkdownTextSplitter } from "@langchain/textsplitters";
 import { createEmbedding, createModel } from "@/model";
 import { openDB, deleteDB } from "idb";
-import { flat, sleep, blockSplitter, nlpPipe } from "@/utils";
+import {
+  strToFile,
+  sleep,
+  blockSplitter,
+  nlpPipe,
+  checkIfDbExist,
+} from "@/utils";
 
+export const dataPath = "temp/nb-assistant";
 
 export class PriorityQueue<T> {
   private items: T[] = [];
 
-  constructor(private compare: (a: T, b: T) => number) {}
+  constructor(private compare: (a: T, b: T) => number) { }
 
   push(item: T) {
     let i = 0;
@@ -70,11 +79,19 @@ export async function createMDTextDb(dbName: string) {
 }
 
 export async function getMDTextDbInstance(dbName: string) {
-  const db = await openDB(dbName);
+  const dbExists = await checkIfDbExist(`${dbName}-md`);
+  let db;
+  if (!dbExists) {
+    const mdTextFile = await getFile(`${dataPath}/${dbName}.json`);
+    db = await createMDTextDb(`${dbName}`);
+    await saveMDTextTempDb(db, mdTextFile);
+  } else {
+    db = await openDB(dbName);
+  }
   return db;
 }
 
-export async function saveMDTextDb(dbInstance: any, mdSplitted: any[]) {
+export async function saveMDTextTempDb(dbInstance: any, mdSplitted: any[]) {
   await dbInstance.put("md-splitted", mdSplitted, "md-texts");
 }
 
@@ -112,11 +129,32 @@ export async function deleteMDTextDb(dbName: string) {
 }
 
 export async function getMemVectorDb(dbName: string) {
-  const hnswdb = await openDB(dbName);
-  const hnswJson = await hnswdb.get("hnsw-index", "hnsw");
-  //console.log("hnsw json", hnswJson);
+  const dbExists = await checkIfDbExist(dbName);
+  //let hnswdb: any;
+  let hnswJson: any;
+  if (!dbExists) {
+    const hnswFile = await getFile(`${dataPath}/${dbName}.json`);
+    const tempdb = await openDB(dbName, 1, {
+      upgrade(db) {
+        db.createObjectStore("hnsw-index")
+      }
+    });
+    await tempdb.put("hnsw-index", hnswFile, "hnsw")
+    console.log("hnswfile", hnswFile);
+    // hnswdb = await createVectorDb(
+    //   hnswFile.M,
+    //   hnswFile.efConstruction,
+    //   dbName,
+    // );
+    // await saveVector(hnswdb, hnswFile.embedding);
+    hnswJson = hnswFile;
+    tempdb.close();
+  } else {
+    const tempdb = await openDB(dbName);
+    hnswJson = await tempdb.get("hnsw-index", "hnsw");
+  }
+  console.log("hnsw json", hnswJson);
   const db = HNSW.fromJSON(hnswJson);
-  hnswdb.close();
   // console.log("hnsw", db)
   return db;
 }
@@ -154,7 +192,7 @@ export async function initDb(
   nbId: string,
   nbName: string,
   nbDocs: any[],
-  model: any,
+  model: any
 ) {
   try {
     await deleteVectorDb(nbId);
@@ -177,20 +215,22 @@ export async function initDb(
     const vectors = await embedDocList(model, flatlist);
     console.log("end embedding at ", new Date());
     //console.log("init db vectors", vectors);
-    const vectordb = await createVectorDb(200, 32, nbId);
-    await saveVector(vectordb, vectors);
-    vectordb.db.close();
+    //const vectordb = await createVectorDb(100, 16, nbId);
+    const vectordb = await createMemVectorDb(100, 16, 384, "cosine");
+    //await saveVector(vectordb, vectors);
+    await saveMemVectorDb(vectordb, vectors, nbId);
+    // vectordb.db.close();
 
-    const mdTextDb = await createMDTextDb(`${nbId}-md`);
-    await saveMDTextDb(mdTextDb, flatlist);
-    await closeMDTextDbInstance(mdTextDb);
+    // const mdTextDb = await createMDTextDb(`${nbId}-md`);
+    await saveMDTextDb(flatlist, nbId);
+    // await closeMDTextDbInstance(mdTextDb);
   } catch (err) {
     console.error(err);
-    await pushErrMsg(err);
+    await pushErrMsg(err.stack);
   }
 }
 
-export type Metric = "Cosine" | "Euclidean";
+export type Metric = "cosine" | "euclidean";
 
 export async function createMemVectorDb(
   numOfNeighbors: number,
@@ -201,51 +241,90 @@ export async function createMemVectorDb(
   return new HNSW(numOfNeighbors, efConstruction, dimension, metric);
 }
 
+export async function saveMemVectorDb(
+  instance: HNSW,
+  data: { id: number; vector: Float32Array | number[] }[],
+  dbName: string,
+) {
+  await instance.buildIndex(data);
+  const jsonVec = instance.toJSON();
+  //const jsonVec = { embedding: data, M: instance.M, efConstruction: instance.efConstruction };
+  const jsonStr = JSON.stringify(jsonVec);
+  const file = strToFile(jsonStr, dbName, "application/json");
+  try {
+    await putFile(`${dataPath}/${dbName}.json`, false, file);
+  } catch (err) {
+    console.error(err.stack);
+    await pushErrMsg("save vector db failed, retry in 5 seconds");
+    await sleep(5000);
+    await putFile(`${dataPath}/${dbName}.json`, false, file);
+  }
+}
 
- function searchKNNWithScore(hnsw: HNSW, query: Float32Array | number[], k: number, score: number): { id: number; score: number }[] {
-    const result: { id: number; score: number }[] = [];
-    const visited: Set<number> = new Set<number>();
+export async function saveMDTextDb(data: any, dbName: string) {
+  const file = strToFile(JSON.stringify(data), dbName, "application/json");
+  try {
+    await putFile(`${dataPath}/${dbName}-md.json`, false, file);
+  } catch (err) {
+    console.error(err.stack);
+    await pushErrMsg("save vector db failed, retry in 5 seconds");
+    await sleep(5000);
+    await putFile(`${dataPath}/${dbName}-md.json`, false, file);
+  }
+}
 
-    const candidates = new PriorityQueue<number>((a, b) => {
-      const aNode = hnsw.nodes.get(a)!;
-      const bNode = hnsw.nodes.get(b)!;
-      return hnsw.similarityFunction(query, bNode.vector) - hnsw.similarityFunction(query, aNode.vector);
-    });
+function searchKNNWithScore(
+  hnsw: HNSW,
+  query: Float32Array | number[],
+  k: number,
+  score: number,
+): { id: number; score: number }[] {
+  const result: { id: number; score: number }[] = [];
+  const visited: Set<number> = new Set<number>();
 
-    candidates.push(hnsw.entryPointId);
-    let level = hnsw.levelMax;
+  const candidates = new PriorityQueue<number>((a, b) => {
+    const aNode = hnsw.nodes.get(a)!;
+    const bNode = hnsw.nodes.get(b)!;
+    return (
+      hnsw.similarityFunction(query, bNode.vector) -
+      hnsw.similarityFunction(query, aNode.vector)
+    );
+  });
 
-    while (!candidates.isEmpty() && result.length < k) {
-      const currentId = candidates.pop()!;
-      if (visited.has(currentId)) continue;
+  candidates.push(hnsw.entryPointId);
+  let level = hnsw.levelMax;
 
-      visited.add(currentId);
+  while (!candidates.isEmpty() && result.length < k) {
+    const currentId = candidates.pop()!;
+    if (visited.has(currentId)) continue;
 
-      const currentNode = hnsw.nodes.get(currentId)!;
-      const similarity = hnsw.similarityFunction(currentNode.vector, query);
+    visited.add(currentId);
 
-      if (similarity > 0 && similarity >= score) {
-        result.push({ id: currentId, score: similarity });
-      }
+    const currentNode = hnsw.nodes.get(currentId)!;
+    const similarity = hnsw.similarityFunction(currentNode.vector, query);
 
-      if (currentNode.level === 0) {
-        continue;
-      }
+    if (similarity > 0 && similarity >= score) {
+      result.push({ id: currentId, score: similarity });
+    }
 
-      level = Math.min(level, currentNode.level - 1);
+    if (currentNode.level === 0) {
+      continue;
+    }
 
-      for (let i = level; i >= 0; i--) {
-        const neighbors = currentNode.neighbors[i];
-        for (const neighborId of neighbors) {
-          if (!visited.has(neighborId)) {
-            candidates.push(neighborId);
-          }
+    level = Math.min(level, currentNode.level - 1);
+
+    for (let i = level; i >= 0; i--) {
+      const neighbors = currentNode.neighbors[i];
+      for (const neighborId of neighbors) {
+        if (!visited.has(neighborId)) {
+          candidates.push(neighborId);
         }
       }
     }
-
-    return result.slice(0, k);
   }
+
+  return result.slice(0, k);
+}
 
 // close to 1, very similar
 // close to 0, unlikely similar
@@ -254,7 +333,7 @@ export function queryMemVector(
   instance: HNSW,
   vector: number[] | Float32Array,
   resultLimit: number = 10,
-  minScore: number = 0.25
+  minScore: number = 0.25,
 ) {
   return searchKNNWithScore(instance, vector, resultLimit, minScore);
 }
@@ -268,8 +347,9 @@ export async function queryMdChunk(
   const model = await createModel();
   const embedding = await createEmbedding(model, queryText);
   const vectordb = await getMemVectorDb(notebookId);
+  console.log(vectordb.toJSON())
   const embeddingResult = queryMemVector(vectordb, embedding, resultLimit);
-  // console.log("embedding result", embeddingResult);
+  console.log("embedding result", embeddingResult);
   const closestResult = embeddingResult
     .filter((embd) => embd.score > minScore)
     .map((embd) => embd.id);
@@ -412,16 +492,16 @@ export async function embedDocList(model: any, docList: any[]) {
     if (doc.content == null) {
       continue;
     }
-    const words = nlpPipe(doc.content)
+    const words = nlpPipe(doc.content);
     const embedding = await createEmbedding(model, words);
     if (embedding == null) {
       continue;
     }
     vectors.push({ id: doc.id, vector: embedding });
     if (enableSleep) {
-      await sleep(200);
+      await sleep(300);
     } else {
-      await sleep(200);
+      await sleep(300);
     }
     count = count + 1;
     if (count % 100 === 0) {

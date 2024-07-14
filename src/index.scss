@@ -1,26 +1,62 @@
 #helloPanel {
-    border: 1px rgb(189, 119, 119) dashed;
+  border: 1px rgb(189, 119, 119) dashed;
 }
 
 .plugin-sample {
-    &__custom-tab {
-        background-color: var(--b3-theme-background);
-        height: 100%;
-        width: 100%;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    }
+  &__custom-tab {
+    background-color: var(--b3-theme-background);
+    height: 100%;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
 
-    &__custom-dock {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    }
+  &__custom-dock {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
 
-    &__time {
-        background: var(--b3-card-info-background);
-        border-radius: 4px;
-        padding: 2px 8px;
-    }
+  &__time {
+    background: var(--b3-card-info-background);
+    border-radius: 4px;
+    padding: 2px 8px;
+  }
+}
+
+.smart-suggest {
+  /* Container for the textarea and the dropdown */
+
+  margin: 0.1em;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  resize: none;
+  border: 0px;
+}
+.smart-suggest-dropdown {
+  /* Dropdown container */
+  background-color: var(--b3-theme-surface);
+  border-radius: 5px;
+  border: 1px solid #b7b7b7;
+}
+.smart-suggest-dropdown-top {
+  /* Dropdown container when above the cursor */
+}
+.smart-suggest-items {
+  /* Dropdown items container */
+}
+.smart-suggest-no-result {
+  /* Dropdown no result item */
+}
+.smart-suggest-item {
+  /* Dropdown item */
+}
+.smart-suggest-item-active {
+  background-color: var(--b3-theme-success);
+  /* Dropdown item when it is active */
+}
+.smart-suggest-item-image-container {
+  /* Dropdown item image container */
 }

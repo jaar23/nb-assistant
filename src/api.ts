@@ -591,3 +591,10 @@ export async function fullTextSearchBlock(
     };
     return request(url, payload);
 }
+
+
+export async function checkBlockExist(blockId: BlockId): Promise<boolean> {
+    const url = "/api/block/checkBlockExist";
+    return request(url, {id: blockId});
+}
+
