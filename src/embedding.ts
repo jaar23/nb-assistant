@@ -15,6 +15,7 @@ import {
   strToFile,
   sleep,
   blockSplitter,
+  textSplitter,
   nlpPipe,
   checkIfDbExist,
 } from "@/utils";
@@ -136,10 +137,10 @@ export async function getMemVectorDb(dbName: string) {
     const hnswFile = await getFile(`${dataPath}/${dbName}.json`);
     const tempdb = await openDB(dbName, 1, {
       upgrade(db) {
-        db.createObjectStore("hnsw-index")
-      }
+        db.createObjectStore("hnsw-index");
+      },
     });
-    await tempdb.put("hnsw-index", hnswFile, "hnsw")
+    await tempdb.put("hnsw-index", hnswFile, "hnsw");
     console.log("hnswfile", hnswFile);
     // hnswdb = await createVectorDb(
     //   hnswFile.M,
@@ -192,7 +193,7 @@ export async function initDb(
   nbId: string,
   nbName: string,
   nbDocs: any[],
-  model: any
+  model: any,
 ) {
   try {
     await deleteVectorDb(nbId);
@@ -347,7 +348,7 @@ export async function queryMdChunk(
   const model = await createModel();
   const embedding = await createEmbedding(model, queryText);
   const vectordb = await getMemVectorDb(notebookId);
-  console.log(vectordb.toJSON())
+  console.log(vectordb.toJSON());
   const embeddingResult = queryMemVector(vectordb, embedding, resultLimit);
   console.log("embedding result", embeddingResult);
   const closestResult = embeddingResult
@@ -369,47 +370,51 @@ export async function queryMdChunk(
   return chunkResult;
 }
 
-export async function getAllDocsByNotebook(
-  notebookId: string,
-  path = "/",
-  chunkSize = 256,
-): Promise<any[]> {
-  let docs = [];
-  const notebook = await listDocsByPath(notebookId, path);
-  // console.log("notebook: ", notebookId, notebook)
-  if (notebook == null) return docs;
-  for (let nb of notebook.files ?? []) {
-    if (nb.subFileCount > 0) {
-      let subDocs = await getAllDocsByNotebook(notebookId, nb.path);
-      // console.log("sub docs", subDocs)
-      for (let doc of subDocs) {
-        // console.log(doc)
-        const markdown = await exportMdContent(doc.id);
-        const mdSplitter = new MarkdownTextSplitter({
-          chunkSize: chunkSize,
-          chunkOverlap: 0,
-          keepSeparator: false,
-        });
-        const blocks = await mdSplitter.createDocuments([markdown.content]);
-        await sleep(100);
-        doc["blocks"] = blocks;
-      }
-      docs.push({ id: nb.id, name: nb.name, docs: subDocs });
-    } else {
-      const markdown = await exportMdContent(nb.id);
-      const mdSplitter = new MarkdownTextSplitter({
-        chunkSize: chunkSize,
-        chunkOverlap: 0,
-        keepSeparator: false,
-      });
-      const blocks = await mdSplitter.createDocuments([markdown.content]);
-      await sleep(100);
-      nb["blocks"] = blocks;
-      docs.push(nb);
-    }
-  }
-  return docs;
-}
+// export async function getAllDocsByNotebook(
+//   notebookId: string,
+//   path = "/",
+//   chunkSize = 256,
+// ): Promise<any[]> {
+//   let docs = [];
+//   const notebook = await listDocsByPath(notebookId, path);
+//   // console.log("notebook: ", notebookId, notebook)
+//   if (notebook == null) return docs;
+//   for (let nb of notebook.files ?? []) {
+//     if (nb.subFileCount > 0) {
+//       let subDocs = await getAllDocsByNotebook(notebookId, nb.path);
+//       // console.log("sub docs", subDocs)
+//       for (let doc of subDocs) {
+//         // console.log(doc)
+//         const markdown = await exportMdContent(doc.id);
+//         // const textChunks = textSplitter(doc.id, markdown.content, chunkSize);
+//         // doc["blocks"] = textChunks;
+//         const mdSplitter = new MarkdownTextSplitter({
+//           chunkSize: chunkSize,
+//           chunkOverlap: 32,
+//           keepSeparator: false,
+//         });
+//         const blocks = await mdSplitter.createDocuments([markdown.content]);
+//         await sleep(100);
+//         doc["blocks"] = blocks;
+//       }
+//       docs.push({ id: nb.id, name: nb.name, docs: subDocs });
+//     } else {
+//        const markdown = await exportMdContent(nb.id);
+//       // const textChunks = textSplitter(nb.id, markdown.content, chunkSize);
+//       // nb["blocks"] = textChunks;
+//       const mdSplitter = new MarkdownTextSplitter({
+//         chunkSize: chunkSize,
+//         chunkOverlap: 32,
+//         keepSeparator: false,
+//       });
+//       const blocks = await mdSplitter.createDocuments([markdown.content]);
+//       await sleep(100);
+//       nb["blocks"] = blocks;
+//       docs.push(nb);
+//     }
+//   }
+//   return docs;
+// }
 
 export async function getAllBlocksByNotebook(
   notebookId: string,
@@ -427,21 +432,21 @@ export async function getAllBlocksByNotebook(
       for (let doc of subDocs) {
         // console.log(doc)
         const blockContents = await getChildBlocksContents(doc.id);
-        const blockChunks = blockSplitter(blockContents, chunkSize);
+        const blockChunks = blockSplitter(blockContents, chunkSize, nb.name, doc.name);
         // await sleep(100);
         doc["blocks"] = blockChunks;
       }
       docs.push({ id: nb.id, name: nb.name, docs: subDocs });
     } else {
       const blockContents = await getChildBlocksContents(nb.id);
-      const blockChunks = blockSplitter(blockContents, chunkSize);
+      const blockChunks = blockSplitter(blockContents, chunkSize, nb.name, "");
 
       // await sleep(100);
       nb["blocks"] = blockChunks;
       docs.push(nb);
     }
   }
-  //console.log("all blocks", docs);
+  console.log("all blocks", docs);
   return docs;
 }
 
@@ -513,44 +518,44 @@ export async function embedDocList(model: any, docList: any[]) {
   return vectors;
 }
 
-export function transformDocToList(
-  list: any[],
-  docs: any[],
-  nbName: string,
-  nbId: string,
-  startId: number,
-) {
-  let id = startId;
-  //let list = [];
-  for (const doc of docs) {
-    if (doc.hasOwnProperty("blocks")) {
-      for (const block of doc.blocks) {
-        list.push({
-          id: id,
-          notebookId: nbId,
-          notebookName: nbName,
-          blockId: doc.id,
-          hiddenBlock: doc.hidden,
-          blockMemo: doc.memo,
-          blockName: doc.name,
-          blockName1: doc.name1,
-          blockPath: doc.path,
-          content: block.pageContent,
-        });
-        id = id + 1;
-        // console.log("has list", id);
-      }
-      if (doc.hasOwnProperty("docs")) {
-        transformDocToList(list, doc.docs, nbName, nbId, id);
-      }
-    } else {
-      // console.log("has doc");
-      transformDocToList(list, doc.docs, nbName, nbId, id);
-    }
-  }
-  // console.log("list return", list);
-  return list;
-}
+// export function transformDocToList(
+//   list: any[],
+//   docs: any[],
+//   nbName: string,
+//   nbId: string,
+//   startId: number,
+// ) {
+//   let id = startId;
+//   //let list = [];
+//   for (const doc of docs) {
+//     if (doc.hasOwnProperty("blocks")) {
+//       for (const block of doc.blocks) {
+//         list.push({
+//           id: id,
+//           notebookId: nbId,
+//           notebookName: nbName,
+//           blockId: doc.id,
+//           hiddenBlock: doc.hidden,
+//           blockMemo: doc.memo,
+//           blockName: doc.name,
+//           blockName1: doc.name1,
+//           blockPath: doc.path,
+//           content: block.pageContent,
+//         });
+//         id = id + 1;
+//         // console.log("has list", id);
+//       }
+//       if (doc.hasOwnProperty("docs")) {
+//         transformDocToList(list, doc.docs, nbName, nbId, id);
+//       }
+//     } else {
+//       // console.log("has doc");
+//       transformDocToList(list, doc.docs, nbName, nbId, id);
+//     }
+//   }
+//   // console.log("list return", list);
+//   return list;
+// }
 
 export function transformBlocksToList(
   list: any[],

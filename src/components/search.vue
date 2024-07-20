@@ -52,47 +52,6 @@ async function search(ev) {
     try {
       isLoading.value = true;
       searchResult.value = await searchNotebook(selectedNotebook.value, searchInput.value);
-      // const notebookId = selectedNotebook.value;
-      // const words = nlpPipe(searchInput.value);
-      // console.log("searching", words);
-      // const chunkResult = await queryMdChunk(notebookId, words, 0.2, 25);
-      // // const rerankModel = createModel("rerank");
-      // // const rerankResult = await reranker(rerankModel, searchInput.value, chunkResult.map(cr => cr.content));
-      // const ftsResult = await fullTextSearchBlock(
-      //   notebookId,
-      //   searchInput.value,
-      // );
-      // const result = mergeSearchResult(ftsResult, chunkResult);
-      // searchResult.value = [];
-      //
-      // for (const chunk of result) {
-      //   const blocks = await getBlocksByIds(chunk.blockIds);
-      //   let div = [];
-      //   for (const block of blocks) {
-      //     if (
-      //       (block.content.length === 0 && block.content === "") ||
-      //       block.markdown === ""
-      //     ) {
-      //       continue;
-      //     }
-      //     div.push({ id: block.id, markdown: block.markdown });
-      //   }
-      //   if (div.length > 0) {
-      //     searchResult.value.push({
-      //       blocks: div,
-      //       score: chunk.score.toFixed(2),
-      //       fts: chunk.fts,
-      //     });
-      //   }
-      // }
-      //
-      // searchResult.value.sort((a, b) =>
-      //   a.score > b.score ? -1 : b.score > a.score ? 0 : 1,
-      // );
-      //
-      // if (searchResult.value.length === 0) {
-      //   await pushMsg("Nothing is found");
-      // }
       isLoading.value = false;
     } catch (err) {
       await pushErrMsg(err.stack);
@@ -110,12 +69,8 @@ async function checkVectorizedDb() {
       vectorizedDb.value.push(nb.name);
     }
   }
-  console.log(dir);
-  // const databases = await window.indexedDB.databases();
-  //     vectorizedDb.value.push(nb.name);
-  //   }
-  // }
-  console.log("vectorized db", vectorizedDb.value);
+  //console.log(dir);
+  //console.log("vectorized db", vectorizedDb.value);
 }
 
 function disableSelection(nbName: string) {

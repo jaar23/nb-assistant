@@ -299,7 +299,7 @@ export default defineComponent({
           const inputRect = input.getBoundingClientRect()
           caretPosition.value = {
             left: rect.left - inputRect.left,
-            top: rect.top - inputRect.top,
+            top: rect.top - inputRect.top - 200,
             height: rect.height,
           }
         } else {
@@ -388,7 +388,7 @@ export default defineComponent({
       :auto-hide="false"
       :theme="theme"
       class="popper"
-      style="position: relative;"
+      style="position: absolute;"
       :style="caretPosition ? {
         top: `${caretPosition.top}px`,
         left: `${caretPosition.left}px`,

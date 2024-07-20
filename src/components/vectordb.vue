@@ -7,8 +7,6 @@ import {
   queryMemVector,
   loadVector,
   embedDoc,
-  getAllDocsByNotebook,
-  transformDocToList,
   embedDocList,
   deleteVectorDb,
   createMDTextDb,
@@ -102,6 +100,7 @@ async function initVectorDb() {
     let nbDocs = [];
     let nbFlatList = [];
     let vectorList = [];
+    // let nbDocs2 = [];
     for (const nb of nbs) {
       await pushMsg(`Getting content from notebook [${nb.name}]`);
       const docs = await getAllBlocksByNotebook(nb.id, "/", 32);
@@ -110,8 +109,16 @@ async function initVectorDb() {
         name: nb.name,
         docs: docs,
       });
+      // const docs2 = await getAllDocsByNotebook(nb.id, "/", 128);
+      // nbDocs2.push({
+      //   id: nb.id,
+      //   name: nb.name,
+      //   docs: docs2
+      // })
     }
     console.log("init db docs", nbDocs);
+    // console.log("init db docs2", nbDocs2);
+
     // create model, storing embeddings
     const model = await createModel();
     
@@ -134,9 +141,12 @@ async function initVectorDb() {
     await pushErrMsg(err.stack);
     isLoading.value = false;
   }
-  // console.log("notebook docs: ", nbDocs);
-  // console.log("doc list", nbFlatList);
-  // console.log("vector list", vectorList);
+}
+
+async function testFn1() {
+  const nbdocs2 = await getAllDocsByNotebook(selectedNotebook.value, "/", 256);
+  console.log("notebooks docs split", nbdocs2);
+
 }
 
 onMounted(async () => {
@@ -148,10 +158,6 @@ onMounted(async () => {
   const pluginSetting = plugin.value.settingUtils.dump();
   dbEnable.value = pluginSetting.dbEnable;
   await checkVectorizedDb();
-  // worker.value.postMessage({ type: "init-model" });
-  // worker.value.addEventListener("message", (e) => {
-  //   console.log("worker", e);
-  // });
 });
 </script>
 <template>
@@ -212,6 +218,9 @@ onMounted(async () => {
         <button v-if="selectedNotebook !== ''" @click="initVectorDb" class="b3-button button-confirm">
           Confirm
         </button>
+      </div>
+      <div>
+        <button @click="testFn1">get all docs by notebookId</button>
       </div>
     </div>
   </div>

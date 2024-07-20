@@ -160,6 +160,41 @@ export async function promptAI(
     }
 }
 
+export async function promptAIChain(
+    systemConf: any,
+    document: string,
+    input: string,
+    systemRole: string)
+{
+    const prompt1 = `Base on your expertise, Your task is to help answer a question given in a document. 
+The first step is to extract quotes relevant to the question from the document, delimited by ####. Please output the list of quotes using <quotes></quotes>. 
+Respond with "No relevant quotes found!" if no relevant quotes were found.
+####
+${document}
+####`;
+    const message1 = await promptAI(systemConf, "", prompt1, systemRole, "", "");
+    
+    const prompt2 = `"${input}"
+Rephrase the question above to be more efficient and concise.
+ALWAYS RESPONE WITH THE REPHRASED WORDS ONLY.
+`
+    const rephrasedInput = await promptAI(systemConf, "", prompt2, systemRole, "", "");
+    console.log("rephrased", rephrasedInput)
+
+    const prompt3 = `Given a set of relevant quotes (delimited by <quotes></quotes>) extracted from a document and the original document (delimited by <document></document>),
+please compose an answer to the question. If quotes is not relevant to the question, form the answer based on original document instead. 
+Ensure that the answer is accurate, has a friendly tone and sounds helpful.
+<document>
+${document}
+</document>
+<quotes>
+${message1}
+</quotes>
+question: ${rephrasedInput}`;
+    const message2 = await promptAI(systemConf, "", prompt3, systemRole, "", "");
+    return message2;
+}
+
 export function parseTags(tagsStr: string) {
     try {
         const tags = tagsStr.split(",");
@@ -181,6 +216,8 @@ export function countWords(str: string) {
 export function blockSplitter(
     blocks: IBlock[],
     chunkSize = 128,
+    nbName = "",
+    docName = ""
 ): { chunk: string; ids: string[] }[] {
     let chunks = [];
     let ids = [];
@@ -188,7 +225,7 @@ export function blockSplitter(
     for (const block of blocks) {
         const wordsCount = countWords(chunk + block.markdown);
         if (wordsCount > chunkSize) {
-            chunks.push({ ids, chunk: chunk + block.markdown });
+            chunks.push({ ids, chunk: `${nbName}\n${docName}\n${chunk} ${block.markdown}` });
             chunk = "";
             ids = [];
             chunk = block.markdown;
@@ -199,11 +236,42 @@ export function blockSplitter(
         }
     }
     if (chunk !== "" && ids.length > 0) {
-        chunks.push({ ids, chunk });
+        chunks.push({ ids, chunk: `${nbName}\n${docName}\n${chunk}` });
     }
     // console.log("chunks", chunks);
     return chunks;
 }
+
+export function textSplitter(
+    id: string,
+    text: string,
+    chunkSize = 128,
+): { chunk: string; ids: string[] }[] {
+    let chunks = [];
+    let chunk = "";
+    let chunkArr = [];
+    let wordsCount = 0;
+    const tokens = tokenize(text);
+    const words = removeStopWord(tokens);
+    for (const word of words) {
+        if (wordsCount > chunkSize) {
+            chunks.push({ ids: [id], chunk: chunk });
+            chunk = chunkArr.slice((chunkArr.length - 32), chunkArr.length).join(" ");
+            chunkArr = [];
+            wordsCount = 0;
+        } else {
+            chunk = chunk + word;
+            chunkArr.push(word);
+            wordsCount++;
+        }
+    }
+    if (chunk !== "") {
+        chunks.push({ ids: [id], chunk });
+    }
+    console.log("chunks", chunks);
+    return chunks;
+}
+
 
 export function tokenize(str: string): string[] {
     return str.trim().match(/[\u00ff-\uffff]|\S+/g);
@@ -274,7 +342,7 @@ export async function checkIfDbExist(dbName: string): Promise<boolean> {
     return (await window.indexedDB.databases()).map(db => db.name).includes(dbName);
 }
 
-export async function searchNotebook(notebookId: string, query: string, minScore=0.2, resultLimit=25) {
+export async function searchNotebook(notebookId: string, query: string, minScore = 0.2, resultLimit = 25) {
     try {
         let searchResult = [];
         const words = nlpPipe(query);
@@ -322,3 +390,5 @@ export async function searchNotebook(notebookId: string, query: string, minScore
         throw new Error(err);
     }
 }
+
+

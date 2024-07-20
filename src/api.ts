@@ -592,9 +592,54 @@ export async function fullTextSearchBlock(
     return request(url, payload);
 }
 
-
 export async function checkBlockExist(blockId: BlockId): Promise<boolean> {
     const url = "/api/block/checkBlockExist";
-    return request(url, {id: blockId});
+    return request(url, { id: blockId });
 }
 
+export async function getAllDocsByNotebook(
+    notebookId: string,
+    path = "/",
+): Promise<any[]> {
+    let docs = [];
+    const notebook = await listDocsByPath(notebookId, path);
+    if (notebook == null) return docs;
+    for (let nb of notebook.files ?? []) {
+        if (nb.subFileCount > 0) {
+            let subDocs = await getAllDocsByNotebook(notebookId, nb.path);
+            docs.push({ id: nb.id, name: nb.name, docs: subDocs });
+        } else {
+            docs.push(nb);
+        }
+    }
+    return docs;
+}
+
+export function transformDocToList(
+    list: any[],
+    docs: any[],
+    nbName: string,
+    nbId: string,
+    startId: number = 1,
+) {
+    let id = startId;
+    //console.log("docs", docs);
+    for (const subdoc of docs) {
+        if (subdoc.hasOwnProperty("docs")) {
+            transformDocToList(list, subdoc.docs, nbName, nbId, id);
+        } else {
+            list.push({
+                id: id,
+                notebookId: nbId,
+                notebookName: nbName,
+                docId: subdoc.id,
+                hidden: subdoc.hidden,
+                memo: subdoc.memo,
+                docName: subdoc.name,
+                docName1: subdoc.name1,
+                docPath: subdoc.path,
+            });
+            id = id + 1;
+        }
+    }
+}

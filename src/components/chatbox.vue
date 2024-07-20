@@ -1,11 +1,25 @@
 <script setup lang="ts">
-import { request, pushErrMsg, readDir, lsNotebooks } from "@/api.ts";
+import {
+  request,
+  pushErrMsg,
+  readDir,
+  lsNotebooks,
+  listDocsByPath,
+  getAllDocsByNotebook,
+  transformDocToList,
+  exportMdContent,
+} from "@/api.ts";
 import { dataPath } from "@/embedding.ts";
 import { ref, onMounted } from "vue";
 import Loading from "vue-loading-overlay";
 import "vue-loading-overlay/dist/css/index.css";
-import { promptAI, countWords, searchNotebook, tokenize } from "@/utils.ts";
-//import { Mentionable } from "vue-mention";
+import {
+  promptAI,
+  countWords,
+  searchNotebook,
+  tokenize,
+  promptAIChain,
+} from "@/utils.ts";
 import Mentionable from "@/components/mentionable.vue";
 
 const chatInput = defineModel("chatInput");
@@ -16,8 +30,11 @@ const isLoading = defineModel("inferencing");
 const enterToSend = defineModel("enterToSend");
 const previousRole = ref("");
 const selectedNotebook = ref("");
+const selectedDocument = ref([]);
 const vectorizedDb = ref([]);
+const documents = ref([]);
 const extraContext = ref("");
+const mentionItems = ref([]);
 
 async function prompt() {
   try {
@@ -43,28 +60,36 @@ async function prompt() {
       }
       emit("response", { question: chatInput.value, answer: "" });
 
-      emit(
-        "tokenCount",
-        countWords(
-          chatInput.value +
-          (previousRole.value !== pluginSetting.systemPrompt ? "" : history),
-        ),
-      );
-      
-      const respMessage = await promptAI(
-        systemConf,
-        previousRole.value !== pluginSetting.systemPrompt ? "" : history,
-        extraContext.value !== "" ? `${extraContext.value} ${chatInput.value}`: chatInput.value,
-        pluginSetting.systemPrompt,
-        pluginSetting.customSystemPrompt,
-        pluginSetting.customUserPrompt,
-      );
+      contextLen = countWords(`${extraContext.value} ${chatInput.value}`);
+      let respMessage = "";
+      if (contextLen > 500) {
+        console.log("using prompt chain");
+        respMessage = await promptAIChain(
+          systemConf,
+          extraContext.value,
+          chatInput.value,
+          pluginSetting.systemPrompt,
+        );
+      } else {
+        console.log("usng prompt with context only");
+        respMessage = await promptAI(
+          systemConf,
+          previousRole.value !== pluginSetting.systemPrompt ? "" : history,
+          extraContext.value !== ""
+            ? `${extraContext.value} ${chatInput.value}`
+            : chatInput.value,
+          pluginSetting.systemPrompt,
+          pluginSetting.customSystemPrompt,
+          pluginSetting.customUserPrompt,
+        );
+      }
 
       emit("response", { question: "", answer: respMessage });
       previousRole.value = pluginSetting.systemPrompt;
       chatInput.value = "";
       selectedNotebook.value = "";
       extraContext.value = "";
+      selectedDocument.value = [];
       isLoading.value = false;
     } else {
       await pushErrMsg(
@@ -74,6 +99,7 @@ async function prompt() {
   } catch (err) {
     isLoading.value = false;
     selectedNotebook.value = "";
+    selectedDocument.value = [];
     extraContext.value = "";
     await pushErrMsg(err);
   }
@@ -81,29 +107,47 @@ async function prompt() {
 
 async function typing(ev) {
   if (ev.key === "Enter" && !ev.shiftKey) {
-    if (selectedNotebook.value !== "") {
-      const tokens = tokenize(chatInput.value);
-      let query = "";
-      for (const t of tokens) {
-        if (!t.startsWith("@")) {
-          query += `${t} `;
+    try {
+      isLoading.value = true;
+      if (selectedNotebook.value !== "") {
+        const tokens = tokenize(chatInput.value);
+        let query = "";
+        for (const t of tokens) {
+          if (!t.startsWith("@") && !t.startsWith("/")) {
+            query += `${t} `;
+          }
         }
-      }
-      const searchResult = await searchNotebook(selectedNotebook.value, query, 0.2, 20);
-      console.log("search result", searchResult);
-      let evaluateResult = "";
-      for (const sr of searchResult) {
-        for (const block of sr.blocks) {
-          evaluateResult += `${block.markdown} \n`
+        const searchResult = await searchNotebook(
+          selectedNotebook.value,
+          query,
+          0.2,
+          20,
+        );
+        console.log("search result", searchResult);
+        let evaluateResult = "";
+        for (const sr of searchResult) {
+          for (const block of sr.blocks) {
+            evaluateResult += `${block.markdown} \n`;
+          }
         }
+        console.log("extra context", evaluateResult);
+        extraContext.value = evaluateResult;
+        //extraContext.value = `Base on the details below\n${evaluateResult}\n Extract the relevant details for query below:\n`;
+      } else if (selectedDocument.value.length > 0) {
+        for (const doc of selectedDocument.value) {
+          const markdown = await exportMdContent(doc);
+          extraContext.value = `${extraContext.value}\n---\n${markdown.content}`;
+        }
+      } else {
+        extraContext.value = "";
       }
-      console.log("extra context", evaluateResult);
-      //extraContext.value = `Base on the details below\n${evaluateResult}\n Extract the relevant details for query below:\n`;
-      extraContext.value = `Base on this query ${chatInput.value}.\n1. Extract the topic of the query.\n2. Extract the relevant details from below ${evaluateResult}.\nStrictly response using the details provide, do not generate your own answer.`
-    } else {
-      extraContext.value = "";
+      await prompt();
+      isLoading.value = false;
+    } catch (e) {
+      console.error(e);
+      isLoading.value = false;
+      pushErrMsg(e.stack);
     }
-    await prompt();
   }
 }
 
@@ -122,23 +166,69 @@ async function checkVectorizedDb() {
   const dir = await readDir(dataPath);
   const notebooks = await lsNotebooks();
   for (const nb of notebooks.notebooks) {
+    if (nb.name === "SiYuan User Guide") {
+      continue;
+    }
+
     if (dir.filter((f) => f.name.includes(nb.id)).length > 0) {
-      vectorizedDb.value.push({ id: nb.id, name: nb.name, value: nb.name, key: nb.id });
+      vectorizedDb.value.push({
+        id: nb.id,
+        name: nb.name,
+        value: `@${nb.name}`,
+        key: nb.id,
+      });
     }
   }
   console.log("vectorized db", vectorizedDb.value);
 }
 
-async function onMention(key, currentKeyVal, value) {
-  // console.log("key", key);
+async function checkAllDocuments() {
+  documents.value = [];
+  const notebooks = await lsNotebooks();
+  for (const nb of notebooks.notebooks) {
+    if (nb.name === "SiYuan User Guide") {
+      continue;
+    }
+
+    const alldocs = await getAllDocsByNotebook(nb.id, "/");
+    let flatlist = [];
+    transformDocToList(flatlist, alldocs, nb.name, nb.id);
+    // console.log("flat list", flatlist);
+    for (const doc of flatlist) {
+      const docName = doc.docName.replace(".sy", "");
+      documents.value.push({
+        ...doc,
+        id: doc.docId,
+        key: doc.docId,
+        value: `/${docName}`,
+        name: docName,
+      });
+    }
+  }
+  console.log("documents", documents.value);
+}
+
+async function onMention(item, currentKeyVal, value) {
+  // console.log("key", item.key);
   // console.log("curr key", currentKeyVal);
   // console.log("val", value);
   for (const nb of vectorizedDb.value) {
-    if (nb.id === key.id) {
+    if (nb.id === item.key) {
       selectedNotebook.value = nb.id;
+      break;
     }
   }
-  console.log("selected ", selectedNotebook.value);
+  if (selectedNotebook.value !== "") {
+    return;
+  }
+  for (const doc of documents.value) {
+    if (doc.key === item.key) {
+      selectedDocument.value.push(doc.key);
+      break;
+    }
+  }
+  console.log("selected notebook", selectedNotebook.value);
+  console.log("selected document", selectedDocument.value);
 }
 
 async function onApply(item, key, replacedWith) {
@@ -147,12 +237,24 @@ async function onApply(item, key, replacedWith) {
   console.log(text.value);
 }
 
+async function onOpen(key) {
+  if (key === "@") {
+    mentionItems.value = vectorizedDb.value;
+  } else if (key === "/") {
+    mentionItems.value = documents.value;
+  }
+}
+
 onMounted(async () => {
-  await checkVectorizedDb();
-  // for (const nb of vectorizedDb.value) {
-  //   userMentionTrigger.items.push({ value: nb.name });
-  // }
-  // console.log("user mention trigger", userMentionTrigger);
+  try {
+    isLoading.value = true;
+    await checkVectorizedDb();
+    await checkAllDocuments();
+    isLoading.value = false;
+  } catch (e) {
+    console.error(e);
+    isLoading.value = false;
+  }
 });
 
 defineExpose({
@@ -164,7 +266,8 @@ defineExpose({
   <div class="input-area">
     <loading v-model:active="isLoading" :can-cancel="false" :on-cancel="loadingCancel" loader="bars"
       background-color="#eee" opacity="0.25" :is-full-page="false" />
-    <Mentionable class="mention" :keys="['@']" :items="vectorizedDb" offset="6" insert-space @apply="onMention">
+    <Mentionable class="mention" :keys="['@', '/']" :items="mentionItems" omit-key insert-space @apply="onMention"
+      @open="onOpen" :limit="10">
       <textarea class="textarea b3-text-field" v-model="chatInput" :placeholder="plugin.i18n.chatPlaceHolder"
         @keypress="typing"></textarea>
 
@@ -175,16 +278,16 @@ defineExpose({
       <template #item-@="{ item }">
         <div class="mention-item">
           {{ item.name }}
-          <!-- <span class="dim"> ({{ item.name }}) </span> -->
+        </div>
+      </template>
+
+      <template #item-%2F="{ item }">
+        <div class="mention-item">
+          {{ item.name }}
         </div>
       </template>
     </Mentionable>
-    <!-- <SmartSuggest :triggers="[userMentionTrigger]"> -->
-    <!--   <textarea class="textarea b3-text-field" v-model="chatInput" :placeholder="plugin.i18n.chatPlaceHolder" -->
-    <!--     @keypress="typing"></textarea> -->
-    <!-- </SmartSuggest> -->
     <button class="button b3-button" @click="prompt">
-      <!--       {{ plugin.i18n.send}} -->
       <svg width="32px" height="32px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" color="#000000"
         stroke-width="1.5">
         <path fill-rule="evenodd" clip-rule="evenodd"
@@ -195,7 +298,7 @@ defineExpose({
   </div>
 </template>
 
-<style scoped>
+<style>
 .input-area {
   margin: 0.5em;
   padding: 0.5em;
@@ -205,6 +308,7 @@ defineExpose({
 
 .mention {
   height: 100%;
+  background-color: transparent;
 }
 
 .textarea {
@@ -229,12 +333,16 @@ defineExpose({
 
 .mention-item {
   background-color: var(--b3-theme-surface);
-  border: 1px solid #b7b7b7;
-  padding: 4px 10px;
+  /*border: 1px solid #b7b7b7;*/
+  padding: 4px 4px;
+  min-height: 28px;
 }
 
 .mention-selected {
-  background-color: var(--b3-theme-success)
+  background-color: var(--b3-theme-success);
 }
 
+.v-popper__wrapper .resize-observer object {
+  display: none;
+}
 </style>

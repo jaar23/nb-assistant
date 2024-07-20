@@ -122,7 +122,7 @@ async function saveChat(title: string) {
 
 onMounted(async () => {
   const systemConf = await request("/api/system/getConf");
-  console.log(systemConf);
+  // console.log(systemConf);
   if (
     systemConf.conf.ai.openAI.apiBaseURL !== "" &&
     systemConf.conf.ai.openAI.apiKey !== "" &&
@@ -132,10 +132,10 @@ onMounted(async () => {
     isAIEnable.value = true;
     historyRetain.value = systemConf.conf.ai.openAI.apiMaxContexts;
   }
-  console.log("ai configure? ", isAIEnable.value);
-  console.log("context length? ", historyRetain.value);
-  console.log("system conf: ", systemConf.conf.ai);
-  console.log("i18n: ", props.plugin.i18n);
+  // console.log("ai configure? ", isAIEnable.value);
+  // console.log("context length? ", historyRetain.value);
+  // console.log("system conf: ", systemConf.conf.ai);
+  // console.log("i18n: ", props.plugin.i18n);
   aiEmoji.value = props.plugin.settingUtils.dump().aiEmoji;
   enterToSend.value = props.plugin.settingUtils.dump().enterToSend;
   // get current doc

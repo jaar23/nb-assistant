@@ -253,11 +253,19 @@ defineExpose({
 .dropdown ul {
   list-style: none;
   padding-top: 35px;
+  width: 100%;
+  display: grid;
+}
+
+.dropdown ul li {
+  margin: 0.35em 0em;
+  width: 100%;
 }
 
 .dropdown select {
   margin: 4px;
-  max-width: 80%;
+  max-width: 100%;
+  width: 100%;
   float: right;
 }
 
