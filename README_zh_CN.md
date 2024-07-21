@@ -5,6 +5,27 @@
 
 思源笔记本助手 (nb-assistant) 是一个为 SiYuan 构建的插件，旨在增强其 AI 能力。
 
+0.1.3 目前处于预发布阶段！如果你正在使用它，你需要通过特定端口启动 SiYuan。
+
+原因是因为 Electron 缓存问题。（https://github.com/siyuan-note/siyuan/issues/11969）
+在 Linux 上执行此操作：
+
+选项 1
+```shell
+siyuan --port=16806
+```
+
+选项 2
+1. 编辑 /usr/share/applications/siyuan.desktop
+2. 将 Exec 行修改为以下内容
+```
+Exec=/opt/SiYuan/siyuan --port=16806 %U
+```
+3. 像往常一样启动 SiYuan
+
+尚未在 MacOS 和 Windows 上测试，如果你已经尝试过了，欢迎开一个 pull request 或 issue 来分享你的方法。
+
+
 ![preview](./preview.png)
 
 它具有以下功能：
