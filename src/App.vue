@@ -29,6 +29,7 @@ const historyMessages = ref<{
   aiEmoji: string;
   actionable: boolean;
   actionType: string;
+  blockId: string;
 }>([]);
 const historyRetain = ref(7);
 const isAIEnable = ref(false);

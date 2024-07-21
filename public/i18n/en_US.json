@@ -43,6 +43,6 @@
     "noNotebookSelected": "No notebook is selected to save chat history, select it via pluggin setting.",
     "AIConfigTitle": "NOTE",
     "AIConfigDesc": "Please note that this plugin leverage on SiYuan default AI setting, you will be to configure the AI setting before you start using Notebook Assistant.",
-    "dbEnabled": "Enable Database",
-    "dbEnabledDesc": "Enable database will persist your notebook and document for nb-assistant to perform similarity search. This feature is required for RAG. All the data is stored within SiYuan application (IndexedDb)."
+    "localEmbeddingEnabled": "Enable Local Embedding Service",
+    "localEmbeddingEnabledDesc": "Enable Local Embedding Service will be using transformer.js and onnx runtime within SiYuan to create embedding. There may be a slightly slow during the process. This feature is required for RAG (Retrieval-Augmented Generation) using your own data. All the data is stored within SiYuan."
 }

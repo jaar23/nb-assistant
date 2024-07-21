@@ -35,20 +35,21 @@ import "vue-loading-overlay/dist/css/index.css";
 
 const notebooks = ref([]);
 const selectedNotebook = defineModel("selectedNotebook");
-const dbEnable = ref(false);
+const localEmbeddingEnable = ref(false);
 const plugin = defineModel("plugin");
 const isLoading = ref(false);
 const vectorizedDb = ref([]);
 
+
 async function enableDb() {
   const pluginSetting = plugin.value.settingUtils.dump();
-  plugin.value.settingUtils.setAndSave("dbEnable", !pluginSetting.dbEnable);
+  plugin.value.settingUtils.setAndSave("localEmbeddingEnable", !pluginSetting.localEmbeddingEnable);
 }
 
 async function setupVectorDb() {
-  if (dbEnable.value) {
+  if (localEmbeddingEnable.value) {
     try {
-      plugin.value.settingUtils.setAndSave("dbEnable", true);
+      plugin.value.settingUtils.setAndSave("localEmbeddingEnable", true);
       await promptPersistPermission();
       isLoading.value = true;
       await pushMsg("Downloading model from huggingface and setup onyxruntime");
@@ -66,7 +67,7 @@ async function setupVectorDb() {
       isLoading.value = false;
     }
   } else {
-    plugin.value.settingUtils.setAndSave("dbEnable", false);
+    plugin.value.settingUtils.setAndSave("localEmbeddingEnable", false);
   }
 }
 
@@ -100,7 +101,6 @@ async function initVectorDb() {
     let nbDocs = [];
     let nbFlatList = [];
     let vectorList = [];
-    // let nbDocs2 = [];
     for (const nb of nbs) {
       await pushMsg(`Getting content from notebook [${nb.name}]`);
       const docs = await getAllBlocksByNotebook(nb.id, "/", 32);
@@ -109,15 +109,8 @@ async function initVectorDb() {
         name: nb.name,
         docs: docs,
       });
-      // const docs2 = await getAllDocsByNotebook(nb.id, "/", 128);
-      // nbDocs2.push({
-      //   id: nb.id,
-      //   name: nb.name,
-      //   docs: docs2
-      // })
     }
     console.log("init db docs", nbDocs);
-    // console.log("init db docs2", nbDocs2);
 
     // create model, storing embeddings
     const model = await createModel();
@@ -143,12 +136,6 @@ async function initVectorDb() {
   }
 }
 
-async function testFn1() {
-  const nbdocs2 = await getAllDocsByNotebook(selectedNotebook.value, "/", 256);
-  console.log("notebooks docs split", nbdocs2);
-
-}
-
 onMounted(async () => {
   const nbs = await lsNotebooks();
   notebooks.value = nbs.notebooks.filter(
@@ -156,7 +143,7 @@ onMounted(async () => {
   );
   selectedNotebook.value = "";
   const pluginSetting = plugin.value.settingUtils.dump();
-  dbEnable.value = pluginSetting.dbEnable;
+  localEmbeddingEnable.value = pluginSetting.localEmbeddingEnable;
   await checkVectorizedDb();
 });
 </script>
@@ -168,14 +155,14 @@ onMounted(async () => {
     <br />
     <div>
       <label style="display: inline-flex; width: 100%">
-        <div class="switch">Enable Database</div>
-        <input type="checkbox" class="b3-switch" @change="setupVectorDb" v-model="dbEnable" />
+        <div class="switch">Enable Local Embedding Service</div>
+        <input type="checkbox" class="b3-switch" @change="setupVectorDb" v-model="localEmbeddingEnable" />
       </label>
       <small>
-        Enable database will persist your notebook and document for nb-assistant
-        to perform similarity search. This feature is required for RAG
-        (Retrieval-Augmented Generation) using your own data. All the data is
-        stored within SiYuan application (IndexedDb).
+        Enable Local Embedding Service will be using transformer.js and onnx runtime 
+        within SiYuan to create embedding. There may be a slightly slow during the process. 
+        This feature is required for RAG (Retrieval-Augmented Generation) using your own data. 
+        All the data is stored within SiYuan.
       </small>
     </div>
     <br />
@@ -218,9 +205,6 @@ onMounted(async () => {
         <button v-if="selectedNotebook !== ''" @click="initVectorDb" class="b3-button button-confirm">
           Confirm
         </button>
-      </div>
-      <div>
-        <button @click="testFn1">get all docs by notebookId</button>
       </div>
     </div>
   </div>

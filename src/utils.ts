@@ -197,7 +197,19 @@ question: ${rephrasedInput}`;
 
 export function parseTags(tagsStr: string) {
     try {
-        const tags = tagsStr.split(",");
+        let str = tagsStr;
+        if (str.startsWith("```json")) {
+            str = str.replace("```json", "");
+            str = str.replace("```", "");
+        }
+        if (str.startsWith("```plaintext")) {
+            str = str.replace("```plaintext", "");
+            str = str.replace("```", "");
+        }
+        if (str.includes("```")) {
+            str = str.replaceAll("```", "");
+        }
+        const tags = str.trim().split(",");
         return tags.map((x) => x.trim());
     } catch (err) {
         return [];

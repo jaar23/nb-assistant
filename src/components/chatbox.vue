@@ -298,7 +298,7 @@ defineExpose({
   </div>
 </template>
 
-<style>
+<style scoped>
 .input-area {
   margin: 0.5em;
   padding: 0.5em;
@@ -331,18 +331,4 @@ defineExpose({
   background-color: var(--b3-theme-success) !important;
 }
 
-.mention-item {
-  background-color: var(--b3-theme-surface);
-  /*border: 1px solid #b7b7b7;*/
-  padding: 4px 4px;
-  min-height: 28px;
-}
-
-.mention-selected {
-  background-color: var(--b3-theme-success);
-}
-
-.v-popper__wrapper .resize-observer object {
-  display: none;
-}
 </style>

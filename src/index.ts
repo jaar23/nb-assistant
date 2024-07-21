@@ -255,16 +255,16 @@ export default class PluginSample extends Plugin {
         });
 
         this.settingUtils.addItem({
-            key: "dbEnable",
+            key: "localEmbeddingEnable",
             value: false,
             type: "checkbox",
-            title: this.i18n.dbEnabled,
-            description: this.i18n.dbEnabledDesc,
+            title: this.i18n.localEmbeddingEnabled,
+            description: this.i18n.localEmbeddingEnabledDesc,
             action: {
                 callback: () => {
                     // Return data and save it in real time
-                    let value = !this.settingUtils.get("dbEnable");
-                    this.settingUtils.setAndSave("dbEnable", value);
+                    let value = !this.settingUtils.get("localEmbeddingEnable");
+                    this.settingUtils.setAndSave("localEmbedding", value);
                     console.log(value);
                     if (value) {
                         pushMsg("Downloading model from huggingface and setup onyxruntime")

@@ -43,7 +43,17 @@ async function summarizeOpenDoc(ev: any) {
       pluginSetting.customSystemPrompt,
       pluginSetting.customUserPrompt,
     );
-    emit("response", { question: "", answer: respMessage, actionable: false });
+    let message = {question: "", answer: respMessage};
+    if (respMessage.length > 0) {
+      message["actionable"] = true;
+      message["actionType"] = "SaveSummary";
+      message["blockId"] = blockId;
+    } else {
+      message["actionable"] = false;
+      message["actionType"] = "Message";
+      message["blockId"] = blockId;
+    }
+    emit("response", message);
     isLoading.value = false;
     selectedSumTab.value = "";
   } catch (err) {
@@ -69,12 +79,12 @@ async function autoTagOpenDoc(ev: any) {
     const respMessage = await promptAI(
       systemConf,
       "",
-      `Extract the entity for this document and generate 3 to 5 tags from the provided text. 
+      `Generate 3 to 5 tags from the provided text below. 
 Example: A computer is a machine that can be programmed to automatically carry out sequences of arithmetic or logical operations (computation). Modern digital electronic computers can perform generic sets of operations known as programs. These programs enable computers to perform a wide range of tasks. 
 Response: computer, computer system, technology
 Example: Physics is the natural science of matter, involving the study of matter, its fundamental constituents, its motion and behavior through space and time, and the related entities of energy and force.[1] Physics is one of the most fundamental scientific disciplines.[2][3][4] A scientist who specializes in the field of physics is called a physicist. 
 Response: Physics, Natural Science, Science
-Remember ALWAYS Response only in text format
+ALWAYS RESPONSE ONLY IN PLAINTEXT FORMAT
 ---
 ${doc.content}`,
       pluginSetting.systemPrompt,
@@ -83,13 +93,16 @@ ${doc.content}`,
     );
 
     const tags = parseTags(respMessage);
-    console.log("tags:", tags);
     let message = { question: "", answer: respMessage };
     if (tags.length > 0) {
       message["actionable"] = true;
       message["actionType"] = "Checkbox";
+      message["blockId"] = blockId
+    } else {
+      message["actionable"] = false;
+      message["actionType"] = "Message";
+      message["blockId"] = blockId;
     }
-    console.log("tag message", message);
     emit("response", message);
     isLoading.value = false;
     selectedTagTab.value = "";
