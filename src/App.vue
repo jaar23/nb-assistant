@@ -160,7 +160,7 @@ onMounted(async () => {
         </shortcut>
       </div>
       <div v-if="isAIEnable">
-        <history class="history" v-model="historyMessages" v-if="historyMessages.length > 0"></history>
+        <history class="history" v-model:message="historyMessages" v-if="historyMessages.length > 0" v-model:plugin="props.plugin"></history>
         <chatbox class="chat" ref="chatboxCompRef" v-model:inferencing="inferencing" v-model:chatInput="chatInput"
           v-model:plugin="props.plugin" v-model:enterToSend="enterToSend" @tokenCount="showTokenCount"
           @response="updateHistory" />
@@ -178,7 +178,7 @@ onMounted(async () => {
         <vdbheader class="shortcut" v-model:plugin="props.plugin" 
         @onVectorDbView="onVectorDbView" @onSearchView="onSearchView"></vdbheader>
       </div>
-      <vectordb v-if="!onSearch" v-model:plugin="props.plugin" v-model:worker="props.worker"/>
+      <vectordb v-if="!onSearch" v-model:plugin="props.plugin"/>
       <search v-if="onSearch" v-model:plugin="props.plugin"></search>
     </div>
   </div>

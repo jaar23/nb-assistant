@@ -40,10 +40,12 @@ const plugin = defineModel("plugin");
 const isLoading = ref(false);
 const vectorizedDb = ref([]);
 
-
 async function enableDb() {
   const pluginSetting = plugin.value.settingUtils.dump();
-  plugin.value.settingUtils.setAndSave("localEmbeddingEnable", !pluginSetting.localEmbeddingEnable);
+  plugin.value.settingUtils.setAndSave(
+    "localEmbeddingEnable",
+    !pluginSetting.localEmbeddingEnable,
+  );
 }
 
 async function setupVectorDb() {
@@ -52,17 +54,17 @@ async function setupVectorDb() {
       plugin.value.settingUtils.setAndSave("localEmbeddingEnable", true);
       await promptPersistPermission();
       isLoading.value = true;
-      await pushMsg("Downloading model from huggingface and setup onyxruntime");
+      await pushMsg(plugin.value.i18n.downloadOnnxRuntime);
       const model = await createModel();
       console.log("model created");
-      await pushMsg("Embedding model is setup.");
+      await pushMsg(plugin.value.i18n.embeddingModelCreated);
       const embeddings = await createEmbedding(model, "hello");
       console.log("embeddings created", embeddings);
-      await pushMsg("Successfully created embeddings");
+      await pushMsg(plugin.value.i18n.createdEmbeddingsSuccess);
       isLoading.value = false;
     } catch (err) {
       console.error(err);
-      await pushErrMsg("unable to setup vectordb");
+      await pushErrMsg(plugin.value.i18n.unableToSetupVDB);
       await pushErrMsg(err);
       isLoading.value = false;
     }
@@ -70,7 +72,6 @@ async function setupVectorDb() {
     plugin.value.settingUtils.setAndSave("localEmbeddingEnable", false);
   }
 }
-
 
 async function checkVectorizedDb() {
   vectorizedDb.value = [];
@@ -102,7 +103,7 @@ async function initVectorDb() {
     let nbFlatList = [];
     let vectorList = [];
     for (const nb of nbs) {
-      await pushMsg(`Getting content from notebook [${nb.name}]`);
+      await pushMsg(`${plugin.value.i18n.getContentFromNotebook} [${nb.name}]`);
       const docs = await getAllBlocksByNotebook(nb.id, "/", 32);
       nbDocs.push({
         id: nb.id,
@@ -110,20 +111,16 @@ async function initVectorDb() {
         docs: docs,
       });
     }
-    console.log("init db docs", nbDocs);
+    // console.log("init db docs", nbDocs);
 
     // create model, storing embeddings
     const model = await createModel();
-    
+
     for (const nb of nbDocs) {
-      await pushMsg(
-        `Creating embeddings and chunking for notebook [${nb.name}]`,
-      );
-      await initDb(nb.id, nb.name, nb.docs, model);
+      await pushMsg(`${plugin.value.i18n.embeddedAndChunk} [${nb.name}]`);
+      await initDb(nb.id, nb.name, nb.docs, model, plugin.value);
       console.log("notebook vector and md splitted db inited", nb.id, nb.name);
-      await pushMsg(
-        `Successfully created embeddings and chunking for notebook [${nb.name}]`,
-      );
+      await pushMsg(`${plugin.value.i18n.createdEmbeddingsSuccess} [${nb.name}]`);
     }
 
     await checkVectorizedDb();
@@ -136,74 +133,64 @@ async function initVectorDb() {
   }
 }
 
+function loadingCancel() {
+  isLoading.value = false;
+}
+
 onMounted(async () => {
   const nbs = await lsNotebooks();
   notebooks.value = nbs.notebooks.filter(
-    (nb) => !nb.name.includes("SiYuan User Guide"),
+    (nb) =>
+      !nb.name.includes("SiYuan User Guide") &&
+      !nb.name.includes("思源笔记用户指南"),
   );
   selectedNotebook.value = "";
   const pluginSetting = plugin.value.settingUtils.dump();
   localEmbeddingEnable.value = pluginSetting.localEmbeddingEnable;
   await checkVectorizedDb();
+  console.log("plugin", plugin.value);
 });
 </script>
 <template>
   <div class="vectordb-container">
     <loading v-model:active="isLoading" :can-cancel="false" :on-cancel="loadingCancel" loader="bars"
-      background-color="#eee" opacity="0.25" :is-full-page="false" />
+      background-color="#eee" :opacity="0.25" :is-full-page="false" />
 
     <br />
     <div>
       <label style="display: inline-flex; width: 100%">
-        <div class="switch">Enable Local Embedding Service</div>
+        <div class="switch">{{ plugin.i18n.localEmbeddingEnabled}}</div>
         <input type="checkbox" class="b3-switch" @change="setupVectorDb" v-model="localEmbeddingEnable" />
       </label>
       <small>
-        Enable Local Embedding Service will be using transformer.js and onnx runtime 
-        within SiYuan to create embedding. There may be a slightly slow during the process. 
-        This feature is required for RAG (Retrieval-Augmented Generation) using your own data. 
-        All the data is stored within SiYuan.
+        {{ plugin.i18n.localEmbeddingEnabledDesc}}
       </small>
     </div>
     <br />
     <div>
-      <label> Select notebook to create embeddings </label>
-      <select class="b3-select" v-model="selectedNotebook" placeholder="Select a notebook">
-        <option value="" disabled>Please select</option>
-        <option value="*">All notebooks</option>
+      <label> {{ plugin.i18n.selectNotebook }} </label>
+      <select class="b3-select" v-model="selectedNotebook">
+        <option value="" disabled>{{ plugin.i18n.pleaseSelect }}</option>
+        <option value="*">{{ plugin.i18n.allNotebook }}</option>
         <option v-for="nb in notebooks" :value="nb.id">
           {{ nb.name }}
         </option>
       </select>
       <br />
-      <span class="tag" v-for="vdb of vectorizedDb">{{ vdb }}</span> has created
-      an embeddings copies.
+      <span class="tag" v-for="vdb of vectorizedDb">{{ vdb }}</span>
+      {{ plugin.i18n.createdEmbeddings }}
       <br />
-      <p>
-        This action will be create embedding based on your notebook and
-        documents, it will take approximately 1 - 10 minutes, depending on your
-        machine performance and the data you have. While running this action, DO
-        NOT close nb-assistant or exit SiYuan. After this process is done, you
-        will be able to use the embedding created by this notebook for RAG.
-      </p>
-      <p>
-        Embeddings created is not auto updated as it is an heavy task that may
-        affect SiYuan's performance. Therefore, it will required user effort to
-        select the notebook to create embedding and chunking. Select the same
-        notebook will drop the existing copies and re-create with latest
-        notebook contents.
-      </p>
+      <p>{{ plugin.i18n.createEmbeddingsNote1 }}</p>
+      <p>{{ plugin.i18n.createEmbeddingsNote2 }}</p>
       <p v-if="selectedNotebook === '*'">
-        Creating embeddings for all notebooks will take longer time, depending
-        on your machine performance and notebook contents. Please be patient
-        while waiting.
+        {{ plugin.i18n.createEmbeddingsNote3 }}
       </p>
       <div>
         <button v-if="selectedNotebook !== ''" @click="selectedNotebook = ''" class="b3-button button-cancel">
-          Cancel
+          {{ plugin.i18n.cancel }}
         </button>
         <button v-if="selectedNotebook !== ''" @click="initVectorDb" class="b3-button button-confirm">
-          Confirm
+          {{ plugin.i18n.confirm }}
         </button>
       </div>
     </div>

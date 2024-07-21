@@ -10,7 +10,12 @@ import {
   checkBlockExist,
   readDir,
 } from "@/api";
-import { blockSplitter, nlpPipe, mergeSearchResult, searchNotebook } from "@/utils";
+import {
+  blockSplitter,
+  nlpPipe,
+  mergeSearchResult,
+  searchNotebook,
+} from "@/utils";
 import { reranker, createModel } from "@/model";
 import { ref, onMounted } from "vue";
 import Loading from "vue-loading-overlay";
@@ -25,6 +30,7 @@ import MarkdownItSub from "markdown-it-sub";
 import MarkdownItSup from "markdown-it-sup";
 import MarkdownItTasklists from "markdown-it-task-lists";
 import MarkdownItTOC from "markdown-it-toc-done-right";
+import searchresult from "@/components/searchresult.vue";
 
 const markdown = new MarkdownIt()
   .use(MarkdownItAbbr)
@@ -43,19 +49,20 @@ const vectorizedDb = ref([]);
 const dbEnable = ref(false);
 const plugin = defineModel("plugin");
 const searchResult = ref([]);
-const searchNote = `Similarity search is a search method that retrieves objects based on their similarity to a 
-query object, rather than exact keyword matching.`;
 const dir = ref([]);
 
 async function search(ev) {
   if (ev.key === "Enter" && !ev.shiftKey) {
     try {
       isLoading.value = true;
-      searchResult.value = await searchNotebook(selectedNotebook.value, searchInput.value);
+      searchResult.value = await searchNotebook(
+        selectedNotebook.value,
+        searchInput.value,
+      );
       isLoading.value = false;
     } catch (err) {
       await pushErrMsg(err.stack);
-      isLoading.value = false;      
+      isLoading.value = false;
     }
   }
 }
@@ -69,8 +76,6 @@ async function checkVectorizedDb() {
       vectorizedDb.value.push(nb.name);
     }
   }
-  //console.log(dir);
-  //console.log("vectorized db", vectorizedDb.value);
 }
 
 function disableSelection(nbName: string) {
@@ -81,16 +86,22 @@ async function openBlock(blockId) {
   const url = "siyuan://blocks/";
   const blockExist = await checkBlockExist(blockId);
   if (!blockExist) {
-    await pushMsg("Block not found, it may be deleted or removed");
+    await pushMsg(plugin.i18n.blockNotFound);
     return;
   }
   window.openFileByURL(url + blockId);
 }
 
+function loadingCancel() {
+  isLoading.value = false;
+}
+
 onMounted(async () => {
   const nbs = await lsNotebooks();
   notebooks.value = nbs.notebooks.filter(
-    (nb) => !nb.name.includes("SiYuan User Guide"),
+    (nb) =>
+      !nb.name.includes("SiYuan User Guide") &&
+      !nb.name.includes("思源笔记用户指南"),
   );
   selectedNotebook.value = "";
   const pluginSetting = plugin.value.settingUtils.dump();
@@ -102,44 +113,45 @@ onMounted(async () => {
 <template>
   <div class="search-container">
     <loading v-model:active="isLoading" :can-cancel="false" :on-cancel="loadingCancel" loader="bars"
-      background-color="#eee" opacity="0.25" :is-full-page="false" />
+      background-color="#eee" :opacity="0.25" :is-full-page="false" />
 
     <div class="container-row">
-      <label :title="searchNote"> Search Notebook </label>
+      <label :title="plugin.i18n.searchNote"> {{ plugin.i18n.searchNotebook }} </label>
       <select class="b3-select" v-model="selectedNotebook" placeholder="Select a notebook">
-        <option value="" disabled>Please select</option>
-        <option value="*">All notebooks</option>
+        <option value="" disabled>{{ plugin.i18n.pleaseSelect }}</option>
+        <option value="*">{{ plugin.i18n.allNotebook }}</option>
         <option v-for="nb in notebooks" :value="nb.id" :disabled="disableSelection(nb.name)">
           {{ nb.name }}
         </option>
       </select>
       <br />
-      <span class="tag" v-for="vdb of vectorizedDb">{{ vdb }}</span> has created
-      an embeddings copies.
+      <span class="tag" v-for="vdb of vectorizedDb">{{ vdb }}</span>
+      {{ plugin.i18n.createdEmbeddings }}
     </div>
 
     <div class="container-row" style="height: 32px">
       <input class="b3-text-field" :disabled="selectedNotebook === ''" @keypress="search" v-model="searchInput"
-        placeholder="search for your document" />
+        :placeholder="plugin.i18n.searchContent" />
     </div>
     <small v-if="searchResult.length > 0">
-      Result found: {{ searchResult.length }}
+      {{ plugin.i18n.resultFound }}: {{ searchResult.length }}
     </small>
+    <searchresult v-model:result="searchResult" v-model:plugin="plugin"/>
 
-    <div class="result-row" v-if="!isLoading">
-      <ul v-if="searchResult.length > 0">
-        <li v-for="result in searchResult">
-          <div class="result-card">
-            <span @click="openBlock(block.id)" class="block" v-for="block in result.blocks" data-type="block-ref"
-              data-subtype="d" :data-id="block.id" v-html="markdown.render(block.markdown)">
-            </span>
-            <small>Similarity {{ result.score }}</small>
-            <small v-if="result.fts">full text search</small>
-            <small v-if="!result.fts">similarity search</small>
-          </div>
-        </li>
-      </ul>
-    </div>
+    <!-- <div class="result-row" v-if="!isLoading"> -->
+    <!--   <ul v-if="searchResult.length > 0"> -->
+    <!--     <li v-for="(result, index) in searchResult"> -->
+    <!--       <div clss="result-card" :key="index"> -->
+    <!--         <span @click="openBlock(block.id)" class="block" v-for="block in result.blocks" data-type="block-ref" -->
+    <!--           data-subtype="d" :data-id="block.id" v-html="markdown.render(block.markdown)"> -->
+    <!--         </span> -->
+    <!--         <small>{{ plugin.i18n.similarity }} {{ result.score }}</small> -->
+    <!--         <small v-if="result.fts">{{ plugin.i18n.fts }}</small> -->
+    <!--         <small v-if="!result.fts">{{ plugin.i18n.ss }}</small> -->
+    <!--       </div> -->
+    <!--     </li> -->
+    <!--   </ul> -->
+    <!-- </div> -->
   </div>
 </template>
 

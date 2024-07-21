@@ -267,17 +267,17 @@ export default class PluginSample extends Plugin {
                     this.settingUtils.setAndSave("localEmbedding", value);
                     console.log(value);
                     if (value) {
-                        pushMsg("Downloading model from huggingface and setup onyxruntime")
+                        pushMsg(this.i18n.downloadOnnxRuntime)
                             .then(() => createModel())
                             .then((model) => {
-                                pushMsg("Embedding model is setup");
+                                pushMsg(this.i18n.embeddingModelCreated);
                                 console.log("model created");
                                 return model;
                             })
                             .then((model) => createEmbedding(model, "hello"))
                             .then((embeddings) => {
                                 console.log("embedding created", embeddings);
-                                pushMsg("Successfully created embeddings");
+                                pushMsg(this.i18n.createdEmbeddingsSuccess);
                             })
                             .catch((err) => {
                                 console.error(err);

@@ -132,7 +132,6 @@ async function typing(ev) {
         }
         console.log("extra context", evaluateResult);
         extraContext.value = evaluateResult;
-        //extraContext.value = `Base on the details below\n${evaluateResult}\n Extract the relevant details for query below:\n`;
       } else if (selectedDocument.value.length > 0) {
         for (const doc of selectedDocument.value) {
           const markdown = await exportMdContent(doc);
@@ -166,7 +165,7 @@ async function checkVectorizedDb() {
   const dir = await readDir(dataPath);
   const notebooks = await lsNotebooks();
   for (const nb of notebooks.notebooks) {
-    if (nb.name === "SiYuan User Guide") {
+    if (nb.name === "SiYuan User Guide" || nb.name === "思源笔记用户指南") {
       continue;
     }
 
@@ -186,14 +185,13 @@ async function checkAllDocuments() {
   documents.value = [];
   const notebooks = await lsNotebooks();
   for (const nb of notebooks.notebooks) {
-    if (nb.name === "SiYuan User Guide") {
+    if (nb.name === "SiYuan User Guide" || nb.name === "思源笔记用户指南") {
       continue;
     }
 
     const alldocs = await getAllDocsByNotebook(nb.id, "/");
     let flatlist = [];
     transformDocToList(flatlist, alldocs, nb.name, nb.id);
-    // console.log("flat list", flatlist);
     for (const doc of flatlist) {
       const docName = doc.docName.replace(".sy", "");
       documents.value.push({
@@ -205,7 +203,6 @@ async function checkAllDocuments() {
       });
     }
   }
-  console.log("documents", documents.value);
 }
 
 async function onMention(item, currentKeyVal, value) {
@@ -265,14 +262,14 @@ defineExpose({
 <template>
   <div class="input-area">
     <loading v-model:active="isLoading" :can-cancel="false" :on-cancel="loadingCancel" loader="bars"
-      background-color="#eee" opacity="0.25" :is-full-page="false" />
+      background-color="#eee" :opacity="0.25" :is-full-page="false" />
     <Mentionable class="mention" :keys="['@', '/']" :items="mentionItems" omit-key insert-space @apply="onMention"
       @open="onOpen" :limit="10">
       <textarea class="textarea b3-text-field" v-model="chatInput" :placeholder="plugin.i18n.chatPlaceHolder"
         @keypress="typing"></textarea>
 
       <template #no-result>
-        <div class="dim">No result</div>
+        <div class="dim">{{ plugin.i18n.noResult }}</div>
       </template>
 
       <template #item-@="{ item }">

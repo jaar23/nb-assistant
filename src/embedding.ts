@@ -194,6 +194,7 @@ export async function initDb(
   nbName: string,
   nbDocs: any[],
   model: any,
+  plugin: any
 ) {
   try {
     await deleteVectorDb(nbId);
@@ -203,27 +204,27 @@ export async function initDb(
     transformBlocksToList(flatlist, nbDocs, nbName, nbId, 1);
     if (flatlist.length === 0) {
       await pushMsg(
-        "Nothing is transform, double check if the notebook is empty. If not, please open a ticket to developer on github",
+        plugin.i18n.nothingToEmbed,
       );
       return;
     }
     console.log("transformed list size:", flatlist.length);
     console.log("start embeeding at ", new Date());
     await pushMsg(
-      `This process may take approximately ${Math.round((flatlist.length * 3) / 60)} minutes`,
+      `${plugin.i18n.processTakeX} ${Math.round((flatlist.length * 3) / 60)} ${plugin.i18n.minutes}`,
     );
-    console.log("init db list", flatlist);
-    const vectors = await embedDocList(model, flatlist);
+    // console.log("init db list", flatlist);
+    const vectors = await embedDocList(model, flatlist, plugin);
     console.log("end embedding at ", new Date());
     //console.log("init db vectors", vectors);
     //const vectordb = await createVectorDb(100, 16, nbId);
     const vectordb = await createMemVectorDb(100, 16, 384, "cosine");
     //await saveVector(vectordb, vectors);
-    await saveMemVectorDb(vectordb, vectors, nbId);
+    await saveMemVectorDb(vectordb, vectors, nbId, plugin);
     // vectordb.db.close();
 
     // const mdTextDb = await createMDTextDb(`${nbId}-md`);
-    await saveMDTextDb(flatlist, nbId);
+    await saveMDTextDb(flatlist, nbId, plugin);
     // await closeMDTextDbInstance(mdTextDb);
   } catch (err) {
     console.error(err);
@@ -246,6 +247,7 @@ export async function saveMemVectorDb(
   instance: HNSW,
   data: { id: number; vector: Float32Array | number[] }[],
   dbName: string,
+  plugin: any
 ) {
   await instance.buildIndex(data);
   const jsonVec = instance.toJSON();
@@ -256,19 +258,19 @@ export async function saveMemVectorDb(
     await putFile(`${dataPath}/${dbName}.json`, false, file);
   } catch (err) {
     console.error(err.stack);
-    await pushErrMsg("save vector db failed, retry in 5 seconds");
+    await pushErrMsg(plugin.i18n.saveVDBFail);
     await sleep(5000);
     await putFile(`${dataPath}/${dbName}.json`, false, file);
   }
 }
 
-export async function saveMDTextDb(data: any, dbName: string) {
+export async function saveMDTextDb(data: any, dbName: string, plugin: any) {
   const file = strToFile(JSON.stringify(data), dbName, "application/json");
   try {
     await putFile(`${dataPath}/${dbName}-md.json`, false, file);
   } catch (err) {
     console.error(err.stack);
-    await pushErrMsg("save vector db failed, retry in 5 seconds");
+    await pushErrMsg(plugin.i18n.saveVDBFail);
     await sleep(5000);
     await putFile(`${dataPath}/${dbName}-md.json`, false, file);
   }
@@ -484,12 +486,12 @@ export async function embedDoc(model: any, docs: any[], startId: number) {
   return vectors;
 }
 
-export async function embedDocList(model: any, docList: any[]) {
+export async function embedDocList(model: any, docList: any[], plugin: any) {
   let vectors = [];
   let enableSleep = false;
   if (docList.length > 500) {
     enableSleep = true;
-    await pushMsg(`Remaining ${docList.length} to process`);
+    await pushMsg(`${plugin.i18n.remainingXToProcess.replace("[x]", docList.length)}`);
   }
   let count = 0;
   for (const doc of docList) {
@@ -510,9 +512,9 @@ export async function embedDocList(model: any, docList: any[]) {
     }
     count = count + 1;
     if (count % 100 === 0) {
-      await pushMsg(
-        `Processed ${count} chunks, remaining ${docList.length - count} to process`,
-      );
+      const left = docList.length - count;
+      const message = plugin.i18n.processedXAndYLeft.replace("[x]", count).replace("[y]", left);
+      await pushMsg(message);
     }
   }
   return vectors;

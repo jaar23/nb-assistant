@@ -2,22 +2,27 @@
 import message from "./message.vue";
 import action from "./action.vue";
 
-const messages = defineModel<{
+export type Message = {
   question: string;
   answer: string;
   aiEmoji: string;
   actionable: boolean;
   actionType: string;
   blockId: string;
-}>();
+};
+
+const messages: Message = defineModel("message");
+const plugin = defineModel("plugin");
 </script>
 
 <template>
   <ul>
     <li v-for="(msg, index) in messages">
       <message class="question" v-if="msg.question != '' && !msg.actionable" :msg="msg.question"></message>
-      <message class="answer" v-if="msg.answer != '' && !msg.actionable" :msg="msg.answer" :aiEmoji="msg.aiEmoji"></message>
-      <action class="answer" v-if="msg.answer != '' && msg.actionable" :msg="msg.answer" :aiEmoji="msg.aiEmoji" :actionType="msg.actionType" :blockId="msg.blockId"></action>
+      <message class="answer" v-if="msg.answer != '' && !msg.actionable" :msg="msg.answer" :aiEmoji="msg.aiEmoji">
+      </message>
+      <action class="answer" :plugin="plugin" v-if="msg.answer != '' && msg.actionable" :msg="msg.answer"
+        :aiEmoji="msg.aiEmoji" :actionType="msg.actionType" :blockId="msg.blockId"></action>
     </li>
   </ul>
 </template>

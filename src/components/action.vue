@@ -1,18 +1,19 @@
 <script setup lang="ts">
 import { parseTags } from "@/utils";
 import { ref, onMounted } from "vue";
-import { setBlockAttrs, pushMsg, pushErrMsg,appendBlock  } from "@/api";
+import { setBlockAttrs, pushMsg, pushErrMsg, appendBlock } from "@/api";
 
 const props = defineProps({
     msg: String,
     blockId: String,
     aiEmoji: String,
     actionType: String,
+    plugin: Object
 });
 const checklist = ref([]);
 
 function copy() {
-    console.log("action:", props.aiEmoji + " " + props.msg + " copied...");
+    // console.log("action:", props.aiEmoji + " " + props.msg + " copied...");
     window.navigator.clipboard.writeText(
         `${props.aiEmoji !== undefined ? props.aiEmoji : ""} ${props.msg}`,
     );
@@ -36,22 +37,21 @@ async function saveTags() {
             tags: tags.join(","),
         };
         await setBlockAttrs(props.blockId, attrs);
-        await pushMsg("Tags is added to document");
+        await pushMsg(props.plugin.i18n.tagsAdded);
     } else {
-        await pushMsg("No tag is selected");
+        await pushMsg(props.plugin.i18n.noTagsSelected);
     }
 }
 
-
 async function saveSummary() {
-    const data = `### Summary\n${props.aiEmoji !== undefined? props.aiEmoji: ""} ${props.msg}`;
+    const data = `### ${props.plugin.i18n.summaryText}\n${props.aiEmoji !== undefined ? props.aiEmoji : ""} ${props.msg}`;
     await appendBlock("markdown", data, props.blockId);
-    await pushMsg("Summary is saved");
+    await pushMsg(props.plugin.i18n.summarySaved);
 }
 
 async function save() {
     if (props.actionType === "Checkbox") {
-        await saveTags()
+        await saveTags();
     } else if (props.actionType === "SaveSummary") {
         await saveSummary();
     }
@@ -66,11 +66,11 @@ onMounted(() => {
 
 <template>
     <div class="msg-container">
-        <div v-if="['Message','SaveSummary'].includes(props.actionType)" class="message">
+        <div v-if="['Message', 'SaveSummary'].includes(props.actionType)" class="message">
             {{ props.msg }}
         </div>
         <div v-if="props.actionType === 'Checkbox'" class="action">
-            <span>Select the tags below to add into your document</span>
+            <span>{{ plugin.i18n.selectTags }}</span>
             <ul>
                 <li v-for="item in checklist">
                     <input type="checkbox" :value="item.tag" @click="item.checked = !item.checked" />
