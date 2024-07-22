@@ -60,7 +60,7 @@ async function prompt() {
       }
       emit("response", { question: chatInput.value, answer: "" });
 
-      contextLen = countWords(`${extraContext.value} ${chatInput.value}`);
+      const contextLen = countWords(`${extraContext.value} ${chatInput.value}`);
       let respMessage = "";
       if (contextLen > 500) {
         console.log("using prompt chain");
@@ -101,7 +101,8 @@ async function prompt() {
     selectedNotebook.value = "";
     selectedDocument.value = [];
     extraContext.value = "";
-    await pushErrMsg(err);
+    console.error(err);
+    await pushErrMsg(err.stack);
   }
 }
 
