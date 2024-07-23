@@ -79,4 +79,7 @@ minutes: "分钟"
 saveVDBFail: "保存向量数据库失败，5秒后重试"
 remainingXToProcess: "剩余[x]待处理"
 processedXAndYLeft: "已处理[x]个分块，剩余[y]待处理"
+cacheModel: 嵌入(Embedding)服务
+cacheModelDesc: 本地嵌入服务使用 transformer.js 和 onnx runtime 在 SiYuan 中创建嵌入。过程可能稍慢。此功能用于使用自有数据的 RAG（检索增强生成）。所有数据存储在 SiYuan 中。
+cacheModelDesc2": 下载的模型将缓存于 SiYuan，但退出 SiYuan 后,缓存可能丢失/重置。再次打开此选项将重新下载模型缓存。
 

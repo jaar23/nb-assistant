@@ -26,6 +26,9 @@ import App from "@/App.vue";
 import { lsNotebooks, pushMsg, pushErrMsg } from "./api";
 import { createModel, createEmbedding } from "./model";
 
+// transformer js 
+import {env, pipeline} from "@xenova/transformers";
+
 import { SettingUtils } from "./libs/setting-utils";
 const STORAGE_NAME = "nb-assistant-config";
 const DOCK_TYPE = "nbassistant_tab";
@@ -254,37 +257,54 @@ export default class PluginSample extends Plugin {
             },
         });
 
+        // this.settingUtils.addItem({
+        //     key: "localEmbeddingEnable",
+        //     value: false,
+        //     type: "checkbox",
+        //     title: this.i18n.localEmbeddingEnabled,
+        //     description: this.i18n.localEmbeddingEnabledDesc,
+        //     action: {
+        //         callback: () => {
+        //             // Return data and save it in real time
+        //             let value = !this.settingUtils.get("localEmbeddingEnable");
+        //             this.settingUtils.setAndSave("localEmbedding", value);
+        //             console.log("enable local embedding ", value);
+        //             if (value) {
+        //                 pushMsg(this.i18n.downloadOnnxRuntime)
+        //                     .then(() => createModel())
+        //                     .then((model) => {
+        //                         pushMsg(this.i18n.embeddingModelCreated);
+        //                         console.log("model created");
+        //                         return model;
+        //                     })
+        //                     .then((model) => createEmbedding(model, "hello"))
+        //                     .then((embeddings) => {
+        //                         console.log("embedding created", embeddings);
+        //                         pushMsg(this.i18n.createdEmbeddingsSuccess);
+        //                     })
+        //                     .catch((err) => {
+        //                         console.error(err);
+        //                         pushErrMsg(`unable to setup vectordb, ${err}`);
+        //                     });
+        //             }
+        //         },
+        //     },
+        // });
+        // 
+        // TODO: allow user to customize prompt chaining steps and prompt
         this.settingUtils.addItem({
-            key: "localEmbeddingEnable",
+            key: "usePromptChaining",
             value: false,
             type: "checkbox",
-            title: this.i18n.localEmbeddingEnabled,
-            description: this.i18n.localEmbeddingEnabledDesc,
+            title: this.i18n.usePromptChaining,
+            description: this.i18n.usePromptChainingDesc,
             action: {
                 callback: () => {
                     // Return data and save it in real time
-                    let value = !this.settingUtils.get("localEmbeddingEnable");
-                    this.settingUtils.setAndSave("localEmbedding", value);
-                    console.log(value);
-                    if (value) {
-                        pushMsg(this.i18n.downloadOnnxRuntime)
-                            .then(() => createModel())
-                            .then((model) => {
-                                pushMsg(this.i18n.embeddingModelCreated);
-                                console.log("model created");
-                                return model;
-                            })
-                            .then((model) => createEmbedding(model, "hello"))
-                            .then((embeddings) => {
-                                console.log("embedding created", embeddings);
-                                pushMsg(this.i18n.createdEmbeddingsSuccess);
-                            })
-                            .catch((err) => {
-                                console.error(err);
-                                pushErrMsg(`unable to setup vectordb, ${err}`);
-                            });
-                    }
-                },
+                    let value = !this.settingUtils.get("usePromptChaining");
+                    this.settingUtils.setAndSave("usePromptChaining", value);
+                    console.log("usePromptChaining", value);
+                }
             },
         });
 

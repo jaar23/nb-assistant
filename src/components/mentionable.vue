@@ -5,9 +5,9 @@ import { defineComponent, computed, onMounted, onUnmounted, onUpdated, ref, watc
 
 options.themes.mentionable = {
   $extend: 'dropdown',
-  placement: 'top-start',
+  placement: 'auto',
   arrowPadding: 6,
-  arrowOverflow: false,
+  arrowOverflow: true,
 }
 
 export interface MentionItem {
@@ -299,13 +299,14 @@ export default defineComponent({
           const inputRect = input.getBoundingClientRect()
           caretPosition.value = {
             left: rect.left - inputRect.left,
-            top: rect.top - inputRect.top - 200,
+            top: rect.top - inputRect.top,
             height: rect.height,
           }
         } else {
           caretPosition.value = getCaretPosition(input, currentKeyIndex)
         }
         caretPosition.value.top -= input.scrollTop
+        //caretPosition.value.left -= 64;
         if (props.caretHeight) {
           caretPosition.value.height = props.caretHeight
         } else if (isNaN(caretPosition.value.height)) {
@@ -330,6 +331,7 @@ export default defineComponent({
       if (currentKey.value != null) {
         oldKey.value = currentKey.value
         currentKey.value = null
+        updateCaretPosition()
         emit('close', oldKey.value)
       }
     }
@@ -387,8 +389,10 @@ export default defineComponent({
       :triggers="[]"
       :auto-hide="false"
       :theme="theme"
+      :distance="0"
+      :skidding="-64"
       class="popper"
-      style="position: absolute;"
+      style="position: relative;"
       :style="caretPosition ? {
         top: `${caretPosition.top}px`,
         left: `${caretPosition.left}px`,

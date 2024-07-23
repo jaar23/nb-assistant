@@ -20,7 +20,7 @@ import {
   promptPersistPermission,
   dataPath,
 } from "@/embedding";
-import { createModel, createEmbedding } from "@/model";
+import { createModel, createEmbedding, createLocalModel } from "@/model";
 import {
   lsNotebooks,
   getNotebookConf,
@@ -40,18 +40,18 @@ const plugin = defineModel("plugin");
 const isLoading = ref(false);
 const vectorizedDb = ref([]);
 
-async function enableDb() {
-  const pluginSetting = plugin.value.settingUtils.dump();
-  plugin.value.settingUtils.setAndSave(
-    "localEmbeddingEnable",
-    !pluginSetting.localEmbeddingEnable,
-  );
-}
+// async function enableDb() {
+//   const pluginSetting = plugin.value.settingUtils.dump();
+//   plugin.value.settingUtils.setAndSave(
+//     "localEmbeddingEnable",
+//     !pluginSetting.localEmbeddingEnable,
+//   );
+// }
 
 async function setupVectorDb() {
   if (localEmbeddingEnable.value) {
     try {
-      plugin.value.settingUtils.setAndSave("localEmbeddingEnable", true);
+      //plugin.value.settingUtils.setAndSave("localEmbeddingEnable", true);
       await promptPersistPermission();
       isLoading.value = true;
       await pushMsg(plugin.value.i18n.downloadOnnxRuntime);
@@ -69,7 +69,7 @@ async function setupVectorDb() {
       isLoading.value = false;
     }
   } else {
-    plugin.value.settingUtils.setAndSave("localEmbeddingEnable", false);
+    //plugin.value.settingUtils.setAndSave("localEmbeddingEnable", false);
   }
 }
 
@@ -111,7 +111,6 @@ async function initVectorDb() {
         docs: docs,
       });
     }
-    // console.log("init db docs", nbDocs);
 
     // create model, storing embeddings
     const model = await createModel();
@@ -148,7 +147,7 @@ onMounted(async () => {
   const pluginSetting = plugin.value.settingUtils.dump();
   localEmbeddingEnable.value = pluginSetting.localEmbeddingEnable;
   await checkVectorizedDb();
-  console.log("plugin", plugin.value);
+  localEmbeddingEnable.value = await window.caches.has("transformers-cache");
 });
 </script>
 <template>
@@ -159,11 +158,11 @@ onMounted(async () => {
     <br />
     <div>
       <label style="display: inline-flex; width: 100%">
-        <div class="switch">{{ plugin.i18n.localEmbeddingEnabled}}</div>
+        <div class="switch">{{ plugin.i18n.cacheModel}}</div>
         <input type="checkbox" class="b3-switch" @change="setupVectorDb" v-model="localEmbeddingEnable" />
       </label>
       <small>
-        {{ plugin.i18n.localEmbeddingEnabledDesc}}
+        {{ plugin.i18n.cacheModelDesc}}
       </small>
     </div>
     <br />
@@ -178,13 +177,13 @@ onMounted(async () => {
       </select>
       <br />
       <span class="tag" v-for="vdb of vectorizedDb">{{ vdb }}</span>
-      {{ plugin.i18n.createdEmbeddings }}
+      <small>{{ plugin.i18n.createdEmbeddings }}</small>
       <br />
-      <p>{{ plugin.i18n.createEmbeddingsNote1 }}</p>
-      <p>{{ plugin.i18n.createEmbeddingsNote2 }}</p>
-      <p v-if="selectedNotebook === '*'">
+      <small>{{ plugin.i18n.createEmbeddingsNote1 }}</small>
+      <small>{{ plugin.i18n.createEmbeddingsNote2 }}</small>
+      <small v-if="selectedNotebook === '*'">
         {{ plugin.i18n.createEmbeddingsNote3 }}
-      </p>
+      </small>
       <div>
         <button v-if="selectedNotebook !== ''" @click="selectedNotebook = ''" class="b3-button button-cancel">
           {{ plugin.i18n.cancel }}
@@ -194,6 +193,11 @@ onMounted(async () => {
         </button>
       </div>
     </div>
+    <!-- <div> -->
+    <!--   <button @click="createLocalModel"> -->
+    <!--     create local model -->
+    <!--   </button> -->
+    <!-- </div> -->
   </div>
 </template>
 

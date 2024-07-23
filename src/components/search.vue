@@ -126,7 +126,7 @@ onMounted(async () => {
       </select>
       <br />
       <span class="tag" v-for="vdb of vectorizedDb">{{ vdb }}</span>
-      {{ plugin.i18n.createdEmbeddings }}
+      <small>{{ plugin.i18n.createdEmbeddings }}</small>
     </div>
 
     <div class="container-row" style="height: 32px">

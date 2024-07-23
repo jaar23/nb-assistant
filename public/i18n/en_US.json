@@ -77,5 +77,10 @@
     "minutes": "minutes",
     "saveVDBFail": "save vector db failed, retry in 5 seconds",
     "remainingXToProcess": "Remaining [x] to process",
-    "processedXAndYLeft": "Processed [x] chunks, remaining [y] to process"
+    "processedXAndYLeft": "Processed [x] chunks, remaining [y] to process",
+    "usePromptChaining": "Use Prompt Chaining",
+    "usePromptChainingDesc": "To improve the reliability and performance of LLMs, prompt chaining is one of the techniques. It break tasks into its subtasks and uses its output as input for the subsequent chain. This is useful for complex tasks but it also consume MORE tokens, therefore, be aware of using such option. ",
+    "cacheModel": "Embedding Service",
+    "cacheModelDesc": "Local Embedding Service will be using transformer.js and onnx runtime within SiYuan to create embedding. There may be a slightly slow during the process. This feature is required for RAG (Retrieval-Augmented Generation) using your own data. All the data is stored within SiYuan.",
+    "cacheModelDesc2": "The downloaded model will be cached in SiYuan, however, caches may be missing / reset after you exit SiYuan. You can toggle this option to cache it again."
 }

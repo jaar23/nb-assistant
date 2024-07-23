@@ -160,6 +160,16 @@ export async function promptAI(
     }
 }
 
+export async function rephrasePrompt(systemConf: any, input: string, systemRole: string) {
+    const prompt = `"${input}"
+Rephrase the question above to be more efficient and concise for a large language model.
+ALWAYS RESPONE WITH THE REPHRASED WORDS ONLY.
+`
+    const rephrasedInput = await promptAI(systemConf, "", prompt, systemRole, "", "");
+    console.log("rephrased", rephrasedInput)
+    return rephrasedInput;
+}
+
 export async function promptAIChain(
     systemConf: any,
     document: string,
@@ -174,14 +184,7 @@ ${document}
 ####`;
     const message1 = await promptAI(systemConf, "", prompt1, systemRole, "", "");
     
-    const prompt2 = `"${input}"
-Rephrase the question above to be more efficient and concise.
-ALWAYS RESPONE WITH THE REPHRASED WORDS ONLY.
-`
-    const rephrasedInput = await promptAI(systemConf, "", prompt2, systemRole, "", "");
-    console.log("rephrased", rephrasedInput)
-
-    const prompt3 = `Given a set of relevant quotes (delimited by <quotes></quotes>) extracted from a document and the original document (delimited by <document></document>),
+    const prompt2 = `Given a set of relevant quotes (delimited by <quotes></quotes>) extracted from a document and the original document (delimited by <document></document>),
 please compose an answer to the question. If quotes is not relevant to the question, form the answer based on original document instead. 
 Ensure that the answer is accurate, has a friendly tone and sounds helpful.
 <document>
@@ -190,8 +193,8 @@ ${document}
 <quotes>
 ${message1}
 </quotes>
-question: ${rephrasedInput}`;
-    const message2 = await promptAI(systemConf, "", prompt3, systemRole, "", "");
+question: ${input}`;
+    const message2 = await promptAI(systemConf, "", prompt2, systemRole, "", "");
     return message2;
 }
 

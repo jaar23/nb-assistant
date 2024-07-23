@@ -17,21 +17,30 @@ export type ModelType = "embedding" | "rerank";
 //     }
 // }
 
-export async function createModel() {
-    //const pipe = await pipeline("feature-extraction", "Xenova/all-MiniLM-L12-v2");
+export async function createLocalModel() {
+    //env.localModelPath = "/tmp/transformer";
+    // env.useBrowserCache = false;
+    // env.allowRemoteModels = false;
+    // const config = await getFile("/temp/nb-assistant/transformer/Xenova/all-MiniLM-L6-v2/config.json");
+    // const model = await getFile("/temp/nb-assistant/transformer/Xenova/all-MiniLM-L6-v2/onnx/model_quantized.onnx");
+    // const tokenizer = await getFile("/temp/nb-assistant/transformer/Xenova/all-MiniLM-L6-v2/tokenizer.json");
+    // const tokenizer_config = await getFile("/tmp/transformer/Xenova/all-MiniLM-L6-v2/tokenizer_config.json");
+    // console.log(config);
+    // //const data = new Uint8Array(config.);
+    // const blob = new Blob([config], { type: 'application/octet-stream' });
+    // // Step 2: Generate a URL for the Blob
+    // const blobUrl = URL.createObjectURL(blob);
+    // console.log("config url", blobUrl);
+    // //const configObject = URL.createObjectURL(config);
     const pipe = await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2");
-    //const pipe = await pipeline("feature-extraction", "Xenova/paraphrase-MiniLM-L6-v2");
-    // const onnx = await getFile("temp/nb-assistant/model_quantized.onnx");
-    // const onnxURL = URL.createObjectURL(onnx);
-    // env.customCache = fetch(onnxURL).then(resp => {
-    //     console.log("cache resp", resp);
-    //     if (!resp.ok) {
-    //         throw new TypeError("bad response status");
-    //     }
-    //     return cache.put(onnxURL, resp);
-    // }).catch(err => console.error(err));
-    // env.useCustomCache = true;
-    // console.log(env);
+    const output = await pipe("hello", {pooling: "mean", normalize: true});
+    console.log(output);
+    return pipe;
+}
+
+// TODO: choose model to be initialize
+export async function createModel() {
+    const pipe = await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2");
     return pipe;
 }
 

@@ -19,6 +19,7 @@ import {
   searchNotebook,
   tokenize,
   promptAIChain,
+  rephrasePrompt,
 } from "@/utils.ts";
 import Mentionable from "@/components/mentionable.vue";
 
@@ -35,6 +36,7 @@ const vectorizedDb = ref([]);
 const documents = ref([]);
 const extraContext = ref("");
 const mentionItems = ref([]);
+const rephrasedInput = ref("");
 
 async function prompt() {
   try {
@@ -62,22 +64,22 @@ async function prompt() {
 
       const contextLen = countWords(`${extraContext.value} ${chatInput.value}`);
       let respMessage = "";
-      if (contextLen > 500) {
-        console.log("using prompt chain");
+      if (pluginSetting.usePromptChaining && contextLen > 1024) {
+        console.log("using prompt chain, context length: " + contextLen);
         respMessage = await promptAIChain(
           systemConf,
           extraContext.value,
-          chatInput.value,
+          rephrasedInput.value,
           pluginSetting.systemPrompt,
         );
       } else {
-        console.log("usng prompt with context only");
+        console.log("usng prompt with context only, context length:" + contextLen);
         respMessage = await promptAI(
           systemConf,
           previousRole.value !== pluginSetting.systemPrompt ? "" : history,
           extraContext.value !== ""
-            ? `${extraContext.value} ${chatInput.value}`
-            : chatInput.value,
+            ? `${extraContext.value} ${rephrasedInput.value}`
+            : rephrasedInput.value,
           pluginSetting.systemPrompt,
           pluginSetting.customSystemPrompt,
           pluginSetting.customUserPrompt,
@@ -110,8 +112,15 @@ async function typing(ev) {
   if (ev.key === "Enter" && !ev.shiftKey) {
     try {
       isLoading.value = true;
+      const systemConf = await request("/api/system/getConf");
+      const pluginSetting = plugin.value.settingUtils.dump();
+      if (pluginSetting.usePromptChaining && countWords(chatInput.value) > 5)  {
+        rephrasedInput.value = await rephrasePrompt(systemConf, chatInput.value, pluginSetting.systemPrompt);
+      } else {
+        rephrasedInput.value = chatInput.value;
+      }
       if (selectedNotebook.value !== "") {
-        const tokens = tokenize(chatInput.value);
+        const tokens = tokenize(rephrasedInput.value);
         let query = "";
         for (const t of tokens) {
           if (!t.startsWith("@") && !t.startsWith("/")) {
