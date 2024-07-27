@@ -1,26 +1,18 @@
 <script setup lang="ts">
 import {
   lsNotebooks,
-  getNotebookConf,
   pushMsg,
-  pushErrMsg,
-  getChildBlocksContents,
-  getBlocksByIds,
-  fullTextSearchBlock,
+  pushErrMsg,  
   checkBlockExist,
   readDir,
 } from "@/api";
-import {
-  blockSplitter,
-  nlpPipe,
-  mergeSearchResult,
+import {  
   searchNotebook,
 } from "@/utils";
-import { reranker, createModel } from "@/model";
 import { ref, onMounted } from "vue";
 import Loading from "vue-loading-overlay";
 import "vue-loading-overlay/dist/css/index.css";
-import { queryMdChunk, dataPath } from "@/embedding";
+import { dataPath } from "@/embedding";
 import MarkdownIt from "markdown-it";
 import MarkdownItAbbr from "markdown-it-abbr";
 import MarkdownItAnchor from "markdown-it-anchor";

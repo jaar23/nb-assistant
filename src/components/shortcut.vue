@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { request, lsNotebooks, pushErrMsg } from "@/api.ts";
+import { request, lsNotebooks, pushErrMsg } from "@/api";
 import { ref, onMounted } from "vue";
-import { getCurrentTabs, promptAI, countWords, parseTags } from "../utils.ts";
+import { getCurrentTabs, promptAI, parseTags } from "@/utils";
 
 const notebooks = ref<any[]>([]);
 const openTabs = ref<any[]>([]);
@@ -13,17 +13,17 @@ const isLoading = defineModel("inferencing");
 const saveFileName = defineModel("saveFilename");
 const shortcutShow = ref(false);
 const savingState = ref("");
-const plugin = defineModel("plugin");
+const plugin: any = defineModel("plugin");
 
 async function getOpenTabs() {
-  const systemConf = await request("/api/system/getConf");
+  const systemConf = await request("/api/system/getConf", {});
   openTabs.value = getCurrentTabs(systemConf.conf.uiLayout.layout);
   console.log("tabs: ", openTabs);
 }
 
 async function summarizeOpenDoc(ev: any) {
   try {
-    const systemConf = await request("/api/system/getConf");
+    const systemConf = await request("/api/system/getConf", {});
     const blockArr = ev.target.value.split("|");
     const blockId = blockArr[0];
     const blockTitle = blockArr[1];
@@ -64,7 +64,7 @@ async function summarizeOpenDoc(ev: any) {
 
 async function autoTagOpenDoc(ev: any) {
   try {
-    const systemConf = await request("/api/system/getConf");
+    const systemConf = await request("/api/system/getConf", {});
     const blockArr = ev.target.value.split("|");
     const blockId = blockArr[0];
     const blockTitle = blockArr[1];

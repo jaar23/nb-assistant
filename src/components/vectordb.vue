@@ -1,21 +1,6 @@
 <script setup lang="ts">
 import {
-  createVectorDb,
-  getMemVectorDb,
-  saveVector,
-  queryVector,
-  queryMemVector,
-  loadVector,
-  embedDoc,
-  embedDocList,
-  deleteVectorDb,
-  createMDTextDb,
-  deleteMDTextDb,
-  getMDTextDbInstance,
-  saveMDTextDb,
-  closeMDTextDbInstance,
   initDb,
-  queryMdChunk,
   getAllBlocksByNotebook,
   promptPersistPermission,
   dataPath,
@@ -28,7 +13,6 @@ import {
   pushErrMsg,
   readDir,
 } from "@/api";
-import { flat } from "@/utils";
 import { ref, onMounted } from "vue";
 import Loading from "vue-loading-overlay";
 import "vue-loading-overlay/dist/css/index.css";
@@ -36,7 +20,7 @@ import "vue-loading-overlay/dist/css/index.css";
 const notebooks = ref([]);
 const selectedNotebook = defineModel("selectedNotebook");
 const localEmbeddingEnable = ref(false);
-const plugin = defineModel("plugin");
+const plugin: any = defineModel("plugin");
 const isLoading = ref(false);
 const vectorizedDb = ref([]);
 
@@ -75,7 +59,7 @@ async function setupVectorDb() {
 
 async function checkVectorizedDb() {
   vectorizedDb.value = [];
-  const dir = await readDir(dataPath);
+  const dir: any = await readDir(dataPath);
   const notebooks = await lsNotebooks();
   for (const nb of notebooks.notebooks) {
     if (dir.filter((f) => f.name.includes(nb.id)).length > 0) {
@@ -93,7 +77,7 @@ async function initVectorDb() {
     if (nbId === "*") {
       nbs = notebooks.value;
     } else {
-      const nb = await getNotebookConf(nbId);
+      const nb = await getNotebookConf(nbId as NotebookId);
       nbs.push({
         id: nb.box,
         name: nb.name,

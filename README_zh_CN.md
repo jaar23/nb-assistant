@@ -5,26 +5,7 @@
 
 思源笔记本助手 (nb-assistant) 是一个为 SiYuan 构建的插件，旨在增强其 AI 能力。
 
-0.1.3 目前处于预发布阶段！如果你正在使用它，你需要通过特定端口启动 SiYuan。
-
-原因是因为 Electron 缓存问题。（https://github.com/siyuan-note/siyuan/issues/11969）
-在 Linux 上执行此操作：
-
-选项 1
-```shell
-siyuan --port=16806
-```
-
-选项 2
-1. 编辑 /usr/share/applications/siyuan.desktop
-2. 将 Exec 行修改为以下内容
-```
-Exec=/opt/SiYuan/siyuan --port=16806 %U
-```
-3. 像往常一样启动 SiYuan
-
-尚未在 MacOS 和 Windows 上测试，如果你已经尝试过了，欢迎开一个 pull request 或 issue 来分享你的方法。
-
+0.1.3 已经发布！
 
 ![preview](./preview.png)
 
@@ -45,6 +26,32 @@ Exec=/opt/SiYuan/siyuan --port=16806 %U
 ✅ 清除聊天记录
 
 ✅ 角色切换让大模型更好的回答你的问题
+
+### 0.1.3 的更新
+
+![demo6](./images/demo6.png)
+
+✅ 使用transformer.js和onnx runtime根据您的笔记本创建嵌入。
+![demo7](./images/demo7.png)
+
+✅ 搜索基于相似度搜索文档。
+
+✅ 通过结合相似度结果和全文搜索实现混合搜索策略。
+
+![demo8](./images/demo8.png)
+
+✅ 从搜索结果中打开文档。
+
+✅ 与您的文档聊天，开始在聊天框中输入/。
+
+✅ 与您的笔记本聊天，开始在聊天框中输入@。由于笔记本结构、内容存储在一个笔记本中等因素，结果可能会有所不同。
+
+✅ 在使用自动标签快捷方式时选择要添加到文档中的标签。
+
+✅ 在生成摘要后将摘要保存到文档中。
+
+✅ 为了微调上下文和响应，对较大文档进行提示链。
+
 
 注意！这个插件使用思源原生AI设置，你需要完成AI设置才能使用这个插件。
 
@@ -71,3 +78,79 @@ Exec=/opt/SiYuan/siyuan --port=16806 %U
 ![demo3](./images/demo3.png)
 
 ![demo2](./images/demo2.png)
+
+---
+
+### 现阶段不完美的地方
+每次重启 SiYuan 并使用需要创建嵌入(Embedding)相关的服务时，例如与笔记本聊天、创建嵌入、搜索笔记本，都需要再次下载模型，大约 30MB， 那样会耗费用户一点点的流量。
+
+### 原因
+这是由于 Electron 缓存机制导致的。（参考链接：https://github.com/siyuan-note/siyuan/issues/11969）
+
+### 解决方案
+如果你不希望这种行为，你需要以特定端口启动 SiYuan。
+
+#### 在 Linux 上的解决方案
+
+#### 选项 1
+
+```shell
+siyuan --port=16806
+```
+
+#### 选项 2
+
+1. 打开终端并编辑 SiYuan 的桌面启动文件：
+
+```shell
+vi /usr/share/applications/siyuan.desktop
+```
+
+2. 修改 `Exec` 行，将其改为以下内容：
+
+```
+Exec=/opt/SiYuan/siyuan --port=16806 %U
+```
+
+3. 像往常一样启动 SiYuan。
+
+### 详细步骤解释
+
+#### 选项 1 详细解释
+
+- **命令行启动**：直接在终端中输入以下命令启动 SiYuan：
+
+  ```shell
+  siyuan --port=16806
+  ```
+
+  这会以指定的端口 `16806` 启动 SiYuan，从而避免每次启动时重新下载模型。
+
+#### 选项 2 详细解释
+
+1. **编辑桌面启动文件**：
+
+   - 打开终端并输入以下命令以编辑 SiYuan 的桌面启动文件：
+
+     ```shell
+     vi /usr/share/applications/siyuan.desktop
+     ```
+
+   - 使用 `vi` 编辑器打开文件后，找到 `Exec` 行。
+
+2. **修改 `Exec` 行**：
+
+   - 将 `Exec` 行修改为以下内容：
+
+     ```
+     Exec=/opt/SiYuan/siyuan --port=16806 %U
+     ```
+
+   - 这一步的目的是在启动 SiYuan 时自动使用指定的端口 `16806`，从而避免重新下载模型。
+
+3. **启动 SiYuan**：
+
+   - 修改完成后，保存并退出编辑器。
+   - 像往常一样通过桌面图标或启动菜单启动 SiYuan。
+
+通过以上步骤，你可以避免每次启动 SiYuan 时重新下载模型，从而提高使用效率。

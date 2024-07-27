@@ -4,12 +4,11 @@ import {
   pushErrMsg,
   readDir,
   lsNotebooks,
-  listDocsByPath,
   getAllDocsByNotebook,
   transformDocToList,
   exportMdContent,
-} from "@/api.ts";
-import { dataPath } from "@/embedding.ts";
+} from "@/api";
+import { dataPath } from "@/embedding";
 import { ref, onMounted } from "vue";
 import Loading from "vue-loading-overlay";
 import "vue-loading-overlay/dist/css/index.css";
@@ -20,11 +19,11 @@ import {
   tokenize,
   promptAIChain,
   rephrasePrompt,
-} from "@/utils.ts";
+} from "@/utils";
 import Mentionable from "@/components/mentionable.vue";
 
 const chatInput = defineModel("chatInput");
-const plugin = defineModel("plugin");
+const plugin: any = defineModel("plugin");
 const chatHistory = ref([]);
 const emit = defineEmits(["response"]);
 const isLoading = defineModel("inferencing");
@@ -42,7 +41,7 @@ async function prompt() {
   try {
     await preparePrompt();
 
-    const systemConf = await request("/api/system/getConf");
+    const systemConf = await request("/api/system/getConf", {});
     const pluginSetting = plugin.value.settingUtils.dump();
     //console.log("chat setting", pluginSetting);
   
@@ -172,7 +171,8 @@ async function preparePrompt() {
 }
 
 async function typing(ev) {
-  if (ev.key === "Enter" && !ev.shiftKey) {
+  const pluginSetting = plugin.value.settingUtils.dump();
+  if (ev.key === "Enter" && !ev.shiftKey && pluginSetting.enterToSend) {
     try {
       await prompt();
     } catch (e) {

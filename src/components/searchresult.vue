@@ -1,14 +1,7 @@
 <script setup lang="ts">
 import {
-  lsNotebooks,
-  getNotebookConf,
   pushMsg,
-  pushErrMsg,
-  getChildBlocksContents,
-  getBlocksByIds,
-  fullTextSearchBlock,
   checkBlockExist,
-  readDir,
 } from "@/api";
 import MarkdownIt from "markdown-it";
 import MarkdownItAbbr from "markdown-it-abbr";
@@ -31,7 +24,7 @@ const markdown = new MarkdownIt()
 
 
 const searchResult = defineModel("result");
-const plugin = defineModel("plugin");
+const plugin: any = defineModel("plugin");
 
 async function openBlock(blockId) {
   const url = "siyuan://blocks/";

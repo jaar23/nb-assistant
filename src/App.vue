@@ -7,19 +7,12 @@ import vdbheader from "@/components/vdbheader.vue";
 import search from "@/components/search.vue";
 
 import { ref, onMounted } from "vue";
-import { SettingUtils } from "./libs/setting-utils";
 import {
   request,
-  lsNotebooks,
   createDocWithMd,
   pushMsg,
   pushErrMsg,
-} from "./api.ts";
-import { getCurrentTabs, flat } from "./utils.ts";
-
-// embeddings
-import { embed } from "./model";
-import { store, getAllDocsByNotebook } from "./embedding";
+} from "./api";
 
 const props = defineProps({ plugin: Object });
 const chatInput = defineModel("chatInput");
@@ -122,7 +115,7 @@ async function saveChat(title: string) {
 }
 
 onMounted(async () => {
-  const systemConf = await request("/api/system/getConf");
+  const systemConf = await request("/api/system/getConf", {});
   // console.log(systemConf);
   if (
     systemConf.conf.ai.openAI.apiBaseURL !== "" &&
