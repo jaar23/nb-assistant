@@ -1,4 +1,8 @@
-function flat(array: any) {
+import { engStopWords, zhStopWords } from "./stopwords";
+import { queryMdChunk } from "./embedding";
+import { fullTextSearchBlock, getBlocksByIds, pushMsg, pushErrMsg } from "./api";
+
+export function flat(array: any) {
     var result = [];
     array.forEach(function(a: any) {
         result.push(a);
@@ -18,11 +22,11 @@ export function getCurrentTabs(uiLayout: any): Array<{
     return tabs;
 }
 
-export function countWords(text: string): number {
-    const arr = text.split(" ");
-    console.log(arr)
-    return arr.length;
-}
+// export function countWords(text: string): number {
+//     const arr = text.split(" ");
+//     console.log(arr);
+//     return arr.length;
+// }
 
 export async function promptAI(
     systemConf: any,
@@ -143,7 +147,7 @@ export async function promptAI(
                 throw new Error(await resp.text());
             }
             let response = await resp.json();
-            console.log(response);
+            // console.log(response);
             let respMessage = "";
             for (const choice of response.choices) {
                 respMessage += choice.message.content + "\n";
@@ -155,3 +159,251 @@ export async function promptAI(
         return err.message;
     }
 }
+
+export async function rephrasePrompt(systemConf: any, input: string, systemRole: string) {
+    const prompt = `"${input}"
+Rephrase the question above to be more efficient and concise for a large language model.
+ALWAYS RESPONE WITH THE REPHRASED WORDS ONLY.
+`
+    const rephrasedInput = await promptAI(systemConf, "", prompt, systemRole, "", "");
+    console.log("rephrased", rephrasedInput)
+    return rephrasedInput;
+}
+
+export async function promptAIChain(
+    systemConf: any,
+    document: string,
+    input: string,
+    systemRole: string)
+{
+    const prompt1 = `Base on your expertise, Your task is to help answer a question given in a document. 
+The first step is to extract quotes relevant to the question from the document, delimited by ####. Please output the list of quotes using <quotes></quotes>. 
+Respond with "No relevant quotes found!" if no relevant quotes were found.
+####
+${document}
+####`;
+    const message1 = await promptAI(systemConf, "", prompt1, systemRole, "", "");
+    
+    const prompt2 = `Given a set of relevant quotes (delimited by <quotes></quotes>) extracted from a document and the original document (delimited by <document></document>),
+please compose an answer to the question. If quotes is not relevant to the question, form the answer based on original document instead. 
+Ensure that the answer is accurate, has a friendly tone and sounds helpful.
+<document>
+${document}
+</document>
+<quotes>
+${message1}
+</quotes>
+question: ${input}`;
+    const message2 = await promptAI(systemConf, "", prompt2, systemRole, "", "");
+    return message2;
+}
+
+export function parseTags(tagsStr: string) {
+    try {
+        let str = tagsStr;
+        if (str.startsWith("```json")) {
+            str = str.replace("```json", "");
+            str = str.replace("```", "");
+        }
+        if (str.startsWith("```plaintext")) {
+            str = str.replace("```plaintext", "");
+            str = str.replace("```", "");
+        }
+        if (str.includes("```")) {
+            str = str.replaceAll("```", "");
+        }
+        const tags = str.trim().split(",");
+        return tags.map((x) => x.trim());
+    } catch (err) {
+        return [];
+    }
+}
+
+export async function sleep(ms: number) {
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    await sleep(ms);
+}
+
+export function countWords(str: string) {
+    return str.trim().split(/[\u00ff-\uffff]|\s+/).length;
+}
+
+export function blockSplitter(
+    blocks: IBlock[],
+    chunkSize = 128,
+    nbName = "",
+    docName = ""
+): { chunk: string; ids: string[] }[] {
+    let chunks = [];
+    let ids = [];
+    let chunk = "";
+    for (const block of blocks) {
+        const wordsCount = countWords(chunk + block.markdown);
+        if (wordsCount > chunkSize) {
+            chunks.push({ ids, chunk: `${nbName}\n${docName}\n${chunk} ${block.markdown}` });
+            chunk = "";
+            ids = [];
+            chunk = block.markdown;
+            ids.push(block.id);
+        } else {
+            chunk = chunk + block.markdown + "\n";
+            ids.push(block.id);
+        }
+    }
+    if (chunk !== "" && ids.length > 0) {
+        chunks.push({ ids, chunk: `${nbName}\n${docName}\n${chunk}` });
+    }
+    // console.log("chunks", chunks);
+    return chunks;
+}
+
+export function textSplitter(
+    id: string,
+    text: string,
+    chunkSize = 128,
+): { chunk: string; ids: string[] }[] {
+    let chunks = [];
+    let chunk = "";
+    let chunkArr = [];
+    let wordsCount = 0;
+    const tokens = tokenize(text);
+    const words = removeStopWord(tokens);
+    for (const word of words) {
+        if (wordsCount > chunkSize) {
+            chunks.push({ ids: [id], chunk: chunk });
+            chunk = chunkArr.slice((chunkArr.length - 32), chunkArr.length).join(" ");
+            chunkArr = [];
+            wordsCount = 0;
+        } else {
+            chunk = chunk + word;
+            chunkArr.push(word);
+            wordsCount++;
+        }
+    }
+    if (chunk !== "") {
+        chunks.push({ ids: [id], chunk });
+    }
+    // console.log("chunks", chunks);
+    return chunks;
+}
+
+
+export function tokenize(str: string): string[] {
+    return str.trim().match(/[\u00ff-\uffff]|\S+/g);
+}
+
+export function smallcap(str: string): string {
+    return str.toLowerCase();
+}
+
+export function removeStopWord(strs: string[]): string[] {
+    let words = [];
+    for (const s of strs) {
+        let isStopWord = false;
+        if (engStopWords.includes(s)) {
+            isStopWord = true;
+        }
+        if (zhStopWords.includes(s)) {
+            isStopWord = true;
+        }
+        if (!isStopWord) {
+            words.push(s);
+        }
+    }
+    return words;
+}
+
+// export function lemmatizeWords(strs: string[]): string[] {
+//     let lemwords = [];
+//     for (const s of strs) {
+//         lemwords.push(lemmatize(s));
+//     }
+//     return lemwords;
+// }
+
+export function nlpPipe(str: string): string {
+    const tokens = tokenize(str);
+    // console.log("tokens--->>\n", tokens);
+    const words = removeStopWord(tokens);
+    // console.log("words---->>\n", words);
+    // const lemwords = lemmatizeWords(words);
+    // console.log("lemwords---->>\n", lemwords);
+    const lowercase = smallcap(words.join(" "));
+    return lowercase;
+}
+
+export function mergeSearchResult(ftsResult: any, chunkResult: any[]) {
+    let mergeResult = [];
+    for (let result of ftsResult.blocks) {
+        result["score"] = 0.99;
+        result["blockIds"] = [result.id];
+        result["fts"] = true;
+        mergeResult.push(result);
+    }
+    for (let result of chunkResult) {
+        result["fts"] = false;
+    }
+    mergeResult.push(...chunkResult);
+    return mergeResult;
+}
+
+export function strToFile(str: string, filename = "tmp", mimetype: string): File {
+    const jsonBlob = new Blob([str], { type: mimetype });
+    const file = new File([jsonBlob], filename, { type: mimetype, lastModified: Date.now() });
+    return file;
+}
+
+export async function checkIfDbExist(dbName: string): Promise<boolean> {
+    return (await window.indexedDB.databases()).map(db => db.name).includes(dbName);
+}
+
+export async function searchNotebook(notebookId: string, query: string, minScore = 0.2, resultLimit = 25) {
+    try {
+        let searchResult = [];
+        const words = nlpPipe(query);
+        console.log("searching", words);
+        const chunkResult = await queryMdChunk(notebookId, words, minScore, resultLimit);
+        // const rerankModel = createModel("rerank");
+        // const rerankResult = await reranker(rerankModel, searchInput.value, chunkResult.map(cr => cr.content));
+        const ftsResult = await fullTextSearchBlock(
+            notebookId,
+            query,
+        );
+        const result = mergeSearchResult(ftsResult, chunkResult);
+
+        for (const chunk of result) {
+            const blocks = await getBlocksByIds(chunk.blockIds);
+            let div = [];
+            for (const block of blocks) {
+                if (
+                    (block.content.length === 0 && block.content === "") ||
+                    block.markdown === ""
+                ) {
+                    continue;
+                }
+                div.push({ id: block.id, markdown: block.markdown });
+            }
+            if (div.length > 0) {
+                searchResult.push({
+                    blocks: div,
+                    score: chunk.score.toFixed(2),
+                    fts: chunk.fts,
+                });
+            }
+        }
+
+        searchResult.sort((a, b) =>
+            a.score > b.score ? -1 : b.score > a.score ? 0 : 1,
+        );
+
+        if (searchResult.length === 0) {
+            await pushMsg("Nothing is found");
+        }
+        return searchResult;
+    } catch (err) {
+        await pushErrMsg(err.stack);
+        throw new Error(err);
+    }
+}
+
+

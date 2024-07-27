@@ -35,7 +35,7 @@ function copy() {
   <div class="msg-container">
     <div class="message" v-html="markdown.render(props.msg)"></div>
     <div class="button-area">
-      <button @click="copy" class="button">
+      <button @click="copy" class="msg-button">
         <svg class="button-icon">
           <use xlink:href="#iconCopy"></use>
         </svg>
@@ -51,7 +51,7 @@ function copy() {
   border: 0px;
 }
 
-.button {
+.msg-button {
   width: 24px;
   height: 24px;
   border: 0px;
@@ -78,7 +78,7 @@ function copy() {
   border-radius: var(--b3-border-radius);
 }
 
-.button:active {
+.msg-button:active {
   transform: scale(0.98);
   /* Scaling button to 0.98 to its original size */
   box-shadow: 3px 2px 22px 1px rgba(0, 0, 0, 0.24);

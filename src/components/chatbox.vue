@@ -1,24 +1,50 @@
 <script setup lang="ts">
-import { request, pushErrMsg } from "@/api.ts";
-import { ref } from "vue";
+import {
+  request,
+  pushErrMsg,
+  readDir,
+  lsNotebooks,
+  getAllDocsByNotebook,
+  transformDocToList,
+  exportMdContent,
+} from "@/api";
+import { dataPath } from "@/embedding";
+import { ref, onMounted } from "vue";
 import Loading from "vue-loading-overlay";
 import "vue-loading-overlay/dist/css/index.css";
-import { promptAI, countWords } from "@/utils.ts";
+import {
+  promptAI,
+  countWords,
+  searchNotebook,
+  tokenize,
+  promptAIChain,
+  rephrasePrompt,
+} from "@/utils";
+import Mentionable from "@/components/mentionable.vue";
 
 const chatInput = defineModel("chatInput");
-const plugin = defineModel("plugin");
+const plugin: any = defineModel("plugin");
 const chatHistory = ref([]);
 const emit = defineEmits(["response"]);
 const isLoading = defineModel("inferencing");
 const enterToSend = defineModel("enterToSend");
 const previousRole = ref("");
+const selectedNotebook = ref("");
+const selectedDocument = ref([]);
+const vectorizedDb = ref([]);
+const documents = ref([]);
+const extraContext = ref("");
+const mentionItems = ref([]);
+const rephrasedInput = ref("");
 
 async function prompt() {
   try {
-    const systemConf = await request("/api/system/getConf");
-    const pluginSetting = plugin.value.settingUtils.dump();
-    console.log("chat setting", pluginSetting);
+    await preparePrompt();
 
+    const systemConf = await request("/api/system/getConf", {});
+    const pluginSetting = plugin.value.settingUtils.dump();
+    //console.log("chat setting", pluginSetting);
+  
     if (
       systemConf.conf.ai.openAI.apiBaseURL !== "" &&
       systemConf.conf.ai.openAI.apiKey !== "" &&
@@ -26,29 +52,49 @@ async function prompt() {
       systemConf.conf.ai.openAI.apiProvider !== ""
     ) {
       isLoading.value = true;
-      let history = ""; 
+      let history = "";
       if (chatHistory.value.length > 0) {
-        history = chatHistory.value.map(
-          (x) =>
-          `${x.question !== "" ? "Question: " + x.question : ""} ${x.answer !== "" ? "Answer: " + x.answer : ""}`,
-        ).join("\n");
-      };
+        history = chatHistory.value
+          .map(
+            (x) =>
+              `${x.question !== "" ? "Question: " + x.question : ""} ${x.answer !== "" ? "Answer: " + x.answer : ""}`,
+          )
+          .join("\n");
+      }
       emit("response", { question: chatInput.value, answer: "" });
 
-      emit("tokenCount", countWords(chatInput.value + (previousRole.value !== pluginSetting.systemPrompt ? "" : history)))
-
-      const respMessage = await promptAI(
-        systemConf,
-        previousRole.value !== pluginSetting.systemPrompt ? "" : history,
-        chatInput.value,
-        pluginSetting.systemPrompt,
-        pluginSetting.customSystemPrompt,
-        pluginSetting.customUserPrompt,
-      );
+      const contextLen = countWords(`${extraContext.value} ${chatInput.value}`);
+      let respMessage = "";
+      if (pluginSetting.usePromptChaining && contextLen > 1024) {
+        console.log("using prompt chain, context length: " + contextLen);
+        respMessage = await promptAIChain(
+          systemConf,
+          extraContext.value,
+          rephrasedInput.value,
+          pluginSetting.systemPrompt,
+        );
+      } else {
+        console.log(
+          "usng prompt with context only, context length:" + contextLen,
+        );
+        respMessage = await promptAI(
+          systemConf,
+          previousRole.value !== pluginSetting.systemPrompt ? "" : history,
+          extraContext.value !== ""
+            ? `${extraContext.value} ${rephrasedInput.value}`
+            : rephrasedInput.value,
+          pluginSetting.systemPrompt,
+          pluginSetting.customSystemPrompt,
+          pluginSetting.customUserPrompt,
+        );
+      }
 
       emit("response", { question: "", answer: respMessage });
       previousRole.value = pluginSetting.systemPrompt;
       chatInput.value = "";
+      selectedNotebook.value = "";
+      extraContext.value = "";
+      selectedDocument.value = [];
       isLoading.value = false;
     } else {
       await pushErrMsg(
@@ -57,13 +103,83 @@ async function prompt() {
     }
   } catch (err) {
     isLoading.value = false;
-    await pushErrMsg(err);
+    selectedNotebook.value = "";
+    selectedDocument.value = [];
+    extraContext.value = "";
+    console.error(err);
+    await pushErrMsg(err.stack);
+  }
+}
+
+async function preparePrompt() {
+  try {
+    isLoading.value = true;
+    const systemConf = await request("/api/system/getConf");
+    const pluginSetting = plugin.value.settingUtils.dump();
+    if (
+      pluginSetting.usePromptChaining &&
+      countWords(chatInput.value) > 5 &&
+      (selectedNotebook.value !== "" || selectedDocument.value.length > 0)
+    ) {
+      rephrasedInput.value = await rephrasePrompt(
+        systemConf,
+        chatInput.value,
+        pluginSetting.systemPrompt,
+      );
+    } else {
+      rephrasedInput.value = chatInput.value;
+    }
+    if (selectedNotebook.value !== "" && chatInput.value.includes("@")) {
+      const tokens = tokenize(rephrasedInput.value);
+      let query = "";
+      for (const t of tokens) {
+        if (!t.startsWith("@") && !t.startsWith("/")) {
+          query += `${t} `;
+        }
+      }
+      const searchResult = await searchNotebook(
+        selectedNotebook.value,
+        query,
+        0.2,
+        20,
+      );
+      console.log("search result", searchResult);
+      let evaluateResult = "";
+      for (const sr of searchResult) {
+        for (const block of sr.blocks) {
+          evaluateResult += `${block.markdown} \n`;
+        }
+      }
+      console.log("extra context", evaluateResult);
+      extraContext.value = evaluateResult;
+    } else if (selectedDocument.value.length > 0 && chatInput.value.includes("/")) {
+      for (const doc of selectedDocument.value) {
+        const markdown = await exportMdContent(doc);
+        extraContext.value = `${extraContext.value}\n---\n${markdown.content}`;
+      }
+    } else {
+      extraContext.value = "";
+      selectedDocument.value = [];
+      selectedNotebook.value = "";
+    }
+    isLoading.value = false;
+  } catch (e) {
+    console.error(e);
+    isLoading.value = false;
+    pushErrMsg(e.stack);
   }
 }
 
 async function typing(ev) {
-  if (ev.key === "Enter" && !ev.shiftKey) {
-    await prompt();
+  const pluginSetting = plugin.value.settingUtils.dump();
+  if (ev.key === "Enter" && !ev.shiftKey && pluginSetting.enterToSend) {
+    try {
+      await prompt();
+    } catch (e) {
+      console.error(e);
+      isLoading.value = false;
+      pushErrMsg(e.stack);
+    }
   }
 }
 
@@ -76,6 +192,100 @@ function updateHistory(history) {
 function loadingCancel() {
   isLoading.value = false;
 }
+
+async function checkVectorizedDb() {
+  vectorizedDb.value = [];
+  const dir = await readDir(dataPath);
+  const notebooks = await lsNotebooks();
+  for (const nb of notebooks.notebooks) {
+    if (nb.name === "SiYuan User Guide" || nb.name === "思源笔记用户指南") {
+      continue;
+    }
+
+    if (dir.filter((f) => f.name.includes(nb.id)).length > 0) {
+      vectorizedDb.value.push({
+        id: nb.id,
+        name: nb.name,
+        value: `@${nb.name}`,
+        key: nb.id,
+      });
+    }
+  }
+  console.log("vectorized db", vectorizedDb.value);
+}
+
+async function checkAllDocuments() {
+  documents.value = [];
+  const notebooks = await lsNotebooks();
+  for (const nb of notebooks.notebooks) {
+    if (nb.name === "SiYuan User Guide" || nb.name === "思源笔记用户指南") {
+      continue;
+    }
+
+    const alldocs = await getAllDocsByNotebook(nb.id, "/");
+    let flatlist = [];
+    transformDocToList(flatlist, alldocs, nb.name, nb.id);
+    for (const doc of flatlist) {
+      const docName = doc.docName.replace(".sy", "");
+      documents.value.push({
+        ...doc,
+        id: doc.docId,
+        key: doc.docId,
+        value: `/${docName}`,
+        name: docName,
+      });
+    }
+  }
+}
+
+async function onMention(item, currentKeyVal, value) {
+  // console.log("key", item.key);
+  // console.log("curr key", currentKeyVal);
+  // console.log("val", value);
+  for (const nb of vectorizedDb.value) {
+    if (nb.id === item.key) {
+      selectedNotebook.value = nb.id;
+      break;
+    }
+  }
+  if (selectedNotebook.value !== "") {
+    return;
+  }
+  for (const doc of documents.value) {
+    if (doc.key === item.key) {
+      selectedDocument.value.push(doc.key);
+      break;
+    }
+  }
+  console.log("selected notebook", selectedNotebook.value);
+  console.log("selected document", selectedDocument.value);
+}
+
+async function onApply(item, key, replacedWith) {
+  console.log(item, `has been replaced with ${replacedWith}`);
+  console.log("key", key);
+  console.log(text.value);
+}
+
+async function onOpen(key) {
+  if (key === "@") {
+    mentionItems.value = vectorizedDb.value;
+  } else if (key === "/") {
+    mentionItems.value = documents.value;
+  }
+}
+
+onMounted(async () => {
+  try {
+    isLoading.value = true;
+    await checkVectorizedDb();
+    await checkAllDocuments();
+    isLoading.value = false;
+  } catch (e) {
+    console.error(e);
+    isLoading.value = false;
+  }
+});
 
 defineExpose({
   updateHistory,
@@ -90,18 +300,59 @@ defineExpose({
       :on-cancel="loadingCancel"
       loader="bars"
       background-color="#eee"
-      opacity="0.25"
+      :opacity="0.25"
       :is-full-page="false"
     />
-    <textarea
-      class="textarea b3-text-field"
-      v-model="chatInput"
-      :placeholder="plugin.i18n.chatPlaceHolder"
-      @keypress="typing"
-    ></textarea>
+    <Mentionable
+      class="mention"
+      :keys="['@', '/']"
+      :items="mentionItems"
+      omit-key
+      insert-space
+      @apply="onMention"
+      @open="onOpen"
+      :limit="10"
+    >
+      <textarea
+        class="textarea b3-text-field"
+        v-model="chatInput"
+        :placeholder="plugin.i18n.chatPlaceHolder"
+        @keypress="typing"
+      ></textarea>
+
+      <template #no-result>
+        <div class="dim">{{ plugin.i18n.noResult }}</div>
+      </template>
+
+      <template #item-@="{ item }">
+        <div class="mention-item">
+          {{ item.name }}
+        </div>
+      </template>
+
+      <template #item-%2F="{ item }">
+        <div class="mention-item">
+          {{ item.name }}
+        </div>
+      </template>
+    </Mentionable>
     <button class="button b3-button" @click="prompt">
-<!--       {{ plugin.i18n.send}} -->
-      <svg width="32px" height="32px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" color="#000000" stroke-width="1.5"><path fill-rule="evenodd" clip-rule="evenodd" d="M3.29106 3.3088C3.00745 3.18938 2.67967 3.25533 2.4643 3.47514C2.24894 3.69495 2.1897 4.02401 2.31488 4.30512L5.40752 11.25H13C13.4142 11.25 13.75 11.5858 13.75 12C13.75 12.4142 13.4142 12.75 13 12.75H5.40754L2.31488 19.6949C2.1897 19.976 2.24894 20.3051 2.4643 20.5249C2.67967 20.7447 3.00745 20.8107 3.29106 20.6912L22.2911 12.6913C22.5692 12.5742 22.75 12.3018 22.75 12C22.75 11.6983 22.5692 11.4259 22.2911 11.3088L3.29106 3.3088Z" fill="#000000"></path></svg>
+      <svg
+        width="32px"
+        height="32px"
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        color="#000000"
+        stroke-width="1.5"
+      >
+        <path
+          fill-rule="evenodd"
+          clip-rule="evenodd"
+          d="M3.29106 3.3088C3.00745 3.18938 2.67967 3.25533 2.4643 3.47514C2.24894 3.69495 2.1897 4.02401 2.31488 4.30512L5.40752 11.25H13C13.4142 11.25 13.75 11.5858 13.75 12C13.75 12.4142 13.4142 12.75 13 12.75H5.40754L2.31488 19.6949C2.1897 19.976 2.24894 20.3051 2.4643 20.5249C2.67967 20.7447 3.00745 20.8107 3.29106 20.6912L22.2911 12.6913C22.5692 12.5742 22.75 12.3018 22.75 12C22.75 11.6983 22.5692 11.4259 22.2911 11.3088L3.29106 3.3088Z"
+          fill="#000000"
+        ></path>
+      </svg>
     </button>
   </div>
 </template>
@@ -112,6 +363,11 @@ defineExpose({
   padding: 0.5em;
   position: relative;
   border: 0px solid #ccc;
+}
+
+.mention {
+  height: 100%;
+  background-color: transparent;
 }
 
 .textarea {

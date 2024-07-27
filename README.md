@@ -5,6 +5,7 @@
 
 Notebook Assistant (nb-assistant /  思源 笔记本助手) is an plugin that build for SiYuan to enhance its AI capability. 
 
+<<<<<<< HEAD
 0.1.3 is in pre-release stage now! If you are using it, you will have to start SiYuan with a specific port.
 
 Reason behind is due to electron caching. (https://github.com/siyuan-note/siyuan/issues/11969)
@@ -30,6 +31,9 @@ Option 2
 3. Start SiYuan as usual
 
 Haven't test it on MacOS and Windows yet, if you have tried it out, do open a pull request or issue to highlight how.
+=======
+0.1.3 is in release stage now! 
+>>>>>>> 0.1.3
 
 ![preview](./preview.png)
 
@@ -50,6 +54,32 @@ It has the following features:
 ✅ Clear chat
 
 ✅ Change of role
+
+### 0.1.3 Update
+
+![demo6](./images/demo6.png)
+
+✅ Create embedding based on your notebook by using transformer.js and onnx runtime.
+
+![demo7](./images/demo7.png)
+
+✅ Search document based on similarity.
+
+✅ Hybrid search strategy by combining similarity result and full text search.
+
+![demo8](./images/demo8.png)
+
+✅ Open document from search result.
+
+✅ Chat with your document, start by typing / on your chat box.
+
+✅ Chat with your notebook, start by typing @ on your chat box. Result may vary due to notebook structure, content store within one notebook, etc.
+
+✅ Select tags to be adding into your document when using auto tag shortcut.
+
+✅ Save summary into your document after summary is generated.
+
+✅ Prompt chaining for larger document in order to fine tune the context and response.
 
 To use the plugin, you will first complete default SiYuan AI setting, for example:
 
@@ -78,3 +108,32 @@ Current limitation
 
 ![demo2](./images/demo2.png)
 
+---
+
+### Limitation for 0.1.3
+
+Everytime you restart SiYuan and using services that required to create embedding, for example, chat with your notebook, create embedding, serch notebook. You are required to download the model online again, approximately (30mb). 
+
+If you do not want this behaviour, you will have to start SiYuan with a specific port.
+
+Reason behind is due to electron caching. (https://github.com/siyuan-note/siyuan/issues/11969)
+
+To do it in Linux:
+
+Option 1 
+
+```shell
+siyuan --port=16806
+```
+
+Option 2 
+
+1. vi /usr/share/applications/siyuan.desktop
+
+2. modify Exec line to below
+
+```
+│Exec=/opt/SiYuan/siyuan --port=16806 %U
+```
+
+3. Start SiYuan as usual

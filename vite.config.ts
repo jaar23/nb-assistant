@@ -1,36 +1,36 @@
-import { resolve } from "path"
-import { defineConfig, loadEnv } from "vite"
-import minimist from "minimist"
-import { viteStaticCopy } from "vite-plugin-static-copy"
-import livereload from "rollup-plugin-livereload"
+import { resolve } from "path";
+import { defineConfig, loadEnv } from "vite";
+import minimist from "minimist";
+import { viteStaticCopy } from "vite-plugin-static-copy";
+import livereload from "rollup-plugin-livereload";
 import zipPack from "vite-plugin-zip-pack";
-import fg from 'fast-glob';
+import fg from "fast-glob";
 
-import vitePluginYamlI18n from './yaml-plugin';
+import vitePluginYamlI18n from "./yaml-plugin";
 
 //vue
-import vue from '@vitejs/plugin-vue';
+import vue from "@vitejs/plugin-vue";
+import { nodePolyfills } from "vite-plugin-node-polyfills";
 
-const args = minimist(process.argv.slice(2))
-const isWatch = args.watch || args.w || false
-const devDistDir = "dev"
-const distDir = isWatch ? devDistDir : "dist"
+const args = minimist(process.argv.slice(2));
+const isWatch = args.watch || args.w || false;
+const devDistDir = "dev";
+const distDir = isWatch ? devDistDir : "dist";
 
-console.log("isWatch=>", isWatch)
-console.log("distDir=>", distDir)
+console.log("isWatch=>", isWatch);
+console.log("distDir=>", distDir);
 
 export default defineConfig({
     resolve: {
         alias: {
             "@": resolve(__dirname, "src"),
-        }
+        },
     },
 
     plugins: [
-
         vitePluginYamlI18n({
-            inDir: 'public/i18n',
-            outDir: `${distDir}/i18n`
+            inDir: "public/i18n",
+            outDir: `${distDir}/i18n`,
         }),
 
         viteStaticCopy({
@@ -50,19 +50,28 @@ export default defineConfig({
                 {
                     src: "./icon.png",
                     dest: "./",
-                }
+                },
             ],
         }),
-        vue()
+        vue(),
+        nodePolyfills({
+            include: ["process", "stream", "buffer", "child_process"],
+            globals: {
+                Buffer: true, // can also be 'build', 'dev', or false
+                global: true,
+                process: true,
+            },
+            protocolImports: true
+        }),
     ],
-
+  
     // https://github.com/vitejs/vite/issues/1930
     // https://vitejs.dev/guide/env-and-mode.html#env-files
     // https://github.com/vitejs/vite/discussions/3058#discussioncomment-2115319
     // 在这里自定义变量
     define: {
         "process.env.DEV_MODE": `"${isWatch}"`,
-        "process.env.NODE_ENV": JSON.stringify(process.env.NODE_ENV)
+        "process.env.NODE_ENV": JSON.stringify(process.env.NODE_ENV),
     },
 
     build: {
@@ -88,46 +97,45 @@ export default defineConfig({
         },
         rollupOptions: {
             plugins: [
-                ...(
-                    isWatch ? [
+                ...(isWatch
+                    ? [
                         livereload(devDistDir),
                         {
                             //监听静态资源文件
-                            name: 'watch-external',
+                            name: "watch-external",
                             async buildStart() {
                                 const files = await fg([
-                                    'public/i18n/**',
-                                    './README*.md',
-                                    './plugin.json'
+                                    "public/i18n/**",
+                                    "./README*.md",
+                                    "./plugin.json",
                                 ]);
                                 for (let file of files) {
                                     this.addWatchFile(file);
                                 }
-                            }
-                        }
-                    ] : [
-                        zipPack({
-                            inDir: './dist',
-                            outDir: './',
-                            outFileName: 'package.zip'
-                        })
+                            },
+                        },
                     ]
-                )
+                    : [
+                        zipPack({
+                            inDir: "./dist",
+                            outDir: "./",
+                            outFileName: "package.zip",
+                        }),
+                    ]),
             ],
 
             // make sure to externalize deps that shouldn't be bundled
             // into your library
             external: ["siyuan", "process"],
-
             output: {
                 entryFileNames: "[name].js",
                 assetFileNames: (assetInfo) => {
                     if (assetInfo.name === "style.css") {
-                        return "index.css"
+                        return "index.css";
                     }
-                    return assetInfo.name
+                    return assetInfo.name;
                 },
             },
         },
-    }
-})
+    },
+});

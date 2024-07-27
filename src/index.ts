@@ -23,7 +23,8 @@ import "@/index.scss";
 // vue
 import { createApp } from "vue";
 import App from "@/App.vue";
-import { lsNotebooks } from "./api";
+import { lsNotebooks, pushMsg, pushErrMsg } from "./api";
+
 
 import { SettingUtils } from "./libs/setting-utils";
 const STORAGE_NAME = "nb-assistant-config";
@@ -83,18 +84,14 @@ export default class PluginSample extends Plugin {
             },
             type: DOCK_TYPE,
             resize() {
-                console.log(DOCK_TYPE + " resize");
+                console.log(DOCK_TYPE + " resized");
             },
             update() {
                 console.log(DOCK_TYPE + " update");
             },
             init: (dock) => {
-                // if (this.isMobile) {
-                //     dock.element.innerHTML = `<div id="nb-assistant" style="height: 98%"></div>`;
-                // } else {
-                // }
                 dock.element.innerHTML = `<div id="nb-assistant" style="height: 98%"></div>`;
-                createApp(App, { plugin: this }).mount("#nb-assistant");
+                createApp(App, { plugin: this}).mount("#nb-assistant");
             },
             destroy() {
                 console.log("destroy dock:", DOCK_TYPE);
@@ -113,11 +110,11 @@ export default class PluginSample extends Plugin {
         });
 
         this.settingUtils.addItem({
-          key: "Hint",
-          value: "",
-          type: "hint",
-          title: this.i18n.AIConfigTitle,
-          description: this.i18n.AIConfigDesc,
+            key: "Hint",
+            value: "",
+            type: "hint",
+            title: this.i18n.AIConfigTitle,
+            description: this.i18n.AIConfigDesc,
         });
 
         this.settingUtils.addItem({
@@ -132,7 +129,7 @@ export default class PluginSample extends Plugin {
                 callback: () => {
                     // Return data and save it in real time
                     let value = this.settingUtils.takeAndSave("chatSaveNotebook");
-                    console.log(value);
+                    console.log("chat saved to ", value);
                 },
             },
         });
@@ -176,7 +173,7 @@ export default class PluginSample extends Plugin {
                 callback: () => {
                     // Return data and save it in real time
                     let value = this.settingUtils.takeAndSave("aiEmoji");
-                    console.log(value);
+                    console.log("ai emoji", value);
                 },
             },
         });
@@ -197,7 +194,7 @@ export default class PluginSample extends Plugin {
         //         },
         //     },
         // });
-        
+
         this.settingUtils.addItem({
             key: "enterToSend",
             value: true,
@@ -209,7 +206,7 @@ export default class PluginSample extends Plugin {
                     // Return data and save it in real time
                     let value = !this.settingUtils.get("enterToSend");
                     this.settingUtils.setAndSave("enterToSend", value);
-                    console.log(value);
+                    console.log("enter to send message", value);
                 },
             },
         });
@@ -224,7 +221,7 @@ export default class PluginSample extends Plugin {
                 callback: () => {
                     // Read data in real time
                     let value = this.settingUtils.takeAndSave("customSystemPrompt");
-                    console.log(value);
+                    console.log("custom prompt", value);
                 },
             },
         });
@@ -239,10 +236,62 @@ export default class PluginSample extends Plugin {
                 callback: () => {
                     // Read data in real time
                     let value = this.settingUtils.takeAndSave("customUserPrompt");
-                    console.log(value);
+                    console.log("custom user prompt", value);
                 },
             },
         });
+
+        // this.settingUtils.addItem({
+        //     key: "localEmbeddingEnable",
+        //     value: false,
+        //     type: "checkbox",
+        //     title: this.i18n.localEmbeddingEnabled,
+        //     description: this.i18n.localEmbeddingEnabledDesc,
+        //     action: {
+        //         callback: () => {
+        //             // Return data and save it in real time
+        //             let value = !this.settingUtils.get("localEmbeddingEnable");
+        //             this.settingUtils.setAndSave("localEmbedding", value);
+        //             console.log("enable local embedding ", value);
+        //             if (value) {
+        //                 pushMsg(this.i18n.downloadOnnxRuntime)
+        //                     .then(() => createModel())
+        //                     .then((model) => {
+        //                         pushMsg(this.i18n.embeddingModelCreated);
+        //                         console.log("model created");
+        //                         return model;
+        //                     })
+        //                     .then((model) => createEmbedding(model, "hello"))
+        //                     .then((embeddings) => {
+        //                         console.log("embedding created", embeddings);
+        //                         pushMsg(this.i18n.createdEmbeddingsSuccess);
+        //                     })
+        //                     .catch((err) => {
+        //                         console.error(err);
+        //                         pushErrMsg(`unable to setup vectordb, ${err}`);
+        //                     });
+        //             }
+        //         },
+        //     },
+        // });
+        // 
+        // TODO: allow user to customize prompt chaining steps and prompt
+        this.settingUtils.addItem({
+            key: "usePromptChaining",
+            value: false,
+            type: "checkbox",
+            title: this.i18n.usePromptChaining,
+            description: this.i18n.usePromptChainingDesc,
+            action: {
+                callback: () => {
+                    // Return data and save it in real time
+                    let value = !this.settingUtils.get("usePromptChaining");
+                    this.settingUtils.setAndSave("usePromptChaining", value);
+                    console.log("usePromptChaining", value);
+                }
+            },
+        });
+
         try {
             this.settingUtils.load();
         } catch (error) {
