@@ -5,35 +5,7 @@
 
 Notebook Assistant (nb-assistant /  思源 笔记本助手) is an plugin that build for SiYuan to enhance its AI capability. 
 
-<<<<<<< HEAD
-0.1.3 is in pre-release stage now! If you are using it, you will have to start SiYuan with a specific port.
-
-Reason behind is due to electron caching. (https://github.com/siyuan-note/siyuan/issues/11969)
-
-To do it in Linux:
-
-Option 1 
-
-```shell
-siyuan --port=16806
-```
-
-Option 2 
-
-1. vi /usr/share/applications/siyuan.desktop
-
-2. modify Exec line to below
-
-```
-│Exec=/opt/SiYuan/siyuan --port=16806 %U
-```
-
-3. Start SiYuan as usual
-
-Haven't test it on MacOS and Windows yet, if you have tried it out, do open a pull request or issue to highlight how.
-=======
 0.1.3 is in release stage now! 
->>>>>>> 0.1.3
 
 ![preview](./preview.png)
 
