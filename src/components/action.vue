@@ -2,6 +2,25 @@
 import { parseTags } from "@/utils";
 import { ref, onMounted } from "vue";
 import { setBlockAttrs, pushMsg, pushErrMsg, appendBlock } from "@/api";
+import MarkdownIt from "markdown-it";
+import MarkdownItAbbr from "markdown-it-abbr";
+import MarkdownItAnchor from "markdown-it-anchor";
+import MarkdownItFootnote from "markdown-it-footnote";
+import MarkdownItHighlightjs from "markdown-it-highlightjs";
+import MarkdownItSub from "markdown-it-sub";
+import MarkdownItSup from "markdown-it-sup";
+import MarkdownItTasklists from "markdown-it-task-lists";
+import MarkdownItTOC from "markdown-it-toc-done-right";
+
+const markdown = new MarkdownIt()
+  .use(MarkdownItAbbr)
+  .use(MarkdownItAnchor)
+  .use(MarkdownItFootnote)
+  .use(MarkdownItHighlightjs)
+  .use(MarkdownItSub)
+  .use(MarkdownItSup)
+  .use(MarkdownItTasklists);
+
 
 const props = defineProps({
     msg: String,
@@ -66,8 +85,7 @@ onMounted(() => {
 
 <template>
     <div class="msg-container">
-        <div v-if="['Message', 'SaveSummary'].includes(props.actionType)" class="message">
-            {{ props.msg }}
+        <div v-if="['Message', 'SaveSummary'].includes(props.actionType)" class="message" v-html="markdown.render(props.msg)">
         </div>
         <div v-if="props.actionType === 'Checkbox'" class="action">
             <span>{{ plugin.i18n.selectTags }}</span>
@@ -84,7 +102,7 @@ onMounted(() => {
                     <use xlink:href="#iconCopy"></use>
                 </svg>
             </button>
-            <button @click="save" class="act-button" title="Add tag to document">
+            <button @click="save" class="act-button" title="Save to document">
                 <svg class="button-icon w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true"
                     xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
                     <path fill-rule="evenodd"

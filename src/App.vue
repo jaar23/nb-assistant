@@ -46,7 +46,7 @@ const onSearch = ref(false);
 const viewState = ref("chat");
 
 function updateHistory(response) {
-  console.log(response);
+  // console.log(response);
   if (historyMessages.value.length >= historyRetain) {
     historyRetain.value.shift();
   }
@@ -64,7 +64,7 @@ function updateHistoryWithoutKeepTrack(response) {
 
 function clearChat() {
   historyMessages.value = [];
-  console.log("clear", historyMessages.value);
+  // console.log("clear", historyMessages.value);
 }
 
 function showTokenCount(count: number) {
@@ -81,7 +81,7 @@ function onShortcutView() {
 function onVectorDbView() {
   onVectorDb.value = !onVectorDb.value;
   onSearch.value = false;
-  console.log("on vdb view", onVectorDb.value);
+  // console.log("on vdb view", onVectorDb.value);
   viewState.value = onVectorDb.value ? "vectordb" : "chat";
 }
 
@@ -116,7 +116,7 @@ async function saveChat(title: string) {
     }
   } catch (err) {
     console.error(err);
-    await pushErrMsg(err);
+    await pushErrMsg(err.stack);
     inferencing.value = false;
   }
 }
@@ -133,12 +133,12 @@ onMounted(async () => {
     isAIEnable.value = true;
     historyRetain.value = systemConf.conf.ai.openAI.apiMaxContexts;
   }
+  aiEmoji.value = props.plugin.settingUtils.dump().aiEmoji;
+  enterToSend.value = props.plugin.settingUtils.dump().enterToSend;
   // console.log("ai configure? ", isAIEnable.value);
   // console.log("context length? ", historyRetain.value);
   // console.log("system conf: ", systemConf.conf.ai);
   // console.log("i18n: ", props.plugin.i18n);
-  aiEmoji.value = props.plugin.settingUtils.dump().aiEmoji;
-  enterToSend.value = props.plugin.settingUtils.dump().enterToSend;
   // get current doc
   // const openTabs = getCurrentTabs(systemConf.conf.uiLayout.layout)
   // console.log("tabs: ", openTabs)

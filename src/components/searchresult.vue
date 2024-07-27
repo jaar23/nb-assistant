@@ -1,4 +1,15 @@
 <script setup lang="ts">
+import {
+  lsNotebooks,
+  getNotebookConf,
+  pushMsg,
+  pushErrMsg,
+  getChildBlocksContents,
+  getBlocksByIds,
+  fullTextSearchBlock,
+  checkBlockExist,
+  readDir,
+} from "@/api";
 import MarkdownIt from "markdown-it";
 import MarkdownItAbbr from "markdown-it-abbr";
 import MarkdownItAnchor from "markdown-it-anchor";
@@ -21,6 +32,16 @@ const markdown = new MarkdownIt()
 
 const searchResult = defineModel("result");
 const plugin = defineModel("plugin");
+
+async function openBlock(blockId) {
+  const url = "siyuan://blocks/";
+  const blockExist = await checkBlockExist(blockId);
+  if (!blockExist) {
+    await pushMsg(plugin.i18n.blockNotFound);
+    return;
+  }
+  window.openFileByURL(url + blockId);
+}
 
 </script>
 
@@ -70,5 +91,7 @@ small {
   margin: 5px auto;
 }
 
-
+.block {
+  cursor: pointer;
+}
 </style>

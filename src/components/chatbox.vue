@@ -40,10 +40,12 @@ const rephrasedInput = ref("");
 
 async function prompt() {
   try {
+    await preparePrompt();
+
     const systemConf = await request("/api/system/getConf");
     const pluginSetting = plugin.value.settingUtils.dump();
-    console.log("chat setting", pluginSetting);
-
+    //console.log("chat setting", pluginSetting);
+  
     if (
       systemConf.conf.ai.openAI.apiBaseURL !== "" &&
       systemConf.conf.ai.openAI.apiKey !== "" &&
@@ -73,7 +75,9 @@ async function prompt() {
           pluginSetting.systemPrompt,
         );
       } else {
-        console.log("usng prompt with context only, context length:" + contextLen);
+        console.log(
+          "usng prompt with context only, context length:" + contextLen,
+        );
         respMessage = await promptAI(
           systemConf,
           previousRole.value !== pluginSetting.systemPrompt ? "" : history,
@@ -108,50 +112,69 @@ async function prompt() {
   }
 }
 
+async function preparePrompt() {
+  try {
+    isLoading.value = true;
+    const systemConf = await request("/api/system/getConf");
+    const pluginSetting = plugin.value.settingUtils.dump();
+    if (
+      pluginSetting.usePromptChaining &&
+      countWords(chatInput.value) > 5 &&
+      (selectedNotebook.value !== "" || selectedDocument.value.length > 0)
+    ) {
+      rephrasedInput.value = await rephrasePrompt(
+        systemConf,
+        chatInput.value,
+        pluginSetting.systemPrompt,
+      );
+    } else {
+      rephrasedInput.value = chatInput.value;
+    }
+    if (selectedNotebook.value !== "" && chatInput.value.includes("@")) {
+      const tokens = tokenize(rephrasedInput.value);
+      let query = "";
+      for (const t of tokens) {
+        if (!t.startsWith("@") && !t.startsWith("/")) {
+          query += `${t} `;
+        }
+      }
+      const searchResult = await searchNotebook(
+        selectedNotebook.value,
+        query,
+        0.2,
+        20,
+      );
+      console.log("search result", searchResult);
+      let evaluateResult = "";
+      for (const sr of searchResult) {
+        for (const block of sr.blocks) {
+          evaluateResult += `${block.markdown} \n`;
+        }
+      }
+      console.log("extra context", evaluateResult);
+      extraContext.value = evaluateResult;
+    } else if (selectedDocument.value.length > 0 && chatInput.value.includes("/")) {
+      for (const doc of selectedDocument.value) {
+        const markdown = await exportMdContent(doc);
+        extraContext.value = `${extraContext.value}\n---\n${markdown.content}`;
+      }
+    } else {
+      extraContext.value = "";
+      selectedDocument.value = [];
+      selectedNotebook.value = "";
+    }
+    isLoading.value = false;
+  } catch (e) {
+    console.error(e);
+    isLoading.value = false;
+    pushErrMsg(e.stack);
+  }
+}
+
 async function typing(ev) {
   if (ev.key === "Enter" && !ev.shiftKey) {
     try {
-      isLoading.value = true;
-      const systemConf = await request("/api/system/getConf");
-      const pluginSetting = plugin.value.settingUtils.dump();
-      if (pluginSetting.usePromptChaining && countWords(chatInput.value) > 5)  {
-        rephrasedInput.value = await rephrasePrompt(systemConf, chatInput.value, pluginSetting.systemPrompt);
-      } else {
-        rephrasedInput.value = chatInput.value;
-      }
-      if (selectedNotebook.value !== "") {
-        const tokens = tokenize(rephrasedInput.value);
-        let query = "";
-        for (const t of tokens) {
-          if (!t.startsWith("@") && !t.startsWith("/")) {
-            query += `${t} `;
-          }
-        }
-        const searchResult = await searchNotebook(
-          selectedNotebook.value,
-          query,
-          0.2,
-          20,
-        );
-        console.log("search result", searchResult);
-        let evaluateResult = "";
-        for (const sr of searchResult) {
-          for (const block of sr.blocks) {
-            evaluateResult += `${block.markdown} \n`;
-          }
-        }
-        console.log("extra context", evaluateResult);
-        extraContext.value = evaluateResult;
-      } else if (selectedDocument.value.length > 0) {
-        for (const doc of selectedDocument.value) {
-          const markdown = await exportMdContent(doc);
-          extraContext.value = `${extraContext.value}\n---\n${markdown.content}`;
-        }
-      } else {
-        extraContext.value = "";
-      }
       await prompt();
-      isLoading.value = false;
     } catch (e) {
       console.error(e);
       isLoading.value = false;
@@ -271,12 +294,31 @@ defineExpose({
 
 <template>
   <div class="input-area">
-    <loading v-model:active="isLoading" :can-cancel="false" :on-cancel="loadingCancel" loader="bars"
-      background-color="#eee" :opacity="0.25" :is-full-page="false" />
-    <Mentionable class="mention" :keys="['@', '/']" :items="mentionItems" omit-key insert-space @apply="onMention"
-      @open="onOpen" :limit="10">
-      <textarea class="textarea b3-text-field" v-model="chatInput" :placeholder="plugin.i18n.chatPlaceHolder"
-        @keypress="typing"></textarea>
+    <loading
+      v-model:active="isLoading"
+      :can-cancel="false"
+      :on-cancel="loadingCancel"
+      loader="bars"
+      background-color="#eee"
+      :opacity="0.25"
+      :is-full-page="false"
+    />
+    <Mentionable
+      class="mention"
+      :keys="['@', '/']"
+      :items="mentionItems"
+      omit-key
+      insert-space
+      @apply="onMention"
+      @open="onOpen"
+      :limit="10"
+    >
+      <textarea
+        class="textarea b3-text-field"
+        v-model="chatInput"
+        :placeholder="plugin.i18n.chatPlaceHolder"
+        @keypress="typing"
+      ></textarea>
 
       <template #no-result>
         <div class="dim">{{ plugin.i18n.noResult }}</div>
@@ -295,11 +337,21 @@ defineExpose({
       </template>
     </Mentionable>
     <button class="button b3-button" @click="prompt">
-      <svg width="32px" height="32px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" color="#000000"
-        stroke-width="1.5">
-        <path fill-rule="evenodd" clip-rule="evenodd"
+      <svg
+        width="32px"
+        height="32px"
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        color="#000000"
+        stroke-width="1.5"
+      >
+        <path
+          fill-rule="evenodd"
+          clip-rule="evenodd"
           d="M3.29106 3.3088C3.00745 3.18938 2.67967 3.25533 2.4643 3.47514C2.24894 3.69495 2.1897 4.02401 2.31488 4.30512L5.40752 11.25H13C13.4142 11.25 13.75 11.5858 13.75 12C13.75 12.4142 13.4142 12.75 13 12.75H5.40754L2.31488 19.6949C2.1897 19.976 2.24894 20.3051 2.4643 20.5249C2.67967 20.7447 3.00745 20.8107 3.29106 20.6912L22.2911 12.6913C22.5692 12.5742 22.75 12.3018 22.75 12C22.75 11.6983 22.5692 11.4259 22.2911 11.3088L3.29106 3.3088Z"
-          fill="#000000"></path>
+          fill="#000000"
+        ></path>
       </svg>
     </button>
   </div>
@@ -337,5 +389,4 @@ defineExpose({
   min-width: 40px;
   background-color: var(--b3-theme-success) !important;
 }
-
 </style>

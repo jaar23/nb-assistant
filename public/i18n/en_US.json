@@ -8,7 +8,7 @@
     "autoTag": "Auto-tag",
     "saveChat": "Save chat",
     "clear": "Clear",
-    "chatPlaceHolder": "How can I help you today?",
+    "chatPlaceHolder": "How can I help you today?\nTry @ or / to chat with Notebook and Document.",
     "send": "Send",
     "saveChatTitle": "Save chat history to Notebook",
     "saveChatDesc": "Select the notebook to save the chat history.",
@@ -82,5 +82,8 @@
     "usePromptChainingDesc": "To improve the reliability and performance of LLMs, prompt chaining is one of the techniques. It break tasks into its subtasks and uses its output as input for the subsequent chain. This is useful for complex tasks but it also consume MORE tokens, therefore, be aware of using such option. ",
     "cacheModel": "Embedding Service",
     "cacheModelDesc": "Local Embedding Service will be using transformer.js and onnx runtime within SiYuan to create embedding. There may be a slightly slow during the process. This feature is required for RAG (Retrieval-Augmented Generation) using your own data. All the data is stored within SiYuan.",
-    "cacheModelDesc2": "The downloaded model will be cached in SiYuan, however, caches may be missing / reset after you exit SiYuan. You can toggle this option to cache it again."
+    "cacheModelDesc2": "The downloaded model will be cached in SiYuan, however, caches may be missing / reset after you exit SiYuan. You can toggle this option to cache it again.",
+    "saveToDoc": "Save to document",
+    "embeddingAlert": "Please ensure you are not choosing the notebook with any sensitive information. While RAG retrieval process, it may be retrieved and being send to the AI service.",
+    "embeddingHint": "After embedding is created, you can use '@' to select the notebook and supply the notebook's content for RAG process."
 }

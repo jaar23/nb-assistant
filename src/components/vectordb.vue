@@ -20,7 +20,7 @@ import {
   promptPersistPermission,
   dataPath,
 } from "@/embedding";
-import { createModel, createEmbedding, createLocalModel } from "@/model";
+import { createModel, createEmbedding } from "@/model";
 import {
   lsNotebooks,
   getNotebookConf,
@@ -59,13 +59,13 @@ async function setupVectorDb() {
       console.log("model created");
       await pushMsg(plugin.value.i18n.embeddingModelCreated);
       const embeddings = await createEmbedding(model, "hello");
-      console.log("embeddings created", embeddings);
+      // console.log("embeddings created", embeddings);
       await pushMsg(plugin.value.i18n.createdEmbeddingsSuccess);
       isLoading.value = false;
     } catch (err) {
       console.error(err);
       await pushErrMsg(plugin.value.i18n.unableToSetupVDB);
-      await pushErrMsg(err);
+      await pushErrMsg(err.stack);
       isLoading.value = false;
     }
   } else {
@@ -181,10 +181,12 @@ onMounted(async () => {
       <br />
       <small>{{ plugin.i18n.createEmbeddingsNote1 }}</small>
       <small>{{ plugin.i18n.createEmbeddingsNote2 }}</small>
+      <small>{{ plugin.i18n.embeddingHint }}</small>
       <small v-if="selectedNotebook === '*'">
         {{ plugin.i18n.createEmbeddingsNote3 }}
       </small>
       <div>
+        <p v-if="selectedNotebook !==''">{{ plugin.i18n.embeddingAlert }}</p>
         <button v-if="selectedNotebook !== ''" @click="selectedNotebook = ''" class="b3-button button-cancel">
           {{ plugin.i18n.cancel }}
         </button>
@@ -193,11 +195,6 @@ onMounted(async () => {
         </button>
       </div>
     </div>
-    <!-- <div> -->
-    <!--   <button @click="createLocalModel"> -->
-    <!--     create local model -->
-    <!--   </button> -->
-    <!-- </div> -->
   </div>
 </template>
 
@@ -237,6 +234,7 @@ onMounted(async () => {
 
 small {
   color: #b9b9b9;
+  display: block;
 }
 
 .button-confirm {

@@ -58,7 +58,7 @@ async function summarizeOpenDoc(ev: any) {
     selectedSumTab.value = "";
   } catch (err) {
     isLoading.value = false;
-    await pushErrMsg(err);
+    await pushErrMsg(err.stack);
   }
 }
 
@@ -108,7 +108,7 @@ ${doc.content}`,
     selectedTagTab.value = "";
   } catch (err) {
     isLoading.value = false;
-    await pushErrMsg(err);
+    await pushErrMsg(err.stack);
   }
 }
 

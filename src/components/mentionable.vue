@@ -5,7 +5,7 @@ import { defineComponent, computed, onMounted, onUnmounted, onUpdated, ref, watc
 
 options.themes.mentionable = {
   $extend: 'dropdown',
-  placement: 'auto',
+  placement: 'right',
   arrowPadding: 6,
   arrowOverflow: true,
 }
@@ -389,10 +389,10 @@ export default defineComponent({
       :triggers="[]"
       :auto-hide="false"
       :theme="theme"
-      :distance="0"
+      :distance="64"
       :skidding="-64"
       class="popper"
-      style="position: relative;"
+      style="position: absolute;"
       :style="caretPosition ? {
         top: `${caretPosition.top}px`,
         left: `${caretPosition.left}px`,

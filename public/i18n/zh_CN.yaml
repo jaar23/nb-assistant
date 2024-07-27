@@ -9,7 +9,7 @@ summarize: "总结"
 autoTag: 生成标记
 saveChat: 保存
 clear: 清除
-chatPlaceHolder: 您好，我是您的笔记小助手！
+chatPlaceHolder: 您好，我是您的笔记小助手! 尝试使用 @ 或 / 与笔记本和文档进行聊天。
 send: 发送
 saveChatTitle: 保存到
 saveChatDesc: 插件会使用当前选择的笔记本来保存聊天记录
@@ -82,4 +82,6 @@ processedXAndYLeft: "已处理[x]个分块，剩余[y]待处理"
 cacheModel: 嵌入(Embedding)服务
 cacheModelDesc: 本地嵌入服务使用 transformer.js 和 onnx runtime 在 SiYuan 中创建嵌入。过程可能稍慢。此功能用于使用自有数据的 RAG（检索增强生成）。所有数据存储在 SiYuan 中。
 cacheModelDesc2": 下载的模型将缓存于 SiYuan，但退出 SiYuan 后,缓存可能丢失/重置。再次打开此选项将重新下载模型缓存。
-
+saveToDoc: 保存致文档
+embeddingAlert: 请确保您没有选择包含任何敏感信息的笔记本。如果被制造成嵌入（Embedding），在RAG检索过程中，可能会检索到这些信息并发送给AI服务。
+embeddingHint: 嵌入（Embedding）创建后，您可以使用'@'选择笔记本并提供笔记本内容以进行RAG处理。

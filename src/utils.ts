@@ -147,7 +147,7 @@ export async function promptAI(
                 throw new Error(await resp.text());
             }
             let response = await resp.json();
-            console.log(response);
+            // console.log(response);
             let respMessage = "";
             for (const choice of response.choices) {
                 respMessage += choice.message.content + "\n";
@@ -283,7 +283,7 @@ export function textSplitter(
     if (chunk !== "") {
         chunks.push({ ids: [id], chunk });
     }
-    console.log("chunks", chunks);
+    // console.log("chunks", chunks);
     return chunks;
 }
 

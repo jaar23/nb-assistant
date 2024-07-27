@@ -2,41 +2,6 @@ import { env, pipeline, PipelineType, AutoModelForSequenceClassification, AutoTo
 import { getFile } from "@/api";
 export type ModelType = "embedding" | "rerank";
 
-// export async function createModel(modelType: ModelType = "embedding") {
-//     //const pipe = await pipeline("feature-extraction", "Xenova/all-MiniLM-L12-v2");
-//     const rerankModel = "Xenova/bge-reranker-base";
-//     const embeddingModel = "Xenova/all-MiniLM-L6-v2";
-//     if (modelType === "embedding") {
-//         const pipe = await pipeline("feature-extraction", embeddingModel);
-//         return pipe;
-//     } else if (modelType === "rerank") {
-//         const pipe = await AutoModelForSequenceClassification.from_pretrained("text-classification", {quantized: true});
-//         return pipe;
-//     } else {
-//         throw new Error("Invalid model type");
-//     }
-// }
-
-export async function createLocalModel() {
-    //env.localModelPath = "/tmp/transformer";
-    // env.useBrowserCache = false;
-    // env.allowRemoteModels = false;
-    // const config = await getFile("/temp/nb-assistant/transformer/Xenova/all-MiniLM-L6-v2/config.json");
-    // const model = await getFile("/temp/nb-assistant/transformer/Xenova/all-MiniLM-L6-v2/onnx/model_quantized.onnx");
-    // const tokenizer = await getFile("/temp/nb-assistant/transformer/Xenova/all-MiniLM-L6-v2/tokenizer.json");
-    // const tokenizer_config = await getFile("/tmp/transformer/Xenova/all-MiniLM-L6-v2/tokenizer_config.json");
-    // console.log(config);
-    // //const data = new Uint8Array(config.);
-    // const blob = new Blob([config], { type: 'application/octet-stream' });
-    // // Step 2: Generate a URL for the Blob
-    // const blobUrl = URL.createObjectURL(blob);
-    // console.log("config url", blobUrl);
-    // //const configObject = URL.createObjectURL(config);
-    const pipe = await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2");
-    const output = await pipe("hello", {pooling: "mean", normalize: true});
-    console.log(output);
-    return pipe;
-}
 
 // TODO: choose model to be initialize
 export async function createModel() {

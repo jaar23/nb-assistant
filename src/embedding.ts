@@ -141,7 +141,7 @@ export async function getMemVectorDb(dbName: string) {
       },
     });
     await tempdb.put("hnsw-index", hnswFile, "hnsw");
-    console.log("hnswfile", hnswFile);
+    // console.log("hnswfile", hnswFile);
     // hnswdb = await createVectorDb(
     //   hnswFile.M,
     //   hnswFile.efConstruction,
@@ -154,7 +154,7 @@ export async function getMemVectorDb(dbName: string) {
     const tempdb = await openDB(dbName);
     hnswJson = await tempdb.get("hnsw-index", "hnsw");
   }
-  console.log("hnsw json", hnswJson);
+  // console.log("hnsw json", hnswJson);
   const db = HNSW.fromJSON(hnswJson);
   // console.log("hnsw", db)
   return db;
@@ -350,7 +350,7 @@ export async function queryMdChunk(
   const model = await createModel();
   const embedding = await createEmbedding(model, queryText);
   const vectordb = await getMemVectorDb(notebookId);
-  console.log(vectordb.toJSON());
+  // console.log(vectordb.toJSON());
   const embeddingResult = queryMemVector(vectordb, embedding, resultLimit);
   console.log("embedding result", embeddingResult);
   const closestResult = embeddingResult
@@ -448,7 +448,7 @@ export async function getAllBlocksByNotebook(
       docs.push(nb);
     }
   }
-  console.log("all blocks", docs);
+  // console.log("all blocks", docs);
   return docs;
 }
 

@@ -24,10 +24,7 @@ import "@/index.scss";
 import { createApp } from "vue";
 import App from "@/App.vue";
 import { lsNotebooks, pushMsg, pushErrMsg } from "./api";
-import { createModel, createEmbedding } from "./model";
 
-// transformer js 
-import {env, pipeline} from "@xenova/transformers";
 
 import { SettingUtils } from "./libs/setting-utils";
 const STORAGE_NAME = "nb-assistant-config";
@@ -87,20 +84,7 @@ export default class PluginSample extends Plugin {
             },
             type: DOCK_TYPE,
             resize() {
-                console.log(DOCK_TYPE + " resize");
-                // if (window.navigator.storage && window.navigator.storage.persist) {
-                //     window.navigator.storage.persist().then(function(persistent) {
-                //         if (persistent)
-                //             console.log(
-                //                 "Storage will not be cleared except by explicit user action",
-                //             );
-                //         else
-                //             console.log(
-                //                 "Storage may be cleared by the UA under storage pressure.",
-                //             );
-                //     });
-                // }
-                // store().then(() => "store ended...");
+                console.log(DOCK_TYPE + " resized");
             },
             update() {
                 console.log(DOCK_TYPE + " update");
@@ -145,7 +129,7 @@ export default class PluginSample extends Plugin {
                 callback: () => {
                     // Return data and save it in real time
                     let value = this.settingUtils.takeAndSave("chatSaveNotebook");
-                    console.log(value);
+                    console.log("chat saved to ", value);
                 },
             },
         });
@@ -189,7 +173,7 @@ export default class PluginSample extends Plugin {
                 callback: () => {
                     // Return data and save it in real time
                     let value = this.settingUtils.takeAndSave("aiEmoji");
-                    console.log(value);
+                    console.log("ai emoji", value);
                 },
             },
         });
@@ -222,7 +206,7 @@ export default class PluginSample extends Plugin {
                     // Return data and save it in real time
                     let value = !this.settingUtils.get("enterToSend");
                     this.settingUtils.setAndSave("enterToSend", value);
-                    console.log(value);
+                    console.log("enter to send message", value);
                 },
             },
         });
@@ -237,7 +221,7 @@ export default class PluginSample extends Plugin {
                 callback: () => {
                     // Read data in real time
                     let value = this.settingUtils.takeAndSave("customSystemPrompt");
-                    console.log(value);
+                    console.log("custom prompt", value);
                 },
             },
         });
@@ -252,7 +236,7 @@ export default class PluginSample extends Plugin {
                 callback: () => {
                     // Read data in real time
                     let value = this.settingUtils.takeAndSave("customUserPrompt");
-                    console.log(value);
+                    console.log("custom user prompt", value);
                 },
             },
         });

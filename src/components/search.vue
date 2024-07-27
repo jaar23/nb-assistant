@@ -214,7 +214,4 @@ small {
   line-height: 2.5;
 }
 
-.block {
-  cursor: pointer;
-}
 </style>
