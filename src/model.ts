@@ -39,7 +39,7 @@ export async function reranker(model: any, query: string, result: string[]) {
     console.log("result", result);
     let tokenizer = await AutoTokenizer.from_pretrained("Xenova/bge-reranker-base");
     let texts = query.repeat(result.length);
-    let inputs = tokenizer(texts, {text_pair: result, padding: true, truncation: true});
+    let inputs = tokenizer(texts, { text_pair: result, padding: true, truncation: true });
     const score = await model(inputs);
     console.log("score", score);
     return score;

@@ -7,7 +7,6 @@ import MarkdownItHighlightjs from "markdown-it-highlightjs";
 import MarkdownItSub from "markdown-it-sub";
 import MarkdownItSup from "markdown-it-sup";
 import MarkdownItTasklists from "markdown-it-task-lists";
-import MarkdownItTOC from "markdown-it-toc-done-right";
 
 const markdown = new MarkdownIt()
   .use(MarkdownItAbbr)

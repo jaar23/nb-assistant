@@ -13,39 +13,24 @@ import { ref, onMounted } from "vue";
 import Loading from "vue-loading-overlay";
 import "vue-loading-overlay/dist/css/index.css";
 import { dataPath } from "@/embedding";
-import MarkdownIt from "markdown-it";
-import MarkdownItAbbr from "markdown-it-abbr";
-import MarkdownItAnchor from "markdown-it-anchor";
-import MarkdownItFootnote from "markdown-it-footnote";
-import MarkdownItHighlightjs from "markdown-it-highlightjs";
-import MarkdownItSub from "markdown-it-sub";
-import MarkdownItSup from "markdown-it-sup";
-import MarkdownItTasklists from "markdown-it-task-lists";
-import MarkdownItTOC from "markdown-it-toc-done-right";
 import searchresult from "@/components/searchresult.vue";
 
-const markdown = new MarkdownIt()
-  .use(MarkdownItAbbr)
-  .use(MarkdownItAnchor)
-  .use(MarkdownItFootnote)
-  .use(MarkdownItHighlightjs, { inline: true })
-  .use(MarkdownItSub)
-  .use(MarkdownItSup)
-  .use(MarkdownItTasklists);
 
-const selectedNotebook = defineModel("selectedNotebook");
-const searchInput = defineModel("searchInput");
+const selectedNotebook = defineModel<string>("selectedNotebook");
+const searchInput = defineModel<string>("searchInput");
 const notebooks = ref([]);
 const isLoading = ref(false);
 const vectorizedDb = ref([]);
 const dbEnable = ref(false);
-const plugin = defineModel("plugin");
+const plugin = defineModel<any>("plugin");
 const searchResult = ref([]);
-const dir = ref([]);
 
 async function search(ev) {
   if (ev.key === "Enter" && !ev.shiftKey) {
     try {
+      if (searchInput.value === "") {
+        return;
+      }
       isLoading.value = true;
       searchResult.value = await searchNotebook(
         selectedNotebook.value,
@@ -61,7 +46,7 @@ async function search(ev) {
 
 async function checkVectorizedDb() {
   vectorizedDb.value = [];
-  const dir = await readDir(dataPath);
+  const dir: any = await readDir(dataPath);
   const notebooks = await lsNotebooks();
   for (const nb of notebooks.notebooks) {
     if (dir.filter((f) => f.name.includes(nb.id)).length > 0) {
@@ -78,9 +63,11 @@ async function openBlock(blockId) {
   const url = "siyuan://blocks/";
   const blockExist = await checkBlockExist(blockId);
   if (!blockExist) {
+    // @ts-ignore: plugin available i18n
     await pushMsg(plugin.i18n.blockNotFound);
     return;
   }
+  // @ts-ignore: siyuan specific function
   window.openFileByURL(url + blockId);
 }
 
@@ -129,21 +116,6 @@ onMounted(async () => {
       {{ plugin.i18n.resultFound }}: {{ searchResult.length }}
     </small>
     <searchresult v-model:result="searchResult" v-model:plugin="plugin"/>
-
-    <!-- <div class="result-row" v-if="!isLoading"> -->
-    <!--   <ul v-if="searchResult.length > 0"> -->
-    <!--     <li v-for="(result, index) in searchResult"> -->
-    <!--       <div clss="result-card" :key="index"> -->
-    <!--         <span @click="openBlock(block.id)" class="block" v-for="block in result.blocks" data-type="block-ref" -->
-    <!--           data-subtype="d" :data-id="block.id" v-html="markdown.render(block.markdown)"> -->
-    <!--         </span> -->
-    <!--         <small>{{ plugin.i18n.similarity }} {{ result.score }}</small> -->
-    <!--         <small v-if="result.fts">{{ plugin.i18n.fts }}</small> -->
-    <!--         <small v-if="!result.fts">{{ plugin.i18n.ss }}</small> -->
-    <!--       </div> -->
-    <!--     </li> -->
-    <!--   </ul> -->
-    <!-- </div> -->
   </div>
 </template>
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const emit = defineEmits(["onVectorDbView"]);
+const emit = defineEmits(["onVectorDbView", "onSearchView"]);
 
 function onVectorDbView() {
     emit("onVectorDbView");

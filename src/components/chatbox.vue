@@ -22,8 +22,8 @@ import {
 } from "@/utils";
 import Mentionable from "@/components/mentionable.vue";
 
-const chatInput = defineModel("chatInput");
-const plugin: any = defineModel("plugin");
+const chatInput = defineModel<string>("chatInput");
+const plugin: any = defineModel<any>("plugin");
 const chatHistory = ref([]);
 const emit = defineEmits(["response"]);
 const isLoading = defineModel("inferencing");
@@ -114,7 +114,7 @@ async function prompt() {
 async function preparePrompt() {
   try {
     isLoading.value = true;
-    const systemConf = await request("/api/system/getConf");
+    const systemConf = await request("/api/system/getConf", {});
     const pluginSetting = plugin.value.settingUtils.dump();
     if (
       pluginSetting.usePromptChaining &&
@@ -195,10 +195,10 @@ function loadingCancel() {
 
 async function checkVectorizedDb() {
   vectorizedDb.value = [];
-  const dir = await readDir(dataPath);
+  const dir: any = await readDir(dataPath);
   const notebooks = await lsNotebooks();
   for (const nb of notebooks.notebooks) {
-    if (nb.name === "SiYuan User Guide" || nb.name === "思源笔记用户指南") {
+    if ((nb.name === "SiYuan User Guide" || nb.name === "思源笔记用户指南") || nb.closed) {
       continue;
     }
 
@@ -218,7 +218,7 @@ async function checkAllDocuments() {
   documents.value = [];
   const notebooks = await lsNotebooks();
   for (const nb of notebooks.notebooks) {
-    if (nb.name === "SiYuan User Guide" || nb.name === "思源笔记用户指南") {
+    if ((nb.name === "SiYuan User Guide" || nb.name === "思源笔记用户指南") || nb.closed) {
       continue;
     }
 
@@ -261,11 +261,11 @@ async function onMention(item, currentKeyVal, value) {
   console.log("selected document", selectedDocument.value);
 }
 
-async function onApply(item, key, replacedWith) {
-  console.log(item, `has been replaced with ${replacedWith}`);
-  console.log("key", key);
-  console.log(text.value);
-}
+// async function onApply(item, key, replacedWith) {
+//   console.log(item, `has been replaced with ${replacedWith}`);
+//   console.log("key", key);
+//   console.log(text.value);
+// }
 
 async function onOpen(key) {
   if (key === "@") {

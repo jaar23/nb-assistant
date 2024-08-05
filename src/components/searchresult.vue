@@ -11,7 +11,6 @@ import MarkdownItHighlightjs from "markdown-it-highlightjs";
 import MarkdownItSub from "markdown-it-sub";
 import MarkdownItSup from "markdown-it-sup";
 import MarkdownItTasklists from "markdown-it-task-lists";
-import MarkdownItTOC from "markdown-it-toc-done-right";
 
 const markdown = new MarkdownIt()
   .use(MarkdownItAbbr)
@@ -23,7 +22,7 @@ const markdown = new MarkdownIt()
   .use(MarkdownItTasklists);
 
 
-const searchResult = defineModel("result");
+const searchResult = defineModel<any>("result");
 const plugin: any = defineModel("plugin");
 
 async function openBlock(blockId) {
@@ -33,26 +32,27 @@ async function openBlock(blockId) {
     await pushMsg(plugin.i18n.blockNotFound);
     return;
   }
+  // @ts-ignore: siyuan specific function
   window.openFileByURL(url + blockId);
 }
 
 </script>
 
 <template>
-    <div class="result-row" v-if="!isLoading">
-      <ul v-if="searchResult.length > 0">
-        <li v-for="(result, index) in searchResult">
-          <div class="result-card" :key="index">
-            <span @click="openBlock(block.id)" class="block" v-for="block in result.blocks" data-type="block-ref"
-              data-subtype="d" :data-id="block.id" v-html="markdown.render(block.markdown)">
-            </span>
-            <small>{{ plugin.i18n.similarity }} {{ result.score }}</small>
-            <small v-if="result.fts">{{ plugin.i18n.fts }}</small>
-            <small v-if="!result.fts">{{ plugin.i18n.ss }}</small>
-          </div>
-        </li>
-      </ul>
-    </div>
+  <div class="result-row">
+    <ul v-if="searchResult.length > 0">
+      <li v-for="(result, index) in searchResult">
+        <div class="result-card" :key="index">
+          <span @click="openBlock(block.id)" class="block" v-for="block in result.blocks" data-type="block-ref"
+            data-subtype="d" :data-id="block.id" v-html="markdown.render(block.markdown)">
+          </span>
+          <small>{{ plugin.i18n.similarity }} {{ result.score }}</small>
+          <small v-if="result.fts">{{ plugin.i18n.fts }}</small>
+          <small v-if="!result.fts">{{ plugin.i18n.ss }}</small>
+        </div>
+      </li>
+    </ul>
+  </div>
 </template>
 
 <style scoped>

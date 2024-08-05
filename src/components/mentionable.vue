@@ -5,7 +5,7 @@ import { defineComponent, computed, onMounted, onUnmounted, onUpdated, ref, watc
 
 options.themes.mentionable = {
   $extend: 'dropdown',
-  placement: 'right',
+  placement: 'top-start',
   arrowPadding: 6,
   arrowOverflow: true,
 }
@@ -305,8 +305,8 @@ export default defineComponent({
         } else {
           caretPosition.value = getCaretPosition(input, currentKeyIndex)
         }
-        caretPosition.value.top -= input.scrollTop
-        //caretPosition.value.left -= 64;
+        caretPosition.value.top -= input.scrollTop - 225
+        caretPosition.value.left -= -135;
         if (props.caretHeight) {
           caretPosition.value.height = props.caretHeight
         } else if (isNaN(caretPosition.value.height)) {
@@ -389,10 +389,10 @@ export default defineComponent({
       :triggers="[]"
       :auto-hide="false"
       :theme="theme"
-      :distance="64"
+      :distance="128"
       :skidding="-64"
       class="popper"
-      style="position: absolute;"
+      style="position: absolute"
       :style="caretPosition ? {
         top: `${caretPosition.top}px`,
         left: `${caretPosition.left}px`,
@@ -431,6 +431,7 @@ export default defineComponent({
                 name="item"
                 :item="item"
                 :index="index"
+                class="mention-label"
               >
                 {{ item.label || item.value }}
               </slot>

@@ -3,13 +3,13 @@ import { request, lsNotebooks, pushErrMsg } from "@/api";
 import { ref, onMounted } from "vue";
 import { getCurrentTabs, promptAI, parseTags } from "@/utils";
 
-const notebooks = ref<any[]>([]);
+const notebooks = ref<IReslsNotebooks>();
 const openTabs = ref<any[]>([]);
 const selectedSumTab = ref<string>("");
 const selectedTagTab = ref<string>("");
-const emit = defineEmits(["response"]);
+const emit = defineEmits(["response", "save", "clear", "onShortcutView", "onSearchView", "onVectorDbView"]);
 const chatHistory = ref([]);
-const isLoading = defineModel("inferencing");
+const isLoading = defineModel<boolean>("inferencing");
 const saveFileName = defineModel("saveFilename");
 const shortcutShow = ref(false);
 const savingState = ref("");
@@ -210,7 +210,7 @@ defineExpose({
       </li>
       <li>
         <button class="b3-button button-warning" @click="clearChat" v-if="shortcutShow"
-          :disabled="chatHistory.length === 0">
+          :disabled="isLoading">
           {{ plugin.i18n.clear }}
         </button>
       </li>
