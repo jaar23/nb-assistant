@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import chatbox from "@/components/chatbox.vue";
-import history from "@/components/history.vue";
+import chatbox from "@/components/v2/chatbox.vue";
+import history from "@/components/v2/history.vue";
 import shortcut from "@/components/shortcut.vue";
 import vectordb from "@/components/vectordb.vue";
 import vdbheader from "@/components/vdbheader.vue";
@@ -153,7 +153,7 @@ onMounted(async () => {
         </shortcut>
       </div>
       <div v-if="isAIEnable">
-        <history class="history" v-model:message="historyMessages" v-if="historyMessages.length > 0" v-model:plugin="props.plugin"></history>
+        <!-- <history class="history" v-model:message="historyMessages" v-if="historyMessages.length > 0" v-model:plugin="props.plugin"></history> -->
         <chatbox class="chat" ref="chatboxCompRef" v-model:inferencing="inferencing" v-model:chatInput="chatInput"
           v-model:plugin="props.plugin" v-model:enterToSend="enterToSend" @tokenCount="showTokenCount"
           @response="updateHistory" />
@@ -202,7 +202,7 @@ onMounted(async () => {
 }
 
 .chat {
-  height: 10%;
+  height: 90%;
   bottom: 1px;
   position: absolute;
   width: 95%;

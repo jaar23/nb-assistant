@@ -43,3 +43,15 @@
   // display: none;
 }
 
+.btn-a {
+  cursor: pointer;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  transition: all 0.4s ease;
+}
+
+.btn-a:hover {
+  border-color: #e0e0e0;
+  background-color: #fafafa;
+}

@@ -22,7 +22,7 @@ import "@/index.scss";
 
 // vue
 import { createApp } from "vue";
-import App from "@/App.vue";
+import App from "@/AppV2.vue";
 import { lsNotebooks, pushMsg, pushErrMsg } from "./api";
 
 

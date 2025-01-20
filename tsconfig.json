@@ -48,7 +48,8 @@
         "src/**/*.ts",
         "src/**/*.d.ts",
         "src/**/*.tsx",
-        "src/**/*.vue"
+        "src/**/*.vue", 
+        "src/AppV2.vue"    
     ],
     "references": [
         {
