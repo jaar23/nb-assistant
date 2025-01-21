@@ -20,9 +20,10 @@ import {
   promptAIChain,
   rephrasePrompt,
   sleep,
+  generateUUID
 } from "@/utils";
 import history from "./history.vue";
-import { Settings2, Underline } from 'lucide-vue-next';
+import { Settings2 } from 'lucide-vue-next';
 
 const chatInput = defineModel<string>("chatInput");
 const plugin: any = defineModel<any>("plugin");
@@ -43,8 +44,9 @@ const reply = ref<string>("");
 const question = ref<string>("");
 const isStreaming = ref<boolean>(false);
 const isFocused = ref(false);
+const historyRef = ref(null);
 
-async function promptStream() {
+async function prompt(stream = true) {
   try {
     console.log('Starting stream...');
     const systemConf = await request("/api/system/getConf", {});
@@ -88,53 +90,67 @@ async function promptStream() {
           body: JSON.stringify({
               model: model,
               max_tokens: maxToken,
-              stream: true,
+              stream: stream,
               temperature,
               messages: [systemMessage, userMessage],
           }),
       });
 
-      const reader = resp.body?.getReader();
-      const decoder = new TextDecoder('utf-8');
       let fullResponse = "";
+      if (stream) {
+        const reader = resp.body?.getReader();
+        const decoder = new TextDecoder('utf-8');
 
-      while (true && reader) {
-        const {done, value } = await reader.read();
-        const chunk = decoder.decode(value);
-        if (done) break;
-        if (chunk.toLowerCase() === '[done]') {
-          break;
-        }
-        const lines = chunk.split('\n').filter(line => line.trim() !== '')
+        while (true && reader) {
+          const {done, value } = await reader.read();
+          const chunk = decoder.decode(value);
+          if (done) break;
+          if (chunk.toLowerCase() === '[done]') {
+            break;
+          }
+          const lines = chunk.split('\n').filter(line => line.trim() !== '')
 
-        for (const line of lines) {
-          if (line.includes('[DONE]')) continue
-          
-          try {
-            const jsonString = line.replace(/^data: /, '').trim()
-            const json = JSON.parse(jsonString)
-            const content = json.choices[0]?.delta?.content || ''
-            if (content) {
-              fullResponse += content;
-              reply.value = fullResponse;
-              emit('streamChunk', fullResponse);
+          for (const line of lines) {
+            if (line.includes('[DONE]')) continue
+            
+            try {
+              const jsonString = line.replace(/^data: /, '').trim()
+              const json = JSON.parse(jsonString)
+              const content = json.choices[0]?.delta?.content || ''
+              if (content) {
+                fullResponse += content;
+                reply.value = fullResponse;
+                emit('streamChunk', fullResponse);
+              }
+            } catch (e) {
+              console.error('Error parsing chunk:', e)
             }
-          } catch (e) {
-            console.error('Error parsing chunk:', e)
           }
         }
-      }
-      if (fullResponse) {
-        console.log('Streaming complete. Final message:', fullResponse);
-        messages.value.push({
-          question: question.value,
-          answer: fullResponse,
-          aiEmoji: "",
-          actionable: false,
-          actionType: "",
-          blockId: "",
-        });
-        console.log('Updated messages:', messages.value);
+        if (fullResponse) {
+          console.log('Streaming complete. Final message:', fullResponse);
+          messages.value.push({
+            id: generateUUID(),
+            question: question.value,
+            answer: fullResponse,
+            aiEmoji: "",
+            actionable: false,
+            actionType: "",
+            blockId: "",
+          });
+          console.log('Updated messages:', messages.value);
+        }
+        return fullResponse
+      } else {
+        if (!resp.ok) {
+          console.error("unable to fetch request from ai provider");
+          throw new Error(await resp.text());
+        }
+        let response = await resp.json();
+        for (const choice of response.choices) {
+          fullResponse += choice.message.content + "\n";
+        }
+        return fullResponse;
       }
     }
   } catch (error) {
@@ -149,79 +165,92 @@ async function promptStream() {
   }
 }
 
-async function prompt() {
-  try {
-    await preparePrompt();
-
-    const systemConf = await request("/api/system/getConf", {});
-    const pluginSetting = plugin.value.settingUtils.dump();
-
-
-    if (
-      systemConf.conf.ai.openAI.apiBaseURL !== "" &&
-      systemConf.conf.ai.openAI.apiKey !== "" &&
-      systemConf.conf.ai.openAI.apiModel !== "" &&
-      systemConf.conf.ai.openAI.apiProvider !== ""
-    ) {
-      isLoading.value = true;
-      let history = "";
-      if (chatHistory.value.length > 0) {
-        history = chatHistory.value
-          .map(
-            (x) =>
-              `${x.question !== "" ? "Question: " + x.question : ""} ${x.answer !== "" ? "Answer: " + x.answer : ""}`,
-          )
-          .join("\n");
-      }
-      emit("response", { question: chatInput.value, answer: "" });
-
-      const contextLen = countWords(`${extraContext.value} ${chatInput.value}`);
-      let respMessage = "";
-      if (pluginSetting.usePromptChaining && contextLen > 1024) {
-        console.log("using prompt chain, context length: " + contextLen);
-        respMessage = await promptAIChain(
-          systemConf,
-          extraContext.value,
-          rephrasedInput.value,
-          pluginSetting.systemPrompt,
-        );
-      } else {
-        console.log(
-          "usng prompt with context only, context length:" + contextLen,
-        );
-        respMessage = await promptAI(
-          systemConf,
-          previousRole.value !== pluginSetting.systemPrompt ? "" : history,
-          extraContext.value !== ""
-            ? `${extraContext.value} ${rephrasedInput.value}`
-            : rephrasedInput.value,
-          pluginSetting.systemPrompt,
-          pluginSetting.customSystemPrompt,
-          pluginSetting.customUserPrompt,
-        );
-      }
-
-      emit("response", { question: "", answer: respMessage });
-      previousRole.value = pluginSetting.systemPrompt;
-      chatInput.value = "";
-      selectedNotebook.value = "";
-      extraContext.value = "";
-      selectedDocument.value = [];
-      isLoading.value = false;
-    } else {
-      await pushErrMsg(
-        "AI setting is not configured, please configure under Setting > AI",
-      );
-    }
-  } catch (err) {
-    isLoading.value = false;
-    selectedNotebook.value = "";
-    selectedDocument.value = [];
-    extraContext.value = "";
-    console.error(err);
-    await pushErrMsg(err.stack);
-  }
+async function handleUpdateMessage(id: string, updatedMessage: string) {
+  chatInput.value = updatedMessage;
+  const message = await prompt(false);
+  historyRef.value.resetMessage(id, message);
 }
+
+async function handleRegenMessage(id: string, question: string) {
+  chatInput.value = question;
+  const message = await prompt(false);
+  historyRef.value.resetMessage(id, message);
+}
+
+
+// async function prompt() {
+//   try {
+//     await preparePrompt();
+
+//     const systemConf = await request("/api/system/getConf", {});
+//     const pluginSetting = plugin.value.settingUtils.dump();
+
+
+//     if (
+//       systemConf.conf.ai.openAI.apiBaseURL !== "" &&
+//       systemConf.conf.ai.openAI.apiKey !== "" &&
+//       systemConf.conf.ai.openAI.apiModel !== "" &&
+//       systemConf.conf.ai.openAI.apiProvider !== ""
+//     ) {
+//       isLoading.value = true;
+//       let history = "";
+//       if (chatHistory.value.length > 0) {
+//         history = chatHistory.value
+//           .map(
+//             (x) =>
+//               `${x.question !== "" ? "Question: " + x.question : ""} ${x.answer !== "" ? "Answer: " + x.answer : ""}`,
+//           )
+//           .join("\n");
+//       }
+//       emit("response", { question: chatInput.value, answer: "" });
+
+//       const contextLen = countWords(`${extraContext.value} ${chatInput.value}`);
+//       let respMessage = "";
+//       if (pluginSetting.usePromptChaining && contextLen > 1024) {
+//         console.log("using prompt chain, context length: " + contextLen);
+//         respMessage = await promptAIChain(
+//           systemConf,
+//           extraContext.value,
+//           rephrasedInput.value,
+//           pluginSetting.systemPrompt,
+//         );
+//       } else {
+//         console.log(
+//           "usng prompt with context only, context length:" + contextLen,
+//         );
+//         respMessage = await promptAI(
+//           systemConf,
+//           previousRole.value !== pluginSetting.systemPrompt ? "" : history,
+//           extraContext.value !== ""
+//             ? `${extraContext.value} ${rephrasedInput.value}`
+//             : rephrasedInput.value,
+//           pluginSetting.systemPrompt,
+//           pluginSetting.customSystemPrompt,
+//           pluginSetting.customUserPrompt,
+//         );
+//       }
+
+//       emit("response", { question: "", answer: respMessage });
+//       previousRole.value = pluginSetting.systemPrompt;
+//       chatInput.value = "";
+//       selectedNotebook.value = "";
+//       extraContext.value = "";
+//       selectedDocument.value = [];
+//       isLoading.value = false;
+//     } else {
+//       await pushErrMsg(
+//         "AI setting is not configured, please configure under Setting > AI",
+//       );
+//     }
+//   } catch (err) {
+//     isLoading.value = false;
+//     selectedNotebook.value = "";
+//     selectedDocument.value = [];
+//     extraContext.value = "";
+//     console.error(err);
+//     await pushErrMsg(err.stack);
+//   }
+// }
 
 async function preparePrompt() {
   try {
@@ -286,7 +315,7 @@ async function typing(ev) {
   const pluginSetting = plugin.value.settingUtils.dump();
   if (ev.key === "Enter" && !ev.shiftKey && pluginSetting.enterToSend) {
     try {
-      await promptStream();
+      await prompt();
     } catch (e) {
       console.error(e);
       isLoading.value = false;
@@ -390,7 +419,8 @@ defineExpose({
   <div class="page-container">
     <div class="chat-wrapper">
       <div class="chat-container">
-        <history class="history" v-model:messages="messages" v-model:plugin="plugin" :question="question" :streamMessage="reply" :isStreaming="isStreaming"></history>
+        <history class="history" ref="historyRef" v-model:messages="messages" v-model:plugin="plugin" :question="question" 
+          :streamMessage="reply" :isStreaming="isStreaming" @updateMessage="handleUpdateMessage" @regenMessage="handleRegenMessage"></history>
         <loading v-model:active="isLoading" :can-cancel="false" :on-cancel="loadingCancel" loader="bars"
           background-color="#eee" :opacity="0.25" :is-full-page="false" />
       </div>
@@ -449,8 +479,9 @@ defineExpose({
   flex-direction: column;
   gap: 8px;
   padding: 12px;
-  background: white;
-  border: 1px solid #e0e0e0;
+  background: var(--b3-theme-background);
+  border: 1px solid var(--b3-border-color);
+  color: var(--b3-empty-color);
   border-radius: 4px;
   margin-top: auto; /* Push the input area to the bottom */
   padding-bottom: env(safe-area-inset-bottom); /* Adjust for safe area */
@@ -469,7 +500,7 @@ defineExpose({
 }
 
 .model-label {
-  color: #666;
+  color: var(--b3-empty-color);
   font-size: 14px;
 }
 
@@ -481,11 +512,12 @@ defineExpose({
 .model-select {
   width: 200px;
   padding: 4px 8px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--b3-border-color);
   border-radius: 4px;
-  background: white;
+  background: var(--b3-select-background);
   font-size: 14px;
   cursor: pointer;
+  color: var(--b3-empty-color);
 }
 
 .input-area {
@@ -507,6 +539,7 @@ defineExpose({
   outline: none;
   font-size: 14px;
   background: transparent;
+  color: var(--color-neutral-1);
 }
 
 .enter-indicator {

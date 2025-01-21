@@ -2,7 +2,9 @@
 import message from "./message.vue";
 import { ref, watch } from "vue";
 
+
 export type Message = {
+  id: string,
   question: string,
   answer: string,
   aiEmoji: string,
@@ -14,6 +16,7 @@ export type Message = {
 const messages = defineModel<Message[]>("messages");
 const plugin = defineModel("plugin");
 const streamingMessage = ref("");
+const emit = defineEmits(["updateMessage", "regenMessage"]);;
 
 const props = defineProps({
   isStreaming: {
@@ -29,6 +32,46 @@ const props = defineProps({
     required: false
   }
 });
+
+function handleUpdateMessage(id: string, updatedMessage: string) {
+  for (let msg of messages.value) {
+    if (msg.id === id) {
+      msg.question = updatedMessage;
+      break;
+    }
+  }
+  emit("updateMessage", id, updatedMessage);
+}
+
+
+function handleRemoveMessage(messagePair: Object) {
+  const question = messagePair['question'];
+  const answer = messagePair['answer'];
+  const id = messagePair['id'];
+  for (let msg of messages.value) {
+    if (msg.id === id && msg.question === question) {
+      msg.question = "";
+    }
+    if (msg.id === id && msg.answer === answer) {
+      msg.answer = "";
+    }
+  }
+}
+
+
+function handleRegenMessage(id: string, message: string) {
+  emit("regenMessage", id, message);
+}
+
+
+function resetMessage(id: string, message: string) {
+  for (let msg of messages.value) {
+    if (msg.id === id) {
+      msg.answer = message;
+      break;
+    }
+  }
+}
 
 // Handle streaming chunks
 watch(() => props.streamMessage, (newVal) => {
@@ -52,14 +95,20 @@ watch(() => props.isStreaming, (newVal) => {
     console.log('Updated history:', messages.value);
   }
 });
+
+defineExpose({
+  resetMessage
+})
 </script>
 
 <template>
   <ul>
     <li v-for="(msg, index) in messages" :key="index">
-      <message :question="msg.question" :fullMessage="msg.answer" :isStreaming="false" />
+      <message :question="msg.question" :fullMessage="msg.answer" :isStreaming="false" :id="msg.id"
+        @updateMessage="handleUpdateMessage" @removeMessage="handleRemoveMessage" @regenMessage="handleRegenMessage"/>
     </li>
-    <message style="border: 1px solid red" v-if="props.isStreaming && streamingMessage !== ''" :question="props.question" :streamMessage="streamingMessage" :isStreaming="props.isStreaming" />
+    <message style="border: 1px solid red" v-if="props.isStreaming && streamingMessage !== ''" :question="props.question" 
+      :streamMessage="streamingMessage" :isStreaming="props.isStreaming" :id="'temp'" />
   </ul>
 </template>
 
