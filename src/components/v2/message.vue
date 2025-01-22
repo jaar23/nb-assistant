@@ -9,7 +9,7 @@ import MarkdownItSup from "markdown-it-sup";
 import MarkdownItTasklists from "markdown-it-task-lists";
 import MarkdownItStyle from "markdown-it-style";
 import { ref, watch } from "vue";
-import { FilePenLine, Copy, X, CircleCheckBig, Trash, RefreshCcw } from 'lucide-vue-next';
+import { FilePenLine, Copy, X, CircleCheckBig, Trash, RefreshCcw, ChevronLeft, ChevronRight } from 'lucide-vue-next';
 
 const markdown = new MarkdownIt()
   .use(MarkdownItAbbr)
@@ -24,8 +24,7 @@ const markdown = new MarkdownIt()
     'p': 'line-height: 1.75;',
     'ul': 'line-height: 1.75;',
     'ol': 'line-height: 1.75;'
-  })
-
+  });
 const props = defineProps({
   id: {
     type: String,
@@ -52,9 +51,12 @@ const props = defineProps({
 const message = ref<string>("");
 const isEditing = ref<boolean>(false);
 const editedMessage = ref<string>("");
-const emit = defineEmits(["updateMessage", "removeMessage", "regenMessage"]);
+const showConfirmDialog = ref<boolean>(false);
+const confirmAction = ref<{ type: string, whoseMessage: string } | null>(null);
 
-function copy() {  
+const emit = defineEmits(["updateMessage", "removeMessage", "regenMessage", "slideMessage"]);
+
+function copy() {
   const textToCopy = `${props.question}\n${props.fullMessage || props.streamMessage}`;
   console.log('Copying text:', textToCopy);
   window.navigator.clipboard.writeText(textToCopy);
@@ -76,11 +78,8 @@ function saveEdit() {
 }
 
 function removeMessage(whoseMessage: string) {
-  if (whoseMessage === "question") {
-    emit("removeMessage", {question: props.question, answer: "", id: props.id});
-  } else if (whoseMessage === "answer") {
-    emit("removeMessage", {question: "", answer: props.fullMessage, id: props.id});
-  }
+  confirmAction.value = { type: 'remove', whoseMessage };
+  showConfirmDialog.value = true;
 }
 
 function regenMessage() {
@@ -88,6 +87,27 @@ function regenMessage() {
   emit("regenMessage", props.id, rewriteMessage);
 }
 
+function slideMessage(which: string, direction: string) {
+  emit("slideMessage", props.id, which, direction);
+}
+
+function confirmActionHandler() {
+  if (confirmAction.value?.type === 'remove') {
+    const { whoseMessage } = confirmAction.value;
+    if (whoseMessage === "question") {
+      emit("removeMessage", { question: props.question, answer: "", id: props.id });
+    } else if (whoseMessage === "answer") {
+      emit("removeMessage", { question: "", answer: props.fullMessage, id: props.id });
+    }
+  }
+  showConfirmDialog.value = false;
+  confirmAction.value = null;
+}
+
+function cancelActionHandler() {
+  showConfirmDialog.value = false;
+  confirmAction.value = null;
+}
 watch(() => props.streamMessage, (newVal) => {
   if (newVal) {
     console.log('Stream message updated:', newVal);
@@ -101,7 +121,6 @@ watch(() => props.fullMessage, (newVal) => {
     message.value = newVal;
   }
 });
-
 </script>
 
 <template>
@@ -117,18 +136,27 @@ watch(() => props.fullMessage, (newVal) => {
       <button @click="removeMessage('question')" class="msg-button">
         <Trash :size="20" color="#fafafa" :stroke-width="1" />
       </button>
+      <button @click="slideMessage('question', 'left')" class="msg-button">
+        <ChevronLeft :size="20" color="#fafafa" :stroke-width="1" />
+      </button>
+      <button @click="slideMessage('question', 'right')" class="msg-button">
+        <ChevronRight :size="20" color="#fafafa" :stroke-width="1" />
+      </button>
     </div>
     <div v-if="isEditing" class="question">
       <textarea class="inline-edit-textarea" v-model="editedMessage"></textarea>
-      <button @click="saveEdit" class="msg-button">
-        <CircleCheckBig :size="20" color="#fafafa" :stroke-width="1" />
-      </button>
-      <button @click="cancelEdit" class="msg-button">
-        <X :size="20" color="#fafafa" :stroke-width="1" />
-      </button>
+      <div class="ques-button-area">
+        <button @click="saveEdit" class="msg-button" :disabled="editedMessage.trim() === ''">
+          <CircleCheckBig :size="20" color="#fafafa" :stroke-width="1" />
+        </button>
+        <button @click="cancelEdit" class="msg-button">
+          <X :size="20" color="#fafafa" :stroke-width="1" />
+        </button>
+      </div>
     </div>
     <div v-if="props.fullMessage" class="answer" v-html="markdown.render(props.fullMessage)"></div>
-    <div v-else-if="props.streamMessage && !isEditing" class="answer" v-html="markdown.render(props.streamMessage)"></div>
+    <div v-else-if="props.streamMessage && !isEditing" class="answer" v-html="markdown.render(props.streamMessage)">
+    </div>
     <div class="ans-button-area" v-if="props.fullMessage && !isEditing">
       <button @click="copy" class="msg-button">
         <Copy :size="20" color="#fafafa" :stroke-width="1" />
@@ -139,6 +167,23 @@ watch(() => props.fullMessage, (newVal) => {
       <button @click="removeMessage('answer')" class="msg-button">
         <Trash :size="20" color="#fafafa" :stroke-width="1" />
       </button>
+      <button @click="slideMessage('answer', 'left')" class="msg-button">
+        <ChevronLeft :size="20" color="#fafafa" :stroke-width="1" />
+      </button>
+      <button @click="slideMessage('answer', 'right')" class="msg-button">
+        <ChevronRight :size="20" color="#fafafa" :stroke-width="1" />
+      </button>
+    </div>
+
+    <!-- Confirmation Dialog -->
+    <div v-if="showConfirmDialog" class="confirmation-dialog">
+      <div class="confirmation-content">
+        <p>Are you sure you want to remove this message?</p>
+        <div class="confirmation-buttons">
+          <button @click="confirmActionHandler" class="confirm-button">Yes</button>
+          <button @click="cancelActionHandler" class="cancel-button">No</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -170,17 +215,17 @@ ul {
 }
 
 .inline-edit-textarea {
-  width: 100%; 
-  min-height: 100px; 
-  padding: 8px; 
+  width: 100%;
+  min-height: 100px;
+  padding: 8px;
   border: 1px solid var(--b3-border-color);
   border-radius: var(--b3-border-radius);
-  font-family: inherit; 
-  font-size: inherit; 
+  font-family: inherit;
+  font-size: inherit;
   color: inherit;
-  line-height: 1.5; 
-  resize: vertical; 
-  outline: none; 
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
   background-color: var(--b3-theme-background);
   transition: var(--b3-background-transition);
@@ -189,23 +234,14 @@ ul {
 }
 
 .inline-edit-textarea:focus {
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1), 0 0 8px rgba(102, 175, 233, 0.6); /* Add a glow effect on focus */
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1), 0 0 8px rgba(102, 175, 233, 0.6);
 }
-
 
 .msg-button {
   width: 24px;
   height: 24px;
   border: 0px;
-  padding: 2px;
-  background-color: transparent;
-}
-
-.ans-button {
-  width: 24px;
-  height: 24px;
-  border: 0px;
-  padding: 2px;
+  padding: 4px;
   background-color: transparent;
 }
 
@@ -216,7 +252,6 @@ ul {
   gap: 10px;
   justify-content: flex-end;
 }
-
 
 .ans-button-area {
   margin: 0px 10px 0px 10px;
@@ -247,5 +282,52 @@ ul {
 .msg-button:active {
   transform: scale(0.98);
   box-shadow: 3px 2px 22px 1px rgba(0, 0, 0, 0.24);
+}
+
+.confirmation-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.confirmation-content {
+  background-color: var(--b3-theme-background);
+  padding: 20px;
+  border-radius: var(--b3-border-radius);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.confirmation-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.confirm-button,
+.cancel-button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--b3-border-radius);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.confirm-button {
+  background-color: var(--b3-theme-primary);
+  color: white;
+}
+
+.cancel-button {
+  background-color: var(--b3-theme-secondary);
+  color: white;
 }
 </style>

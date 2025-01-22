@@ -2,11 +2,13 @@
 import message from "./message.vue";
 import { ref, watch } from "vue";
 
-
+//include versions of each generate message
 export type Message = {
   id: string,
-  question: string,
-  answer: string,
+  question: string[],
+  questionIndex: number,
+  answer: string[],
+  answerIndex: number,
   aiEmoji: string,
   actionable: boolean,
   actionType: string,
@@ -36,7 +38,8 @@ const props = defineProps({
 function handleUpdateMessage(id: string, updatedMessage: string) {
   for (let msg of messages.value) {
     if (msg.id === id) {
-      msg.question = updatedMessage;
+      msg.question.push(updatedMessage);
+      msg.questionIndex = msg.question.length - 1;
       break;
     }
   }
@@ -49,11 +52,13 @@ function handleRemoveMessage(messagePair: Object) {
   const answer = messagePair['answer'];
   const id = messagePair['id'];
   for (let msg of messages.value) {
-    if (msg.id === id && msg.question === question) {
-      msg.question = "";
+    if (msg.id === id && question === msg.question[msg.questionIndex]) {
+      msg.question.splice(msg.questionIndex, 1);
+      msg.questionIndex = Math.max(0, msg.questionIndex - 1);
     }
-    if (msg.id === id && msg.answer === answer) {
-      msg.answer = "";
+    if (msg.id === id && answer === msg.answer[msg.answerIndex]) {
+      msg.answer.splice(msg.answerIndex, 1);
+      msg.answerIndex = Math.max(0, msg.answerIndex - 1);
     }
   }
 }
@@ -67,8 +72,21 @@ function handleRegenMessage(id: string, message: string) {
 function resetMessage(id: string, message: string) {
   for (let msg of messages.value) {
     if (msg.id === id) {
-      msg.answer = message;
+      msg.answer.push(message);
+      msg.answerIndex = msg.answer.length - 1;
       break;
+    }
+  }
+}
+
+function handleSlideMessage(id: string, which: string, direction: string) {
+  for (let msg of messages.value) {
+    if (msg.id === id) {
+      if (which === "question") {
+        msg.questionIndex = direction === "left" ? Math.max(0, msg.questionIndex - 1): Math.min(msg.questionIndex + 1, msg.question.length - 1);
+      } else if (which === "answer") {
+        msg.answerIndex = direction === "left" ? Math.max(0, msg.answerIndex - 1): Math.min(msg.answerIndex + 1, msg.answer.length - 1);
+      }
     }
   }
 }
@@ -104,10 +122,12 @@ defineExpose({
 <template>
   <ul>
     <li v-for="(msg, index) in messages" :key="index">
-      <message :question="msg.question" :fullMessage="msg.answer" :isStreaming="false" :id="msg.id"
-        @updateMessage="handleUpdateMessage" @removeMessage="handleRemoveMessage" @regenMessage="handleRegenMessage"/>
+      <message :question="msg.question.length > 0 ? msg.question[msg.questionIndex]:''" 
+        :fullMessage="msg.answer.length > 0 ?msg.answer[msg.answerIndex] : ''" :isStreaming="false" :id="msg.id"
+        @updateMessage="handleUpdateMessage" @removeMessage="handleRemoveMessage" 
+        @regenMessage="handleRegenMessage" @slideMessage="handleSlideMessage"/>
     </li>
-    <message style="border: 1px solid red" v-if="props.isStreaming && streamingMessage !== ''" :question="props.question" 
+    <message class="focus-msg" v-if="props.isStreaming && streamingMessage !== ''" :question="props.question" 
       :streamMessage="streamingMessage" :isStreaming="props.isStreaming" :id="'temp'" />
   </ul>
 </template>
@@ -137,5 +157,9 @@ ul {
   padding: 1em;
   line-height: 15pt;
   /* border: 1px solid var(--b3-empty-color); */
+}
+
+.focus-msg {
+  border: 1px solid var(--b3-border-color);
 }
 </style>

@@ -131,8 +131,10 @@ async function prompt(stream = true) {
           console.log('Streaming complete. Final message:', fullResponse);
           messages.value.push({
             id: generateUUID(),
-            question: question.value,
-            answer: fullResponse,
+            question: [question.value],
+            questionIndex: 0,
+            answer: [fullResponse],
+            answerIndex: 0,
             aiEmoji: "",
             actionable: false,
             actionType: "",
