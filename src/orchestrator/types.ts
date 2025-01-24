@@ -6,7 +6,9 @@ export interface CompletionRequest {
     maxTokens?: number;
     temperature?: number;
     stream?: boolean;
-    systemPrompt?: {role: string, content: string}
+    systemPrompt?: {role: string, content: string};
+    response_format?: string;
+    json_schema?: string;
 }
 
 export interface CompletionResponse {
