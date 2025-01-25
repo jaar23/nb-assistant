@@ -31,8 +31,9 @@ export interface EmbeddingRequest {
 }
 
 export interface EmbeddingResponse {
-    embeddings: string[];
+    embeddings: any[];
     status: boolean;
+    text?: string;
 }
 
 export interface AIModelConfig {

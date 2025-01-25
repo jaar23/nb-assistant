@@ -7,8 +7,8 @@ import { OllamaModel } from './ollama-model';
 export class AIWrapper {
     private model: AIModelInterface;
 
-    constructor(modelType: string, config: any) {
-        switch (modelType.toLowerCase()) {
+    constructor(provider: string, config: any) {
+        switch (provider.toLowerCase()) {
             case 'openai':
                 this.model = new OpenAIModel(config);
                 break;
@@ -22,7 +22,7 @@ export class AIWrapper {
                 this.model = new OllamaModel(config);
                 break;
             default:
-                throw new Error(`Unsupported model type: ${modelType}`);
+                throw new Error(`Unsupported model type: ${provider}`);
         }
     }
 

@@ -82,7 +82,25 @@ export class OpenAIModel extends BaseAIModel {
     }
 
     async createEmbedding(request: EmbeddingRequest): Promise<EmbeddingResponse> {
-        const embedding = {embeddings: [], status: false};
-        return embedding
+        let input;
+        if (request.chunks) {
+            input = request.chunks;
+        } else if (request.chunk) {
+            input = request.chunk;
+        } else {
+            return {embeddings: [], status: false};
+        }
+        try {
+            const resp = await this.client.embeddings.create({
+                model: request.model,
+                input: input,
+                encoding_format: "float",
+            });
+            let embeddings = resp.data.filter((emb) => emb.object === "embedding").map(emb => emb.embedding);
+            return {embeddings: embeddings, status: true};
+        } catch (e) {
+            console.error(e);
+            return {embeddings: [], status: false};
+        }
     }
 }

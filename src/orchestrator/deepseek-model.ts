@@ -132,8 +132,12 @@ export class DeepseekModel extends BaseAIModel {
     }
 
 
-    async createEmbedding(request: EmbeddingRequest): Promise<EmbeddingResponse> {
-        const embedding = {embeddings: [], status: false};
+    async createEmbedding(_request: EmbeddingRequest): Promise<EmbeddingResponse> {
+        const embedding = {
+            embeddings: [], 
+            text: `This provider do not have provide embeddings API, use ollama or openai instead`, 
+            status: false
+        };
         return embedding
     }
 }
