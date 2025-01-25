@@ -1,6 +1,5 @@
-// import axios, { AxiosInstance } from 'axios';
 import { BaseAIModel } from './base-model';
-import { CompletionRequest, CompletionResponse, CompletionCallback } from './types';
+import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse } from './types';
 
 export class DeepseekModel extends BaseAIModel {
     private client: { baseURL: string, headers: {} };
@@ -130,5 +129,11 @@ export class DeepseekModel extends BaseAIModel {
         }
 
         callback({ text: '', isComplete: true });
+    }
+
+
+    async createEmbedding(request: EmbeddingRequest): Promise<EmbeddingResponse> {
+        const embedding = {embeddings: [], status: false};
+        return embedding
     }
 }

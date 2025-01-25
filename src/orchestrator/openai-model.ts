@@ -1,6 +1,6 @@
 import { OpenAI } from 'openai';
 import { BaseAIModel } from './base-model';
-import { CompletionRequest, CompletionResponse, CompletionCallback } from './types';
+import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse } from './types';
 
 export class OpenAIModel extends BaseAIModel {
     private client: OpenAI;
@@ -79,5 +79,10 @@ export class OpenAIModel extends BaseAIModel {
         }
 
         callback({ text: '', isComplete: true });
+    }
+
+    async createEmbedding(request: EmbeddingRequest): Promise<EmbeddingResponse> {
+        const embedding = {embeddings: [], status: false};
+        return embedding
     }
 }

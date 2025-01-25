@@ -1,60 +1,158 @@
-import axios, { AxiosInstance } from 'axios';
 import { BaseAIModel } from './base-model';
-import { CompletionRequest, CompletionResponse, CompletionCallback } from './types';
+import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse } from './types';
 
 export class OllamaModel extends BaseAIModel {
-    private client: AxiosInstance;
+    private client: { baseURL: string, headers: {} };
 
-    constructor(config: { apiKey: string, baseUrl?: string }) {
+    constructor(config: { apiKey: string; baseUrl?: string }) {
         super(config);
-        this.client = axios.create({
+        this.client = {
             baseURL: config.baseUrl || 'http://localhost:11434',
             headers: {
                 'Content-Type': 'application/json',
             },
-        });
+        };
     }
 
     async completions(request: CompletionRequest): Promise<CompletionResponse> {
         this.validateRequest(request);
-
-        const response = await this.client.post('/api/generate', {
-            prompt: request.prompt,
-            model: 'llama2',  // or any other model
-            options: {
-                temperature: request.temperature,
-            },
+        let messages = [];
+        if (request.systemPrompt) {
+            switch (request.systemPrompt.role) {
+                case "system":
+                    messages.push({ role: "system", content: request.systemPrompt.content });
+                    break;
+                case "tool":
+                    messages.push({ role: "tool", content: request.systemPrompt.content });
+                    break;
+                case "assistant":
+                    messages.push({ role: "assistant", content: request.systemPrompt.content });
+                    break;
+                default:
+                    messages.push({ role: request.systemPrompt.role, content: request.systemPrompt.content });
+                    break;
+            }
+        }
+        messages.push({ role: "user", content: request.prompt });
+        const response = await fetch(`${this.client.baseURL}/api/chat`, {
+            method: "POST",
+            headers: this.client.headers,
+            body: JSON.stringify({
+                model: request.model,
+                stream: false,
+                messages: messages,
+                options: {
+                    max_tokens: request.maxTokens ? request.maxTokens : 2048,
+                    temperature: request.temperature ? request.temperature : 0,
+                }
+            })
         });
 
-        return {
-            text: response.data.response,
-        };
+        if (!response.ok) {
+            console.error("unable to fetch request from ai provider");
+            throw new Error(await response.text());
+        }
+        let response_json = await response.json();
+
+        return { text: response_json.message.content, images: response_json.message.images};
+
     }
 
     async streamCompletions(request: CompletionRequest, callback: CompletionCallback): Promise<void> {
         this.validateRequest(request);
+        let messages = [];
+        if (request.systemPrompt) {
+            switch (request.systemPrompt.role) {
+                case "system":
+                    messages.push({ role: "system", content: request.systemPrompt.content });
+                    break;
+                case "tool":
+                    messages.push({ role: "tool", content: request.systemPrompt.content });
+                    break;
+                case "assistant":
+                    messages.push({ role: "assistant", content: request.systemPrompt.content });
+                    break;
+                default:
+                    messages.push({ role: request.systemPrompt.role, content: request.systemPrompt.content });
+                    break;
+            }
+        }
+        messages.push({ role: "user", content: request.prompt });
 
-        const response = await this.client.post('/api/generate', {
-            prompt: request.prompt,
-            model: 'llama2',
-            options: {
-                temperature: request.temperature,
-            },
-            stream: true,
-        }, {
-            responseType: 'stream',
+        const resp = await fetch(`${this.client.baseURL}/api/chat`, {
+            method: "POST",
+            headers: this.client.headers,
+            body: JSON.stringify({
+                model: request.model,
+                stream: true,
+                messages: messages,
+                options: {
+                    max_tokens: request.maxTokens ? request.maxTokens : 2048,
+                    temperature: request.temperature ? request.temperature : 0,
+                }
+            })
         });
 
-        for await (const chunk of response.data) {
-            const parsed = JSON.parse(chunk.toString());
-            if (parsed.response) {
-                callback({
-                    text: parsed.response,
-                    isComplete: false,
-                });
+        const reader = resp.body?.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = "";
+
+        while (true && reader) {
+            const { done, value } = await reader.read();
+            const chunk = decoder.decode(value);
+            if (done) break;
+            if (chunk.toLowerCase() === '[done]') {
+                break;
+            }
+            buffer += chunk;
+
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+                if (line.trim() === '' || line.includes('[DONE]')) continue;
+
+                try {
+                    const jsonString = line.replace(/^data: /, '').trim();
+                    const json = JSON.parse(jsonString);
+                    const content = json.message.content;
+                    if (content !== '') {
+                        callback({ text: content, isComplete: false});
+                    }
+                } catch (e) {
+                    // console.error('Error parsing chunk:', e);
+                    // console.log(line);
+                    // console.log("line number", lines.length);
+                    buffer = line + (buffer ? "\n" + buffer : "");
+                }
             }
         }
 
-        callback({ text: '', isComplete: true });
+        callback({ text: '', isComplete: true });        
+    }
+
+    async createEmbedding(request: EmbeddingRequest): Promise<EmbeddingResponse> {
+        let input;
+        if (request.chunks) {
+            input = request.chunks;
+        } else if (request.chunk) {
+            input = request.chunk;
+        } else {
+            return {embeddings: [], status: false};
+        }
+        const resp = await fetch(`${this.client.baseURL}/api/embed`, {
+            method: "POST",
+            headers: this.client.headers,
+            body: JSON.stringify({
+                model: request.model,
+                input: input
+            })
+        });
+
+        const response = await resp.json()
+        return {
+            embeddings: response.embeddings,
+            status: true
+        }
     }
 }

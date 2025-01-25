@@ -1,4 +1,4 @@
-import { AIModelInterface, CompletionRequest, CompletionResponse, CompletionCallback } from './types';
+import { AIModelInterface, CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse } from './types';
 import { OpenAIModel } from './openai-model';
 import { ClaudeModel } from './claude-model';
 import { DeepseekModel } from './deepseek-model';
@@ -32,5 +32,9 @@ export class AIWrapper {
 
     async streamCompletions(request: CompletionRequest, callback: CompletionCallback): Promise<void> {
         return this.model.streamCompletions(request, callback);
+    }
+
+    async createEmbedding(request: EmbeddingRequest): Promise<EmbeddingResponse> {
+        return this.model.createEmbedding(request);
     }
 }

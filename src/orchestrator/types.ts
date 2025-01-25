@@ -13,15 +13,27 @@ export interface CompletionRequest {
 
 export interface CompletionResponse {
     text: string;
-    // Add other common response fields
+    images?: Object;
 }
 
 export interface StreamChunk {
     text: string;
+    image?: Object;
     isComplete: boolean;
 }
 
 export type CompletionCallback = (chunk: StreamChunk) => void;
+
+export interface EmbeddingRequest {
+    model: string;
+    chunk?: string;
+    chunks?: string[];
+}
+
+export interface EmbeddingResponse {
+    embeddings: string[];
+    status: boolean;
+}
 
 export interface AIModelConfig {
     apiKey: string;
@@ -31,4 +43,5 @@ export interface AIModelConfig {
 export interface AIModelInterface {
     completions(request: CompletionRequest): Promise<CompletionResponse>;
     streamCompletions(request: CompletionRequest, callback: CompletionCallback): Promise<void>;
+    createEmbedding(request: EmbeddingRequest): Promise<EmbeddingResponse>;
 }

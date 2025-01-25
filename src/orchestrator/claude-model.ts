@@ -1,6 +1,5 @@
-import axios, { AxiosInstance } from 'axios';
 import { BaseAIModel } from './base-model';
-import { CompletionRequest, CompletionResponse, CompletionCallback } from './types';
+import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse } from './types';
 import Anthropic from '@anthropic-ai/sdk';
 
 
@@ -95,5 +94,10 @@ export class ClaudeModel extends BaseAIModel {
         // .on('message', (message) => console.log('message', message));
 
         callback({ text: '', isComplete: true });
+    }
+
+    async createEmbedding(request: EmbeddingRequest): Promise<EmbeddingResponse> {
+        const embedding = {embeddings: [], status: false};
+        return embedding
     }
 }
