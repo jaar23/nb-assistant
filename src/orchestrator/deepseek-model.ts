@@ -1,5 +1,5 @@
 import { BaseAIModel } from './base-model';
-import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse } from './types';
+import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse, ListModelResponse } from './types';
 
 export class DeepseekModel extends BaseAIModel {
     private client: { baseURL: string, headers: {} };
@@ -140,4 +140,28 @@ export class DeepseekModel extends BaseAIModel {
         };
         return embedding
     }
+
+    async listModels(_request: any): Promise<ListModelResponse> {
+        try {
+            const response = await fetch(`${this.client.baseURL}/models`, {
+                method: "GET",
+                headers: this.client.headers
+            });
+            const json = await response.json();
+            let models = {models: []}
+            for (const d of json.data) {
+                models.models.push({
+                    type: "model",
+                    id: d.id,
+                    name: d.id,
+                    createdAt: new Date()
+                })
+            }
+            return models;
+        } catch(e) {
+            console.error("unable to retrieve models");
+            throw new Error(e);
+        }
+    }
+    
 }

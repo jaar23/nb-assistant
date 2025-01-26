@@ -1,6 +1,6 @@
 import { OpenAI } from 'openai';
 import { BaseAIModel } from './base-model';
-import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse } from './types';
+import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse, ListModelResponse } from './types';
 
 export class OpenAIModel extends BaseAIModel {
     private client: OpenAI;
@@ -101,6 +101,25 @@ export class OpenAIModel extends BaseAIModel {
         } catch (e) {
             console.error(e);
             return {embeddings: [], status: false};
+        }
+    }
+
+    async listModels(_request: any): Promise<ListModelResponse> {
+        try {
+            const list = await this.client.models.list();
+            let models = {models: []}
+            for (const d of list.data) {
+                models.models.push({
+                    type: "model",
+                    id: d.id,
+                    name: d.id,
+                    createdAt: new Date(d.created * 1000)
+                })
+            }
+            return models;
+        } catch(e) {
+            console.error("unable to retrieve models");
+            throw new Error(e);
         }
     }
 }

@@ -36,6 +36,15 @@ export interface EmbeddingResponse {
     text?: string;
 }
 
+export interface ListModelResponse {
+    models: {
+        type: string,
+        id: string,
+        name: string,
+        createdAt: Date
+    }[]
+}
+
 export interface AIModelConfig {
     apiKey: string;
     baseUrl?: string;
@@ -45,4 +54,5 @@ export interface AIModelInterface {
     completions(request: CompletionRequest): Promise<CompletionResponse>;
     streamCompletions(request: CompletionRequest, callback: CompletionCallback): Promise<void>;
     createEmbedding(request: EmbeddingRequest): Promise<EmbeddingResponse>;
+    listModels(request: any): Promise<ListModelResponse>;
 }

@@ -1,4 +1,4 @@
-import { AIModelConfig, AIModelInterface, CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse } from './types';
+import { AIModelConfig, AIModelInterface, CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse, ListModelResponse } from './types';
 
 export abstract class BaseAIModel implements AIModelInterface {
     protected config: AIModelConfig;
@@ -10,6 +10,7 @@ export abstract class BaseAIModel implements AIModelInterface {
     abstract completions(request: CompletionRequest): Promise<CompletionResponse>;
     abstract streamCompletions(request: CompletionRequest, callback: CompletionCallback): Promise<void>;
     abstract createEmbedding(request: EmbeddingRequest): Promise<EmbeddingResponse>;
+    abstract listModels(request: any): Promise<ListModelResponse>;
 
     protected validateRequest(request: CompletionRequest): void {
         if (!request.prompt) {

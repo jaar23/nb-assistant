@@ -1,16 +1,25 @@
 import { BaseAIModel } from './base-model';
-import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse } from './types';
+import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse, ListModelResponse } from './types';
 import Anthropic from '@anthropic-ai/sdk';
 
 
 export class ClaudeModel extends BaseAIModel {
     private client: Anthropic;
 
-    constructor(config: { apiKey: string; }) {
+    constructor(config: { apiKey: string; baseURL?: string}) {
         super(config);
-        this.client = new Anthropic({
-            apiKey: config.apiKey
-        })
+        if (config.baseURL) {
+            this.client = new Anthropic({
+                apiKey: config.apiKey,
+                baseURL: config.baseURL,
+                dangerouslyAllowBrowser: true
+            })
+        } else {
+            this.client = new Anthropic({
+                apiKey: config.apiKey,
+                dangerouslyAllowBrowser: true
+            })
+        }
     }
 
     async completions(request: CompletionRequest): Promise<CompletionResponse> {
@@ -104,4 +113,25 @@ export class ClaudeModel extends BaseAIModel {
         };
         return embedding
     }
+
+    async listModels(_request: any): Promise<ListModelResponse> {
+        try {
+            const resp = await this.client.models.list();
+            const data = resp.data;
+            let models = {models: []}
+            for (const d of data) {
+                models.models.push({
+                    type: d.type,
+                    id: d.id,
+                    name: d.display_name,
+                    createdAt: new Date(d.created_at)
+                })
+            }
+            return models;
+        } catch(e) {
+            console.error("unable to retrieve models");
+            throw new Error(e);
+        }
+    }
+    
 }

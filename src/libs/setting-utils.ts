@@ -80,7 +80,7 @@ export class SettingUtils {
     name: string;
     file: string;
 
-    settings: Map<string, ISettingUtilsItem> = new Map();
+    settings: Map<string, any> = new Map();
     elements: Map<string, HTMLElement> = new Map();
 
     constructor(args: {
@@ -120,8 +120,15 @@ export class SettingUtils {
         let data = await this.plugin.loadData(this.file);
         console.debug('Load config:', data);
         if (data) {
+            for (const key of Object.keys(data)) {
+                this.settings.set(key, data[key]);
+            }
             for (let [key, item] of this.settings) {
-                item.value = data?.[key] ?? item.value;
+                if (item.value) {
+                    item.value = data?.[key] ?? item.value;
+                } else {
+                    data[key] = item;
+                }
             }
         }
         this.plugin.data[this.name] = this.dump();
@@ -234,7 +241,11 @@ export class SettingUtils {
         let data: any = {};
         for (let [key, item] of this.settings) {
             if (item.type === 'button') continue;
-            data[key] = item.value;
+            if (item.value) {
+                data[key] = item.value;
+            } else {
+                data[key] = item;
+            }
         }
         return data;
     }

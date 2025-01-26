@@ -1,5 +1,5 @@
 import { BaseAIModel } from './base-model';
-import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse } from './types';
+import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse, ListModelResponse } from './types';
 
 export class OllamaModel extends BaseAIModel {
     private client: { baseURL: string, headers: {} };
@@ -153,6 +153,30 @@ export class OllamaModel extends BaseAIModel {
         return {
             embeddings: response.embeddings,
             status: true
+        }
+    }
+
+
+    async listModels(_request: any): Promise<ListModelResponse> {
+        try {
+            const response = await fetch(`${this.client.baseURL}/api/tags`, {
+                method: "GET",
+                headers: this.client.headers
+            });
+            const json = await response.json();
+            let models = {models: []}
+            for (const d of json.models) {
+                models.models.push({
+                    type: "model",
+                    id: d.name,
+                    name: d.name,
+                    createdAt: new Date(d.modified_at)
+                })
+            }
+            return models;
+        } catch(e) {
+            console.error("unable to retrieve models");
+            throw new Error(e);
         }
     }
 }

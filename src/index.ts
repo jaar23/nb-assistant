@@ -7,7 +7,7 @@ import {
     openTab,
     getFrontend,
     getBackend,
-    IModel,
+    Model,
     Protyle,
     openWindow,
     IOperation,
@@ -23,15 +23,18 @@ import "@/index.scss";
 // vue
 import { createApp } from "vue";
 import App from "@/AppV2.vue";
+import settings from "@/components/v2/settings.vue";
+
 import { lsNotebooks, pushMsg, pushErrMsg } from "./api";
 
 
 import { SettingUtils } from "./libs/setting-utils";
+import Settings from "@/components/v2/settings.vue";
 const STORAGE_NAME = "nb-assistant-config";
 const DOCK_TYPE = "nbassistant_tab";
 
 export default class PluginSample extends Plugin {
-    customTab: () => IModel;
+    customTab: () => Model;
     private isMobile: boolean;
     private settingUtils: SettingUtils;
 
@@ -109,206 +112,206 @@ export default class PluginSample extends Plugin {
             name: STORAGE_NAME,
         });
 
-        this.settingUtils.addItem({
-            key: "Hint",
-            value: "",
-            type: "hint",
-            title: this.i18n.AIConfigTitle,
-            description: this.i18n.AIConfigDesc,
-        });
-
-        this.settingUtils.addItem({
-            key: "chatSaveNotebook",
-            value: "-",
-            type: "select",
-            title: this.i18n.saveChatTitle,
-            description: this.i18n.saveChatDesc,
-            options: nbOptions,
-            action: {
-                // Called when focus is lost and content changes
-                callback: () => {
-                    // Return data and save it in real time
-                    let value = this.settingUtils.takeAndSave("chatSaveNotebook");
-                    console.log("chat saved to ", value);
-                },
-            },
-        });
-
-        this.settingUtils.addItem({
-            key: "systemPrompt",
-            value: "PA",
-            type: "select",
-            title: this.i18n.role,
-            description: this.i18n.roleDesc,
-            options: {
-                PA: this.i18n.PA,
-                CD: this.i18n.CD,
-                SE: this.i18n.SE,
-                SA: this.i18n.SA,
-                ET: this.i18n.ET,
-                TG: this.i18n.TG,
-                PC: this.i18n.PC,
-                ST: this.i18n.ST,
-                MT: this.i18n.MT,
-                CS: this.i18n.CS,
-                FA: this.i18n.FA,
-                ML: this.i18n.ML,
-                DS: this.i18n.DS,
-            },
-            action: {
-                callback: () => {
-                    let selected = this.settingUtils.takeAndSave("systemPrompt");
-                    console.log(selected);
-                },
-            },
-        });
-
-        this.settingUtils.addItem({
-            key: "aiEmoji",
-            value: "[AI]",
-            type: "textinput",
-            title: this.i18n.aiEmoji,
-            description: this.i18n.aiEmojiDesc,
-            action: {
-                callback: () => {
-                    // Return data and save it in real time
-                    let value = this.settingUtils.takeAndSave("aiEmoji");
-                    console.log("ai emoji", value);
-                },
-            },
-        });
+        // this.settingUtils.addItem({
+        //     key: "Hint",
+        //     value: "",
+        //     type: "hint",
+        //     title: this.i18n.AIConfigTitle,
+        //     description: this.i18n.AIConfigDesc,
+        // });
 
         // this.settingUtils.addItem({
-        //     key: "checkToken",
+        //     key: "chatSaveNotebook",
+        //     value: "-",
+        //     type: "select",
+        //     title: this.i18n.saveChatTitle,
+        //     description: this.i18n.saveChatDesc,
+        //     options: nbOptions,
+        //     action: {
+        //         // Called when focus is lost and content changes
+        //         callback: () => {
+        //             // Return data and save it in real time
+        //             let value = this.settingUtils.takeAndSave("chatSaveNotebook");
+        //             console.log("chat saved to ", value);
+        //         },
+        //     },
+        // });
+
+        // this.settingUtils.addItem({
+        //     key: "systemPrompt",
+        //     value: "PA",
+        //     type: "select",
+        //     title: this.i18n.role,
+        //     description: this.i18n.roleDesc,
+        //     options: {
+        //         PA: this.i18n.PA,
+        //         CD: this.i18n.CD,
+        //         SE: this.i18n.SE,
+        //         SA: this.i18n.SA,
+        //         ET: this.i18n.ET,
+        //         TG: this.i18n.TG,
+        //         PC: this.i18n.PC,
+        //         ST: this.i18n.ST,
+        //         MT: this.i18n.MT,
+        //         CS: this.i18n.CS,
+        //         FA: this.i18n.FA,
+        //         ML: this.i18n.ML,
+        //         DS: this.i18n.DS,
+        //     },
+        //     action: {
+        //         callback: () => {
+        //             let selected = this.settingUtils.takeAndSave("systemPrompt");
+        //             console.log(selected);
+        //         },
+        //     },
+        // });
+
+        // this.settingUtils.addItem({
+        //     key: "aiEmoji",
+        //     value: "[AI]",
+        //     type: "textinput",
+        //     title: this.i18n.aiEmoji,
+        //     description: this.i18n.aiEmojiDesc,
+        //     action: {
+        //         callback: () => {
+        //             // Return data and save it in real time
+        //             let value = this.settingUtils.takeAndSave("aiEmoji");
+        //             console.log("ai emoji", value);
+        //         },
+        //     },
+        // });
+
+        // // this.settingUtils.addItem({
+        // //     key: "checkToken",
+        // //     value: true,
+        // //     type: "checkbox",
+        // //     title: "Estimate token used on every calls",
+        // //     description: `This is a simply word counting feature, do not match with the actual token consume on the LLM.
+        // //         ONLY USING THIS FOR REFERENCE!`,
+        // //     action: {
+        // //         callback: () => {
+        // //             // Return data and save it in real time
+        // //             let value = !this.settingUtils.get("checkToken");
+        // //             this.settingUtils.setAndSave("checkToken", value);
+        // //             console.log(value);
+        // //         },
+        // //     },
+        // // });
+
+        // this.settingUtils.addItem({
+        //     key: "enterToSend",
         //     value: true,
         //     type: "checkbox",
-        //     title: "Estimate token used on every calls",
-        //     description: `This is a simply word counting feature, do not match with the actual token consume on the LLM.
-        //         ONLY USING THIS FOR REFERENCE!`,
+        //     title: this.i18n.enterToSend,
+        //     description: this.i18n.enterToSendDesc,
         //     action: {
         //         callback: () => {
         //             // Return data and save it in real time
-        //             let value = !this.settingUtils.get("checkToken");
-        //             this.settingUtils.setAndSave("checkToken", value);
-        //             console.log(value);
+        //             let value = !this.settingUtils.get("enterToSend");
+        //             this.settingUtils.setAndSave("enterToSend", value);
+        //             console.log("enter to send message", value);
         //         },
         //     },
         // });
-
-        this.settingUtils.addItem({
-            key: "enterToSend",
-            value: true,
-            type: "checkbox",
-            title: this.i18n.enterToSend,
-            description: this.i18n.enterToSendDesc,
-            action: {
-                callback: () => {
-                    // Return data and save it in real time
-                    let value = !this.settingUtils.get("enterToSend");
-                    this.settingUtils.setAndSave("enterToSend", value);
-                    console.log("enter to send message", value);
-                },
-            },
-        });
-
-        this.settingUtils.addItem({
-            key: "customSystemPrompt",
-            value: "",
-            type: "textarea",
-            title: this.i18n.customSystemPrompt,
-            description: this.i18n.customSystemPromptDesc,
-            action: {
-                callback: () => {
-                    // Read data in real time
-                    let value = this.settingUtils.takeAndSave("customSystemPrompt");
-                    console.log("custom prompt", value);
-                },
-            },
-        });
-
-        this.settingUtils.addItem({
-            key: "customUserPrompt",
-            value: "",
-            type: "textarea",
-            title: this.i18n.customUserPrompt,
-            description: this.i18n.customUserPromptDesc,
-            action: {
-                callback: () => {
-                    // Read data in real time
-                    let value = this.settingUtils.takeAndSave("customUserPrompt");
-                    console.log("custom user prompt", value);
-                },
-            },
-        });
 
         // this.settingUtils.addItem({
-        //     key: "localEmbeddingEnable",
-        //     value: false,
-        //     type: "checkbox",
-        //     title: this.i18n.localEmbeddingEnabled,
-        //     description: this.i18n.localEmbeddingEnabledDesc,
+        //     key: "customSystemPrompt",
+        //     value: "",
+        //     type: "textarea",
+        //     title: this.i18n.customSystemPrompt,
+        //     description: this.i18n.customSystemPromptDesc,
         //     action: {
         //         callback: () => {
-        //             // Return data and save it in real time
-        //             let value = !this.settingUtils.get("localEmbeddingEnable");
-        //             this.settingUtils.setAndSave("localEmbedding", value);
-        //             console.log("enable local embedding ", value);
-        //             if (value) {
-        //                 pushMsg(this.i18n.downloadOnnxRuntime)
-        //                     .then(() => createModel())
-        //                     .then((model) => {
-        //                         pushMsg(this.i18n.embeddingModelCreated);
-        //                         console.log("model created");
-        //                         return model;
-        //                     })
-        //                     .then((model) => createEmbedding(model, "hello"))
-        //                     .then((embeddings) => {
-        //                         console.log("embedding created", embeddings);
-        //                         pushMsg(this.i18n.createdEmbeddingsSuccess);
-        //                     })
-        //                     .catch((err) => {
-        //                         console.error(err);
-        //                         pushErrMsg(`unable to setup vectordb, ${err}`);
-        //                     });
-        //             }
+        //             // Read data in real time
+        //             let value = this.settingUtils.takeAndSave("customSystemPrompt");
+        //             console.log("custom prompt", value);
         //         },
         //     },
         // });
-        // 
-        // TODO: allow user to customize prompt chaining steps and prompt
-        this.settingUtils.addItem({
-            key: "usePromptChaining",
-            value: false,
-            type: "checkbox",
-            title: this.i18n.usePromptChaining,
-            description: this.i18n.usePromptChainingDesc,
-            action: {
-                callback: () => {
-                    // Return data and save it in real time
-                    let value = !this.settingUtils.get("usePromptChaining");
-                    this.settingUtils.setAndSave("usePromptChaining", value);
-                    console.log("usePromptChaining", value);
-                }
-            },
-        });
 
-        try {
-            this.settingUtils.load();
-        } catch (error) {
-            console.error(
-                "Error loading settings storage, probably empty config json:",
-                error,
-            );
-        }
+        // this.settingUtils.addItem({
+        //     key: "customUserPrompt",
+        //     value: "",
+        //     type: "textarea",
+        //     title: this.i18n.customUserPrompt,
+        //     description: this.i18n.customUserPromptDesc,
+        //     action: {
+        //         callback: () => {
+        //             // Read data in real time
+        //             let value = this.settingUtils.takeAndSave("customUserPrompt");
+        //             console.log("custom user prompt", value);
+        //         },
+        //     },
+        // });
 
-        console.log(this.i18n.helloPlugin);
+        // // this.settingUtils.addItem({
+        // //     key: "localEmbeddingEnable",
+        // //     value: false,
+        // //     type: "checkbox",
+        // //     title: this.i18n.localEmbeddingEnabled,
+        // //     description: this.i18n.localEmbeddingEnabledDesc,
+        // //     action: {
+        // //         callback: () => {
+        // //             // Return data and save it in real time
+        // //             let value = !this.settingUtils.get("localEmbeddingEnable");
+        // //             this.settingUtils.setAndSave("localEmbedding", value);
+        // //             console.log("enable local embedding ", value);
+        // //             if (value) {
+        // //                 pushMsg(this.i18n.downloadOnnxRuntime)
+        // //                     .then(() => createModel())
+        // //                     .then((model) => {
+        // //                         pushMsg(this.i18n.embeddingModelCreated);
+        // //                         console.log("model created");
+        // //                         return model;
+        // //                     })
+        // //                     .then((model) => createEmbedding(model, "hello"))
+        // //                     .then((embeddings) => {
+        // //                         console.log("embedding created", embeddings);
+        // //                         pushMsg(this.i18n.createdEmbeddingsSuccess);
+        // //                     })
+        // //                     .catch((err) => {
+        // //                         console.error(err);
+        // //                         pushErrMsg(`unable to setup vectordb, ${err}`);
+        // //                     });
+        // //             }
+        // //         },
+        // //     },
+        // // });
+        // // 
+        // // TODO: allow user to customize prompt chaining steps and prompt
+        // this.settingUtils.addItem({
+        //     key: "usePromptChaining",
+        //     value: false,
+        //     type: "checkbox",
+        //     title: this.i18n.usePromptChaining,
+        //     description: this.i18n.usePromptChainingDesc,
+        //     action: {
+        //         callback: () => {
+        //             // Return data and save it in real time
+        //             let value = !this.settingUtils.get("usePromptChaining");
+        //             this.settingUtils.setAndSave("usePromptChaining", value);
+        //             console.log("usePromptChaining", value);
+        //         }
+        //     },
+        // });
+
+        // try {
+        //     this.settingUtils.load();
+        // } catch (error) {
+        //     console.error(
+        //         "Error loading settings storage, probably empty config json:",
+        //         error,
+        //     );
+        // }
+
+        // console.log(this.i18n.helloPlugin);
     }
 
     onLayoutReady() {
         // this.loadData(STORAGE_NAME);
-        this.settingUtils.load();
+        // this.settingUtils.load();
         console.log(`frontend: ${getFrontend()}; backend: ${getBackend()}`);
-        console.log("nb-assistant settings", this.settingUtils.dump());
+        // console.log("nb-assistant settings", this.settingUtils.dump());
     }
 
     async onunload() {
@@ -319,6 +322,23 @@ export default class PluginSample extends Plugin {
 
     uninstall() {
         console.log("uninstall");
+    }
+
+    openSetting(): void {
+        let dialog = new Dialog({
+            title: "nb assistant settings",
+            content: "<div id='nb-assistant-setting'></div>",
+            width: "800px",
+            destroyCallback: (options) => {
+                console.log("exit nb assistant setting", options);
+            }
+        });
+        console.log("open nb setting");
+        this.settingUtils = new SettingUtils({
+            plugin: this,
+            name: STORAGE_NAME,
+        });
+        createApp(Settings, { plugin: this}).mount(dialog.element.querySelector('#nb-assistant-setting'));
     }
 
     private addMenu(rect?: DOMRect) {
