@@ -44,12 +44,23 @@ export class ClaudeModel extends BaseAIModel {
         }
         messages.push({role: "user", content: request.prompt});
 
-        const message = await this.client.messages.create({
+        let request_body = {
             max_tokens: request.maxTokens ? request.maxTokens : 2048,
             messages: messages,
             model: request.model,
             temperature: request.temperature? request.temperature : 0,
-        });
+        };
+
+        if (request.top_p) {
+            request_body["top_p"] = request.top_p;
+        }
+        if (request.top_k) {
+            request_body["top_k"] = request.top_k;
+        }
+        if (request.stop) {
+            request_body["stop"] = request.stop;
+        }
+        const message = await this.client.messages.create(request_body);
 
         const textContent = message.content
             .filter(block => block.type === 'text' && block.text)
@@ -88,19 +99,27 @@ export class ClaudeModel extends BaseAIModel {
         }
         messages.push({role: "user", content: request.prompt});
 
-        await this.client.messages.stream({
+        let request_body = {
             max_tokens: request.maxTokens ? request.maxTokens : 2048,
             temperature: request.temperature ? request.temperature : 0,
             messages: messages,
             model: request.model
-        }).on('text', (text) => {
+        };
+        if (request.top_p) {
+            request_body["top_p"] = request.top_p;
+        }
+        if (request.top_k) {
+            request_body["top_k"] = request.top_k;
+        }
+        if (request.stop) {
+            request_body["stop"] = request.stop;
+        }
+        await this.client.messages.stream(request_body).on('text', (text) => {
             callback({
                 text: text,
                 isComplete: false,
             });
         })
-        // .on('contentBlock', (content) => console.log('contentBlock', content))
-        // .on('message', (message) => console.log('message', message));
 
         callback({ text: '', isComplete: true });
     }
@@ -127,6 +146,7 @@ export class ClaudeModel extends BaseAIModel {
                     createdAt: new Date(d.created_at)
                 })
             }
+            models.models = models.models.sort((a, b) => a.name > b.name ? 1 : -1);
             return models;
         } catch(e) {
             console.error("unable to retrieve models");
@@ -134,4 +154,7 @@ export class ClaudeModel extends BaseAIModel {
         }
     }
     
+    async locallyInstalled(_request: any): Promise<boolean> {
+        return false;
+    }
 }

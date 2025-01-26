@@ -35,16 +35,26 @@ export class DeepseekModel extends BaseAIModel {
             }
         }
         messages.push({ role: "user", content: request.prompt });
+        let request_body = {
+            model: request.model,
+            max_tokens: request.maxTokens ? request.maxTokens : 2048,
+            stream: false,
+            temperature: request.temperature ? request.temperature : 0,
+            messages: messages,
+        };
+        if (request.top_p) {
+            request_body["top_p"] = request.top_p;
+        }
+        if (request.presence_penalty) {
+            request_body["presence_penalty"] = request.presence_penalty;
+        }
+        if (request.stop) {
+            request_body["stop"] = request.stop;
+        }
         const response = await fetch(`${this.client.baseURL}/chat/completions`, {
             method: "POST",
             headers: this.client.headers,
-            body: JSON.stringify({
-                model: request.model,
-                max_tokens: request.maxTokens ? request.maxTokens : 2048,
-                stream: false,
-                temperature: request.temperature ? request.temperature : 0,
-                messages: messages,
-            })
+            body: JSON.stringify(request_body)
         });
 
         if (!response.ok) {
@@ -80,17 +90,26 @@ export class DeepseekModel extends BaseAIModel {
             }
         }
         messages.push({ role: "user", content: request.prompt });
-
+        let request_body = {
+            model: request.model,
+            max_tokens: request.maxTokens ? request.maxTokens : 2048,
+            stream: true,
+            temperature: request.temperature ? request.temperature : 0,
+            messages: messages,
+        };
+        if (request.top_p) {
+            request_body["top_p"] = request.top_p;
+        }
+        if (request.presence_penalty) {
+            request_body["presence_penalty"] = request.presence_penalty;
+        }
+        if (request.stop) {
+            request_body["stop"] = request.stop;
+        }
         const resp = await fetch(`${this.client.baseURL}/chat/completions`, {
             method: "POST",
             headers: this.client.headers,
-            body: JSON.stringify({
-                model: request.model,
-                max_tokens: request.maxTokens ? request.maxTokens : 2048,
-                stream: true,
-                temperature: request.temperature ? request.temperature : 0,
-                messages: messages,
-            })
+            body: JSON.stringify(request_body)
         });
 
         const reader = resp.body?.getReader();
@@ -157,11 +176,16 @@ export class DeepseekModel extends BaseAIModel {
                     createdAt: new Date()
                 })
             }
+            models.models = models.models.sort((a, b) => a.name > b.name ? 1 : -1);
             return models;
         } catch(e) {
             console.error("unable to retrieve models");
             throw new Error(e);
         }
+    }
+
+    async locallyInstalled(_request: any): Promise<boolean> {
+        return false;
     }
     
 }

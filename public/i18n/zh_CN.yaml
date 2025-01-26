@@ -85,3 +85,34 @@ cacheModelDesc2": 下载的模型将缓存于 SiYuan，但退出 SiYuan 后,缓�
 saveToDoc: 保存致文档
 embeddingAlert: 请确保您没有选择包含任何敏感信息的笔记本。如果被制造成嵌入（Embedding），在RAG检索过程中，可能会检索到这些信息并发送给AI服务。
 embeddingHint: 嵌入（Embedding）创建后，您可以使用'@'选择笔记本并提供笔记本内容以进行RAG处理。
+aiApiKey: 访问AI服务所需的API密钥。
+aiApiUrl: AI服务API的基础URL端点。例如：OpenAI为'https://api.openai.com'，Claude为'https://api.anthropic.com'，本地Ollama为'http://localhost:11434'。
+aiModel: 使用的特定AI模型标识符。例如：OpenAI的'gpt-4'，Anthropic的'claude-3-opus-20240229'，或Ollama的'llama2'。不同模型具有不同的能力和成本。
+aiCustomSystemPrompt: 设置AI行为、角色和约束的初始系统级指令。此提示在对话开始时提供一次，以建立上下文和指南。在使用此模型时，这将应用于每条消息之上。
+aiCustomUserPrompt: 用户消息的模板或前缀。可用于在将每个用户输入发送到AI之前格式化或提供额外的上下文。在使用此模型时，这将应用于每条消息之上。
+aiMaxTokens: AI应在响应中生成的最大令牌数（单词/字符）。较高的值允许更长的响应，但消耗更多资源。典型范围：256-4096。
+aiTemperature: 控制AI响应中的随机性。范围0.0-2.0。较低的值（例如0.2）提供集中的、确定性的响应；较高的值（例如0.8）产生更具创造性、多样化的输出。
+aiTopP: 核采样参数。范围0.0-1.0。通过选择累积概率超过此值的最小令牌集来控制多样性。较低的值使输出更集中。
+aiTopK: 将令牌选择限制为最可能的K个下一个令牌。较低的值（例如40）使输出更集中，而较高的值允许更多样化的可能性。
+aiPresencePenalty: 范围-2.0到2.0。调整讨论新话题的可能性。正值鼓励模型讨论新话题，而负值使其专注于现有话题。
+aiFrequencyPenalty: 范围-2.0到2.0。调整令牌重复的可能性。正值通过惩罚频繁使用的令牌来减少重复，而负值允许更多重复。
+aiStopWords: 指示AI停止生成进一步内容的字符串数组。用于控制响应格式和防止不需要的延续。例如：###,Human,Assistant
+aiChooseEmbedding: 本地模型直接在您的设备上运行，提供隐私保护，且不依赖互联网。可是，本地模型可能没有互联网的AI服务来的精准。
+aiEmbeddingModelDesc: 用于创建RAG过程和相似搜索的嵌入模型。
+aiEmbeddingModel: 嵌入模型
+aiEmbeddingModelProvider: 嵌入模型供应商
+aiTitleApiKey: API Key
+aiTitleApiUrl: API URL
+aiTitleModel: 模型
+aiTitleCustomSystemPrompt: 自定义模型提示
+aiTitleCustomUserPrompt: 自定义用户提示
+aiTitleMaxTokens: 最大令牌数
+aiTitleTemperature: 温度
+aiTitleTopP: Top P
+aiTitleTopK: Top K
+aiTitlePresencePenalty: 出现率惩罚
+aiTitleFrequencyPenalty: 频率率惩罚
+aiTitleStopWords: 停止词
+
+
+

@@ -41,4 +41,8 @@ export class AIWrapper {
     async listModels(request: any): Promise<ListModelResponse> {
         return this.model.listModels(request);
     }
+
+    async locallyInstalled(request: any): Promise<boolean> {
+        return this.model.locallyInstalled(request);
+    }
 }

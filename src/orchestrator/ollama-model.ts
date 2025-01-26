@@ -34,18 +34,35 @@ export class OllamaModel extends BaseAIModel {
             }
         }
         messages.push({ role: "user", content: request.prompt });
+        let request_body = {
+            model: request.model,
+            stream: false,
+            messages: messages,
+            options: {
+                max_tokens: request.maxTokens ? request.maxTokens : 2048,
+                temperature: request.temperature ? request.temperature : 0,
+            }
+        }
+        if (request.top_p) {
+            request_body.options["top_p"] = request.top_p;
+        }
+        if (request.top_k) {
+            request_body.options["top_k"] = request.top_k;
+        }
+        if (request.frequency_penalty) {
+            request_body.options["frequency_penalty"] = request.frequency_penalty;
+        }
+        if (request.presence_penalty) {
+            request_body.options["presence_penalty"] = request.presence_penalty;
+        }
+        if (request.stop) {
+            request_body.options["stop"] = request.stop;
+        }
+
         const response = await fetch(`${this.client.baseURL}/api/chat`, {
             method: "POST",
             headers: this.client.headers,
-            body: JSON.stringify({
-                model: request.model,
-                stream: false,
-                messages: messages,
-                options: {
-                    max_tokens: request.maxTokens ? request.maxTokens : 2048,
-                    temperature: request.temperature ? request.temperature : 0,
-                }
-            })
+            body: JSON.stringify(request_body)
         });
 
         if (!response.ok) {
@@ -78,19 +95,34 @@ export class OllamaModel extends BaseAIModel {
             }
         }
         messages.push({ role: "user", content: request.prompt });
-
+        let request_body = {
+            model: request.model,
+            stream: true,
+            messages: messages,
+            options: {
+                max_tokens: request.maxTokens ? request.maxTokens : 2048,
+                temperature: request.temperature ? request.temperature : 0,
+            }
+        };
+        if (request.top_p) {
+            request_body.options["top_p"] = request.top_p;
+        }
+        if (request.top_k) {
+            request_body.options["top_k"] = request.top_k;
+        }
+        if (request.frequency_penalty) {
+            request_body.options["frequency_penalty"] = request.frequency_penalty;
+        }
+        if (request.presence_penalty) {
+            request_body.options["presence_penalty"] = request.presence_penalty;
+        }
+        if (request.stop) {
+            request_body.options["stop"] = request.stop;
+        }
         const resp = await fetch(`${this.client.baseURL}/api/chat`, {
             method: "POST",
             headers: this.client.headers,
-            body: JSON.stringify({
-                model: request.model,
-                stream: true,
-                messages: messages,
-                options: {
-                    max_tokens: request.maxTokens ? request.maxTokens : 2048,
-                    temperature: request.temperature ? request.temperature : 0,
-                }
-            })
+            body: JSON.stringify(request_body)
         });
 
         const reader = resp.body?.getReader();
@@ -173,10 +205,20 @@ export class OllamaModel extends BaseAIModel {
                     createdAt: new Date(d.modified_at)
                 })
             }
+            models.models = models.models.sort((a, b) => a.name > b.name ? 1 : -1);
             return models;
         } catch(e) {
             console.error("unable to retrieve models");
             throw new Error(e);
+        }
+    }
+
+    async locallyInstalled(_request: any): Promise<boolean> {
+        try {
+            await this.listModels({})
+            return true;
+        } catch (e) {
+            return false
         }
     }
 }

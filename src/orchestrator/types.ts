@@ -9,6 +9,11 @@ export interface CompletionRequest {
     systemPrompt?: {role: string, content: string};
     response_format?: string;
     json_schema?: string;
+    top_k?: number;
+    top_p?: number;
+    presence_penalty?: number;
+    frequency_penalty?: number;
+    stop?: string[]
 }
 
 export interface CompletionResponse {
@@ -55,4 +60,5 @@ export interface AIModelInterface {
     streamCompletions(request: CompletionRequest, callback: CompletionCallback): Promise<void>;
     createEmbedding(request: EmbeddingRequest): Promise<EmbeddingResponse>;
     listModels(request: any): Promise<ListModelResponse>;
+    locallyInstalled(request: any): Promise<boolean>;
 }

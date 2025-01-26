@@ -1,13 +1,15 @@
 import { OpenAI } from 'openai';
 import { BaseAIModel } from './base-model';
 import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse, ListModelResponse } from './types';
+import { Stream } from 'openai/streaming';
+import { ChatCompletionChunk } from 'openai/resources';
 
 export class OpenAIModel extends BaseAIModel {
     private client: OpenAI;
 
     constructor(config: { apiKey: string }) {
         super(config);
-        this.client = new OpenAI({ apiKey: config.apiKey });
+        this.client = new OpenAI({ apiKey: config.apiKey, dangerouslyAllowBrowser: true});
     }
 
     async completions(request: CompletionRequest): Promise<CompletionResponse> {
@@ -30,12 +32,22 @@ export class OpenAIModel extends BaseAIModel {
             }
         }
         messages.push({role: "user", content: request.prompt});
-        const response = await this.client.chat.completions.create({
+        let request_body = {
             model: request.model,
             messages: messages,
             max_tokens: request.maxTokens ? request.maxTokens : 2048,
             temperature: request.temperature? request.temperature : 0,
-        });
+        };
+        if (request.top_p) {
+            request_body["top_p"] = request.top_p;
+        }
+        if (request.presence_penalty) {
+            request_body["presence_penalty"] = request.presence_penalty;
+        }
+        if (request.stop) {
+            request_body["stop"] = request.stop;
+        }
+        const response = await this.client.chat.completions.create(request_body);
 
         return {
             text: response.choices[0].message.content || '',
@@ -62,23 +74,38 @@ export class OpenAIModel extends BaseAIModel {
             }
         }
         messages.push({role: "user", content: request.prompt});
-        const stream = await this.client.chat.completions.create({
+        let request_body = {
             model: request.model,
             messages: messages,
             max_tokens: request.maxTokens ? request.maxTokens : 2048,
             temperature: request.temperature? request.temperature : 0,
-            stream: true,
-        });
+            stream: true
+        };
 
-        for await (const chunk of stream) {
-            const content = chunk.choices[0]?.delta?.content || '';
-            callback({
-                text: content,
-                isComplete: false,
-            });
+        if (request.top_p) {
+            request_body["top_p"] = request.top_p;
         }
-
-        callback({ text: '', isComplete: true });
+        if (request.presence_penalty) {
+            request_body["presence_penalty"] = request.presence_penalty;
+        }
+        if (request.stop) {
+            request_body["stop"] = request.stop;
+        }
+        const stream = await this.client.chat.completions.create(request_body);
+        const isStream = (response: any): response is Stream<ChatCompletionChunk> => {
+            return typeof response[Symbol.asyncIterator] === 'function';
+        };
+        if (isStream(stream)) {
+            for await (const chunk of stream) {
+                const content = chunk.choices[0]?.delta?.content || '';
+                callback({
+                    text: content,
+                    isComplete: false,
+                });
+            }
+            
+            callback({ text: '', isComplete: true });
+        }
     }
 
     async createEmbedding(request: EmbeddingRequest): Promise<EmbeddingResponse> {
@@ -116,10 +143,15 @@ export class OpenAIModel extends BaseAIModel {
                     createdAt: new Date(d.created * 1000)
                 })
             }
+            models.models = models.models.sort((a, b) => a.name > b.name ? 1 : -1);
             return models;
         } catch(e) {
             console.error("unable to retrieve models");
             throw new Error(e);
         }
+    }
+
+    async locallyInstalled(_request: any): Promise<boolean> {
+        return false;
     }
 }
