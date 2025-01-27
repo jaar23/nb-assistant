@@ -63,7 +63,6 @@ export class DeepseekModel extends BaseAIModel {
         try {
             const response = await fetch(`${this.client.baseURL}/chat/completions`, {
                 method: "POST",
-                mode: "no-cors",
                 headers: this.client.headers,
                 body: JSON.stringify(request_body)
             });
@@ -128,7 +127,6 @@ export class DeepseekModel extends BaseAIModel {
         try {
             const resp = await fetch(`${this.client.baseURL}/chat/completions`, {
                 method: "POST",
-                mode: "no-cors",
                 headers: this.client.headers,
                 body: JSON.stringify(request_body)
             });
