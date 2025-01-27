@@ -101,14 +101,6 @@ watch(() => props.streamMessage, (newVal) => {
 watch(() => props.isStreaming, (newVal) => {
   if (!newVal && streamingMessage.value) {
     console.log('Streaming stopped. Adding to history:', streamingMessage.value);
-    // messages.value.push({
-    //   question: props.question,
-    //   answer: streamingMessage.value,
-    //   aiEmoji: "",
-    //   actionable: false,
-    //   actionType: "",
-    //   blockId: "",
-    // });
     streamingMessage.value = "";
     console.log('Updated history:', messages.value);
   }

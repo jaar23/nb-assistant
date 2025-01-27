@@ -3,6 +3,7 @@ import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingReq
 
 export class OllamaModel extends BaseAIModel {
     private client: { baseURL: string, headers: {} };
+    private abortController: AbortController | null = null;
 
     constructor(config: { apiKey: string; baseUrl?: string }) {
         super(config);
@@ -14,9 +15,17 @@ export class OllamaModel extends BaseAIModel {
         };
     }
 
+    public cancelRequest() {
+        if (this.abortController) {
+            this.abortController.abort();
+            this.abortController = null;
+        }
+    }
+
     async completions(request: CompletionRequest): Promise<CompletionResponse> {
         this.validateRequest(request);
-        let messages = [];
+        this.abortController = new AbortController();
+        let messages = request.history || [];
         if (request.systemPrompt) {
             switch (request.systemPrompt.role) {
                 case "system":
@@ -39,7 +48,7 @@ export class OllamaModel extends BaseAIModel {
             stream: false,
             messages: messages,
             options: {
-                max_tokens: request.maxTokens ? request.maxTokens : 2048,
+                max_tokens: request.max_tokens ? request.max_tokens : 2048,
                 temperature: request.temperature ? request.temperature : 0,
             }
         }
@@ -58,26 +67,34 @@ export class OllamaModel extends BaseAIModel {
         if (request.stop) {
             request_body.options["stop"] = request.stop;
         }
+        try {
+            const response = await fetch(`${this.client.baseURL}/api/chat`, {
+                method: "POST",
+                headers: this.client.headers,
+                body: JSON.stringify(request_body),
+                signal: this.abortController.signal
+            });
 
-        const response = await fetch(`${this.client.baseURL}/api/chat`, {
-            method: "POST",
-            headers: this.client.headers,
-            body: JSON.stringify(request_body)
-        });
+            if (!response.ok) {
+                console.error("unable to fetch request from ai provider");
+                throw new Error(await response.text());
+            }
+            let response_json = await response.json();
 
-        if (!response.ok) {
-            console.error("unable to fetch request from ai provider");
-            throw new Error(await response.text());
+            return { text: response_json.message.content, images: response_json.message.images };
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                return { text: "request cancelled", images: null };
+            }
+            throw error;
         }
-        let response_json = await response.json();
-
-        return { text: response_json.message.content, images: response_json.message.images};
 
     }
 
     async streamCompletions(request: CompletionRequest, callback: CompletionCallback): Promise<void> {
         this.validateRequest(request);
-        let messages = [];
+        this.abortController = new AbortController();
+        let messages = request.history || [];
         if (request.systemPrompt) {
             switch (request.systemPrompt.role) {
                 case "system":
@@ -100,7 +117,7 @@ export class OllamaModel extends BaseAIModel {
             stream: true,
             messages: messages,
             options: {
-                max_tokens: request.maxTokens ? request.maxTokens : 2048,
+                max_tokens: request.max_tokens ? request.max_tokens : 2048,
                 temperature: request.temperature ? request.temperature : 0,
             }
         };
@@ -119,48 +136,65 @@ export class OllamaModel extends BaseAIModel {
         if (request.stop) {
             request_body.options["stop"] = request.stop;
         }
-        const resp = await fetch(`${this.client.baseURL}/api/chat`, {
-            method: "POST",
-            headers: this.client.headers,
-            body: JSON.stringify(request_body)
-        });
+        try {
+            const resp = await fetch(`${this.client.baseURL}/api/chat`, {
+                method: "POST",
+                headers: this.client.headers,
+                body: JSON.stringify(request_body),
+                signal: this.abortController.signal
+            });
 
-        const reader = resp.body?.getReader();
-        const decoder = new TextDecoder('utf-8');
-        let buffer = "";
+            const reader = resp.body?.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let buffer = "";
 
-        while (true && reader) {
-            const { done, value } = await reader.read();
-            const chunk = decoder.decode(value);
-            if (done) break;
-            if (chunk.toLowerCase() === '[done]') {
-                break;
-            }
-            buffer += chunk;
-
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
-
-            for (const line of lines) {
-                if (line.trim() === '' || line.includes('[DONE]')) continue;
-
+            while (true && reader) {
                 try {
-                    const jsonString = line.replace(/^data: /, '').trim();
-                    const json = JSON.parse(jsonString);
-                    const content = json.message.content;
-                    if (content !== '') {
-                        callback({ text: content, isComplete: false});
+                    const { done, value } = await reader.read();
+                    const chunk = decoder.decode(value);
+                    if (done) break;
+                    if (chunk.toLowerCase() === '[done]') {
+                        break;
                     }
-                } catch (e) {
-                    // console.error('Error parsing chunk:', e);
-                    // console.log(line);
-                    // console.log("line number", lines.length);
-                    buffer = line + (buffer ? "\n" + buffer : "");
+                    buffer += chunk;
+
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+
+                    for (const line of lines) {
+                        if (line.trim() === '' || line.includes('[DONE]')) continue;
+
+                        try {
+                            const jsonString = line.replace(/^data: /, '').trim();
+                            const json = JSON.parse(jsonString);
+                            const content = json.message.content;
+                            if (content !== '') {
+                                callback({ text: content, isComplete: false });
+                            }
+                        } catch (e) {
+                            // console.error('Error parsing chunk:', e);
+                            // console.log(line);
+                            // console.log("line number", lines.length);
+                            buffer = line + (buffer ? "\n" + buffer : "");
+                        }
+                    }
+                } catch (error) {
+                    if (error.name === 'AbortError') {
+                        callback({ text: '\nRequest cancelled', isComplete: true });
+                        return;
+                    }
+                    throw error;
                 }
             }
-        }
 
-        callback({ text: '', isComplete: true });        
+            callback({ text: '', isComplete: true });
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                callback({ text: '\nRequest cancelled', isComplete: true });
+                return;
+            }
+            throw error;
+        }
     }
 
     async createEmbedding(request: EmbeddingRequest): Promise<EmbeddingResponse> {
@@ -170,7 +204,7 @@ export class OllamaModel extends BaseAIModel {
         } else if (request.chunk) {
             input = request.chunk;
         } else {
-            return {embeddings: [], status: false};
+            return { embeddings: [], status: false };
         }
         const resp = await fetch(`${this.client.baseURL}/api/embed`, {
             method: "POST",
@@ -196,7 +230,7 @@ export class OllamaModel extends BaseAIModel {
                 headers: this.client.headers
             });
             const json = await response.json();
-            let models = {models: []}
+            let models = { models: [] }
             for (const d of json.models) {
                 models.models.push({
                     type: "model",
@@ -207,7 +241,7 @@ export class OllamaModel extends BaseAIModel {
             }
             models.models = models.models.sort((a, b) => a.name > b.name ? 1 : -1);
             return models;
-        } catch(e) {
+        } catch (e) {
             console.error("unable to retrieve models");
             throw new Error(e);
         }

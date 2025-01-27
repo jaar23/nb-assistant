@@ -50,11 +50,11 @@ const claudeSettings = ref({
     model: '',
     apiKey: '',
     url: 'https://api.anthropic.com',
-    maxTokens: 2048,
+    max_tokens: 2048,
     temperature: 0,
     top_p: 1.0,
     top_k: 40,
-    stop_words: ""
+    stop: ""
 });
 
 const deepseekSettings = ref({
@@ -63,11 +63,11 @@ const deepseekSettings = ref({
     model: '',
     apiKey: '',
     url: 'https://api.deepseek.com',
-    maxTokens: 2048,
+    max_tokens: 2048,
     temperature: 0,
     top_p: 1.0,
     presence_penalty: 0.5,
-    stop_words: ""
+    stop: ""
 });
 
 const ollamaSettings = ref({
@@ -76,13 +76,13 @@ const ollamaSettings = ref({
     model: '',
     apiKey: '',
     url: 'http://localhost:11434',
-    maxTokens: 2048,
+    max_tokens: 2048,
     temperature: 0,
     top_p: 1.0,
     top_k: 40,
     presence_penalty: 0.5,
     frequency_penalty: 0.5,
-    stop_words: ""
+    stop: ""
 });
 
 const openaiSettings = ref({
@@ -91,11 +91,11 @@ const openaiSettings = ref({
     model: '',
     apiKey: '',
     url: 'https://api.openai.com',
-    maxTokens: 2048,
+    max_tokens: 2048,
     temperature: 0,
     top_p: 1.0,
     presence_penalty: 0.5,
-    stop_words: ""
+    stop: ""
 });
 
 const embeddingSettings = ref({
@@ -144,7 +144,7 @@ async function listModels(aiProvider: string) {
             }
             const ollama = new AIWrapper("ollama", {
                 apiKey: "",
-                baseURL: ollamaSettings.value.url
+                baseUrl: ollamaSettings.value.url
             });
             if (! await ollama.locallyInstalled({})) return;
             console.log("list ollma models");
@@ -222,7 +222,7 @@ async function embeddingModelChange() {
             && embeddingSettings.value.provider !== "local") {
             const ollama = new AIWrapper("ollama", {
                 apiKey: "",
-                baseURL: ollamaSettings.value.url
+                baseUrl: ollamaSettings.value.url
             });
             const isInstalled = await ollama.locallyInstalled({});
             if (isInstalled) {
@@ -310,11 +310,11 @@ onMounted(async () => {
     claudeSettings.value.model = plugin.value.settingUtils.settings.get("claude.model") || 'claude-3-5-haiku-20241022';
     claudeSettings.value.apiKey = plugin.value.settingUtils.settings.get("claude.apiKey") || '';
     claudeSettings.value.url = plugin.value.settingUtils.settings.get("claude.url") || 'https://api.anthropic.com';
-    claudeSettings.value.maxTokens = plugin.value.settingUtils.settings.get("claude.maxTokens") || 2048;
+    claudeSettings.value.max_tokens = plugin.value.settingUtils.settings.get("claude.max_tokens") || 2048;
     claudeSettings.value.temperature = plugin.value.settingUtils.settings.get("claude.temperature") || 0;
     claudeSettings.value.top_k = plugin.value.settingUtils.settings.get("claude.top_k") || 40;
     claudeSettings.value.top_p = plugin.value.settingUtils.settings.get("claude.top_p") || 0.5;
-    claudeSettings.value.stop_words = plugin.value.settingUtils.settings.get("claude.stop_words") || "";
+    claudeSettings.value.stop = plugin.value.settingUtils.settings.get("claude.stop") || "";
 
 
     deepseekSettings.value.customSystemPrompt = plugin.value.settingUtils.settings.get("deepseek.customSystemPrompt") || '';
@@ -322,11 +322,11 @@ onMounted(async () => {
     deepseekSettings.value.model = plugin.value.settingUtils.settings.get("deepseek.model") || '';
     deepseekSettings.value.apiKey = plugin.value.settingUtils.settings.get("deepseek.apiKey") || '';
     deepseekSettings.value.url = plugin.value.settingUtils.settings.get("deepseek.url") || 'https://api.deepseek.com';
-    deepseekSettings.value.maxTokens = plugin.value.settingUtils.settings.get("deepseek.maxTokens") || 2048;
+    deepseekSettings.value.max_tokens = plugin.value.settingUtils.settings.get("deepseek.max_tokens") || 2048;
     deepseekSettings.value.temperature = plugin.value.settingUtils.settings.get("deepseek.temperature") || 0;
     deepseekSettings.value.top_p = plugin.value.settingUtils.settings.get("deepseek.top_p") || 0.5;
     deepseekSettings.value.presence_penalty = plugin.value.settingUtils.settings.get("deepseek.presence_penalty") || 0.5;
-    deepseekSettings.value.stop_words = plugin.value.settingUtils.settings.get("deepseek.stop_words") || "";
+    deepseekSettings.value.stop = plugin.value.settingUtils.settings.get("deepseek.stop") || "";
 
 
     ollamaSettings.value.customSystemPrompt = plugin.value.settingUtils.settings.get("ollama.customSystemPrompt") || '';
@@ -334,24 +334,24 @@ onMounted(async () => {
     ollamaSettings.value.model = plugin.value.settingUtils.settings.get("ollama.model") || '';
     ollamaSettings.value.apiKey = plugin.value.settingUtils.settings.get("ollama.apiKey") || '';
     ollamaSettings.value.url = plugin.value.settingUtils.settings.get("ollama.url") || 'http://localhost:11434';
-    ollamaSettings.value.maxTokens = plugin.value.settingUtils.settings.get("ollama.maxTokens") || 2048;
+    ollamaSettings.value.max_tokens = plugin.value.settingUtils.settings.get("ollama.max_tokens") || 2048;
     ollamaSettings.value.temperature = plugin.value.settingUtils.settings.get("ollama.temperature") || 0;
     ollamaSettings.value.top_k = plugin.value.settingUtils.settings.get("ollama.top_k") || 40;
     ollamaSettings.value.top_p = plugin.value.settingUtils.settings.get("ollama.top_p") || 0.5;
     ollamaSettings.value.presence_penalty = plugin.value.settingUtils.settings.get("ollama.presence_penalty") || 0.5;
     ollamaSettings.value.frequency_penalty = plugin.value.settingUtils.settings.get("ollama.frequency_penalty") || 0.5;
-    ollamaSettings.value.stop_words = plugin.value.settingUtils.settings.get("ollama.stop_words") || "";
+    ollamaSettings.value.stop = plugin.value.settingUtils.settings.get("ollama.stop") || "";
 
     openaiSettings.value.customSystemPrompt = plugin.value.settingUtils.settings.get("openai.customSystemPrompt") || '';
     openaiSettings.value.customUserPrompt = plugin.value.settingUtils.settings.get("openai.customUserPrompt") || '';
     openaiSettings.value.model = plugin.value.settingUtils.settings.get("openai.model") || '';
     openaiSettings.value.apiKey = plugin.value.settingUtils.settings.get("openai.apiKey") || '';
     openaiSettings.value.url = plugin.value.settingUtils.settings.get("openai.url") || 'https://api.openai.com';
-    openaiSettings.value.maxTokens = plugin.value.settingUtils.settings.get("openai.maxTokens") || 2048;
+    openaiSettings.value.max_tokens = plugin.value.settingUtils.settings.get("openai.max_tokens") || 2048;
     openaiSettings.value.temperature = plugin.value.settingUtils.settings.get("openai.temperature") || 0;
     openaiSettings.value.top_p = plugin.value.settingUtils.settings.get("openai.top_p") || 0.5;
     openaiSettings.value.presence_penalty = plugin.value.settingUtils.settings.get("openai.presence_penalty") || 0.5;
-    openaiSettings.value.stop_words = plugin.value.settingUtils.settings.get("openai.stop_words") || "";
+    openaiSettings.value.stop = plugin.value.settingUtils.settings.get("openai.stop") || "";
 
     embeddingSettings.value.provider = plugin.value.settingUtils.settings.get("embedding.provider") || "";
     embeddingSettings.value.model = plugin.value.settingUtils.settings.get("embedding.model") || "";
@@ -490,8 +490,8 @@ onUnmounted(async () => {
                     <div class="setting-header">
                         <span>{{ plugin.i18n.aiTitleMaxTokens }}</span>
                         <div class="form-item">
-                            <input type="number" v-model="claudeSettings.maxTokens"
-                                @change="saveClaudeSetting('maxTokens', claudeSettings.maxTokens)"
+                            <input type="number" v-model="claudeSettings.max_tokens"
+                                @change="saveClaudeSetting('max_tokens', claudeSettings.max_tokens)"
                                 class="provider-input" min="1" max="200000">
                         </div>
                     </div>
@@ -538,9 +538,9 @@ onUnmounted(async () => {
                     <div class="setting-header">
                         <span>{{ plugin.i18n.aiTitleStopWords }}</span>
                         <div class="form-item">
-                            <input type="text" v-model="claudeSettings.stop_words" 
+                            <input type="text" v-model="claudeSettings.stop" 
                                 placeholder="delimited by ,"
-                                @change="saveClaudeSetting('stop_words', claudeSettings.stop_words)"
+                                @change="saveClaudeSetting('stop', claudeSettings.stop)"
                                 class="provider-input">
                         </div>
                     </div>
@@ -605,8 +605,8 @@ onUnmounted(async () => {
                     <div class="setting-header">
                         <span>{{ plugin.i18n.aiTitleMaxTokens }}</span>
                         <div class="form-item">
-                            <input type="number" v-model="deepseekSettings.maxTokens"
-                                @change="saveDeepseekSetting('maxTokens', deepseekSettings.maxTokens)"
+                            <input type="number" v-model="deepseekSettings.max_tokens"
+                                @change="saveDeepseekSetting('max_tokens', deepseekSettings.max_tokens)"
                                 class="provider-input" min="1" max="200000">
                         </div>
                     </div>
@@ -653,9 +653,9 @@ onUnmounted(async () => {
                     <div class="setting-header">
                         <span>{{ plugin.i18n.aiTitleStopWords }}</span>
                         <div class="form-item">
-                            <input type="text" v-model="deepseekSettings.stop_words" 
+                            <input type="text" v-model="deepseekSettings.stop" 
                                 placeholder="delimited by ,"
-                                @change="saveDeepseekSetting('stop_words', deepseekSettings.stop_words)"
+                                @change="saveDeepseekSetting('stop', deepseekSettings.stop)"
                                 class="provider-input">
                         </div>
                     </div>
@@ -722,8 +722,8 @@ onUnmounted(async () => {
                     <div class="setting-header">
                         <span>{{ plugin.i18n.aiTitleMaxTokens }}</span>
                         <div class="form-item">
-                            <input type="number" v-model="ollamaSettings.maxTokens"
-                                @change="saveOllamaSetting('maxTokens', ollamaSettings.maxTokens)"
+                            <input type="number" v-model="ollamaSettings.max_tokens"
+                                @change="saveOllamaSetting('max_tokens', ollamaSettings.max_tokens)"
                                 class="provider-input" min="1" max="200000">
                         </div>
                     </div>
@@ -795,9 +795,9 @@ onUnmounted(async () => {
                     <div class="setting-header">
                         <span>{{ plugin.i18n.aiTitleStopWords }}</span>
                         <div class="form-item">
-                            <input type="text" v-model="ollamaSettings.stop_words" 
+                            <input type="text" v-model="ollamaSettings.stop" 
                                 placeholder="delimited by ,"
-                                @change="saveOllamaSetting('stop_words', ollamaSettings.stop_words)"
+                                @change="saveOllamaSetting('stop', ollamaSettings.stop)"
                                 class="provider-input">
                         </div>
                     </div>
@@ -861,8 +861,8 @@ onUnmounted(async () => {
                     <div class="setting-header">
                         <span>{{ plugin.i18n.aiTitleMaxTokens }}</span>
                         <div class="form-item">
-                            <input type="number" v-model="openaiSettings.maxTokens"
-                                @change="saveOpenAISetting('maxTokens', openaiSettings.maxTokens)"
+                            <input type="number" v-model="openaiSettings.max_tokens"
+                                @change="saveOpenAISetting('max_tokens', openaiSettings.max_tokens)"
                                 class="provider-input" min="1" max="200000">
                         </div>
                     </div>
@@ -910,9 +910,9 @@ onUnmounted(async () => {
                     <div class="setting-header">
                         <span>{{ plugin.i18n.aiTitleStopWords }}</span>
                         <div class="form-item">
-                            <input type="text" v-model="openaiSettings.stop_words" 
+                            <input type="text" v-model="openaiSettings.stop" 
                                 placeholder="delimited by ,"
-                                @change="saveOpenAISetting('stop_words', openaiSettings.stop_words)"
+                                @change="saveOpenAISetting('stop', openaiSettings.stop)"
                                 class="provider-input">
                         </div>
                     </div>

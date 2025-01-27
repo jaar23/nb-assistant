@@ -2,11 +2,13 @@ import { BaseAIModel } from './base-model';
 import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse, ListModelResponse } from './types';
 import Anthropic from '@anthropic-ai/sdk';
 
+type ClaudeRole = "assistant" | "user" | "system" | "developer" | any;
 
 export class ClaudeModel extends BaseAIModel {
     private client: Anthropic;
+    private abortController: AbortController | null = null;
 
-    constructor(config: { apiKey: string; baseURL?: string}) {
+    constructor(config: { apiKey: string; baseURL?: string }) {
         super(config);
         if (config.baseURL) {
             this.client = new Anthropic({
@@ -22,33 +24,43 @@ export class ClaudeModel extends BaseAIModel {
         }
     }
 
+    public cancelRequest() {
+        if (this.abortController) {
+            this.abortController.abort();
+            this.abortController = null;
+        }
+    }
+
     async completions(request: CompletionRequest): Promise<CompletionResponse> {
         this.validateRequest(request);
-        
-        let messages = [];
+        this.abortController = new AbortController();
+        let messages = request.history?.map(msg => ({
+            role: msg.role as ClaudeRole, 
+            content: msg.content
+        })) || [];
         if (request.systemPrompt) {
-            switch(request.systemPrompt.role) {
+            switch (request.systemPrompt.role) {
                 case "system":
-                    messages.push({role: "system", content: request.systemPrompt.content});
+                    messages.push({ role: "system", content: request.systemPrompt.content });
                     break;
                 case "developer":
-                    messages.push({role: "developer", content: request.systemPrompt.content});
+                    messages.push({ role: "developer", content: request.systemPrompt.content });
                     break;
                 case "assistant":
-                    messages.push({role: "assistant", content: request.systemPrompt.content});
+                    messages.push({ role: "assistant", content: request.systemPrompt.content });
                     break;
                 default:
-                    messages.push({role: request.systemPrompt.role, content: request.systemPrompt.content});
+                    messages.push({ role: request.systemPrompt.role, content: request.systemPrompt.content });
                     break;
             }
         }
-        messages.push({role: "user", content: request.prompt});
+        messages.push({ role: "user", content: request.prompt });
 
         let request_body = {
-            max_tokens: request.maxTokens ? request.maxTokens : 2048,
+            max_tokens: request.max_tokens ? request.max_tokens : 2048,
             messages: messages,
             model: request.model,
-            temperature: request.temperature? request.temperature : 0,
+            temperature: request.temperature ? request.temperature : 0,
         };
 
         if (request.top_p) {
@@ -60,47 +72,57 @@ export class ClaudeModel extends BaseAIModel {
         if (request.stop) {
             request_body["stop"] = request.stop;
         }
-        const message = await this.client.messages.create(request_body);
+        try {
+            const message = await this.client.messages.create(request_body, { signal: this.abortController.signal });
 
-        const textContent = message.content
-            .filter(block => block.type === 'text' && block.text)
-            .map(block => block["text"])
-            .join('');
+            const textContent = message.content
+                .filter(block => block.type === 'text' && block.text)
+                .map(block => block["text"])
+                .join('');
 
-        if (!textContent) {
-            throw new Error('No text content found in the response');
+            if (!textContent) {
+                throw new Error('No text content found in the response');
+            }
+
+            return {
+                text: textContent
+            };
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                return { text: "request cancelled" };
+            }
         }
-
-        return {
-            text: textContent
-        };
         // console.log(message.content);
         // return message.content[0].text;
     }
 
     async streamCompletions(request: CompletionRequest, callback: CompletionCallback): Promise<void> {
         this.validateRequest(request);
-        let messages = [];
+        this.abortController = new AbortController();
+        let messages = request.history?.map(msg => ({
+            role: msg.role as ClaudeRole, 
+            content: msg.content
+        })) || [];
         if (request.systemPrompt) {
-            switch(request.systemPrompt.role) {
+            switch (request.systemPrompt.role) {
                 case "system":
-                    messages.push({role: "system", content: request.systemPrompt.content});
+                    messages.push({ role: "system", content: request.systemPrompt.content });
                     break;
                 case "developer":
-                    messages.push({role: "developer", content: request.systemPrompt.content});
+                    messages.push({ role: "developer", content: request.systemPrompt.content });
                     break;
                 case "assistant":
-                    messages.push({role: "assistant", content: request.systemPrompt.content});
+                    messages.push({ role: "assistant", content: request.systemPrompt.content });
                     break;
                 default:
-                    messages.push({role: request.systemPrompt.role, content: request.systemPrompt.content});
+                    messages.push({ role: request.systemPrompt.role, content: request.systemPrompt.content });
                     break;
             }
         }
-        messages.push({role: "user", content: request.prompt});
+        messages.push({ role: "user", content: request.prompt });
 
         let request_body = {
-            max_tokens: request.maxTokens ? request.maxTokens : 2048,
+            max_tokens: request.max_tokens ? request.max_tokens : 2048,
             temperature: request.temperature ? request.temperature : 0,
             messages: messages,
             model: request.model
@@ -114,20 +136,42 @@ export class ClaudeModel extends BaseAIModel {
         if (request.stop) {
             request_body["stop"] = request.stop;
         }
-        await this.client.messages.stream(request_body).on('text', (text) => {
-            callback({
-                text: text,
-                isComplete: false,
-            });
-        })
-
-        callback({ text: '', isComplete: true });
+        // await this.client.messages.stream(request_body).on('text', (text) => {
+        //     callback({
+        //         text: text,
+        //         isComplete: false,
+        //     });
+        // }) 
+        let response = "";
+        try {
+            const stream = await this.client.messages.stream(request_body, { signal: this.abortController.signal });
+            for await (const event of stream) {
+                if (event.type === "message_start") continue;
+                if (event.type === "message_stop") break;
+                if (event.type === "content_block_start") continue;
+                if (event.type === "content_block_stop") continue;
+                console.log("claude response", event);
+                if (event.delta && 'text' in event.delta) {
+                    response += event?.delta?.text ?? "";
+                    callback({
+                        text: event?.delta?.text ?? "",
+                        isComplete: false
+                    })
+                }
+            }
+            callback({ text: "", isComplete: true });
+        } catch (error) {
+            console.log("abort error");
+            callback({ text: response, isComplete: false });
+            callback({ text: "", isComplete: true });
+            return;
+        }
     }
 
     async createEmbedding(_request: EmbeddingRequest): Promise<EmbeddingResponse> {
         const embedding = {
-            embeddings: [], 
-            text: `This provider do not have provide embeddings API, use ollama or openai instead`, 
+            embeddings: [],
+            text: `This provider do not have provide embeddings API, use ollama or openai instead`,
             status: false
         };
         return embedding
@@ -137,7 +181,7 @@ export class ClaudeModel extends BaseAIModel {
         try {
             const resp = await this.client.models.list();
             const data = resp.data;
-            let models = {models: []}
+            let models = { models: [] }
             for (const d of data) {
                 models.models.push({
                     type: d.type,
@@ -148,12 +192,12 @@ export class ClaudeModel extends BaseAIModel {
             }
             models.models = models.models.sort((a, b) => a.name > b.name ? 1 : -1);
             return models;
-        } catch(e) {
+        } catch (e) {
             console.error("unable to retrieve models");
             throw new Error(e);
         }
     }
-    
+
     async locallyInstalled(_request: any): Promise<boolean> {
         return false;
     }

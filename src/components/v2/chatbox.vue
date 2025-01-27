@@ -9,7 +9,7 @@ import {
   exportMdContent,
 } from "@/api";
 import { dataPath } from "@/embedding";
-import { ref, onMounted } from "vue";
+import { ref, onMounted, watch, nextTick } from "vue";
 import Loading from "vue-loading-overlay";
 import "vue-loading-overlay/dist/css/index.css";
 import {
@@ -23,7 +23,9 @@ import {
   generateUUID
 } from "@/utils";
 import history from "./history.vue";
-import { Settings2 } from 'lucide-vue-next';
+import { CircleStop, Settings2 } from 'lucide-vue-next';
+import { AIWrapper } from "@/orchestrator/ai-wrapper";
+import { CompletionRequest } from "@/orchestrator/types";
 
 const chatInput = defineModel<string>("chatInput");
 const plugin: any = defineModel<any>("plugin");
@@ -45,114 +47,110 @@ const question = ref<string>("");
 const isStreaming = ref<boolean>(false);
 const isFocused = ref(false);
 const historyRef = ref(null);
+const models = ref<{value: string, label: string, apiKey: string, apiURL: string, provider: string}[]>([]);
+const selectedModel = ref("");
+const wrapper = ref<AIWrapper>();
+const messageWindowRef = ref(null);
 
 async function prompt(stream = true) {
   try {
     console.log('Starting stream...');
-    const systemConf = await request("/api/system/getConf", {});
-    const pluginSetting = plugin.value.settingUtils.dump();
+    const settings = plugin.value.settingUtils.settings;
 
-    if (
-      systemConf.conf.ai.openAI.apiBaseURL !== "" &&
-      systemConf.conf.ai.openAI.apiKey !== "" &&
-      systemConf.conf.ai.openAI.apiModel !== "" &&
-      systemConf.conf.ai.openAI.apiProvider !== ""
-    ) {
+    if (selectedModel.value !== "") {
+      const model = models.value.find(m => m.value === selectedModel.value);
+      wrapper.value = new AIWrapper(model.provider, {apiKey: model.apiKey, baseUrl: model.apiURL});
+
       isLoading.value = true;
       isStreaming.value = true;
-      const aiconf = systemConf.conf.ai.openAI;
-      const endpoint = `${aiconf.apiBaseURL}/chat/completions`;
-      const apiKey = aiconf.apiKey;
-      const model = aiconf.apiModel;
-      const temperature = aiconf.apiTemperature;
-      const maxToken = aiconf.apiMaxTokens;
-      const systemPrompt = pluginSetting.systemPrompt;
-      const customSystemPrompt = pluginSetting.customSystemPrompt;
-      const customUserPrompt = pluginSetting.customUserPrompt;
-      const systemMessage = {
-          content: customSystemPrompt !== "" ? customSystemPrompt : systemPrompt,
-          role: "system",
-      };
-      const userMessage = {
-          content: chatInput.value,
-          role: "user",
-      };
 
-      question.value = chatInput.value;
-      console.log('Sending request with message:', userMessage.content);
-      const resp = await fetch(endpoint, {
-          method: "POST",
-          headers: {
-              Accept: "application/json",
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-              model: model,
-              max_tokens: maxToken,
-              stream: stream,
-              temperature,
-              messages: [systemMessage, userMessage],
-          }),
-      });
+      const extractByKey = (map, keyPrefix) => {
+        const result = new Map();
+        for (const [key, value] of map) {
+          if (key.startsWith(keyPrefix)) {
+            result.set(key, value);
+          }
+        }
+        return result;
+      };
+      const modelConfig = extractByKey(settings, `${model.provider}.`);
+      console.log("model config", modelConfig);
+      let request = {};
+
+      if (modelConfig.get("customSystemPrompt")) {
+        request["systemPrompt"] = {role: "system", content: modelConfig.get("customSystemPrompt")};
+      }
+      let prompt = chatInput.value;
+      if (modelConfig.get("customUserPrompt")) {
+        prompt = `${modelConfig.get("customUserPrompt")}\n${chatInput.value}`;
+      }
+      if (modelConfig.get("max_tokens")) {
+        request["max_tokens"] = modelConfig.get("max_tokens");
+      }
+      if (modelConfig.get("temperature")) {
+        request["temperature"] = modelConfig.get("temperature");
+      }
+      if (modelConfig.get("top_p")) {
+        request["top_p"] = modelConfig.get("top_p");
+      }
+      if (modelConfig.get("top_k")) {
+        request["top_k"] = modelConfig.get("top_k");
+      }
+      if (modelConfig.get("presence_penalty")) {
+        request["presence_penalty"] = modelConfig.get("presence_penalty");
+      }
+      if (modelConfig.get("frequency_penalty")) {
+        request["frequency_penalty"] = modelConfig.get("frequency_penalty");
+      }
+      if (modelConfig.get("stop")) {
+        const stop_words = modelConfig.get("stop").split(",");
+        request["stop"] = stop_words;
+      }
+      if (messages.value.length > 0) {
+        const chatHistory = messages.value.reduce((box, m) => {
+          box.push({role: "user", content: m.question[m.questionIndex]});
+          box.push({role: "assistant", content: m.answer[m.answerIndex]});
+          return box;
+        }, [] as Array<{role: string, content: string}>);
+        request["history"] = chatHistory;
+      }
+      request["prompt"] = prompt;
+      request["model"] = selectedModel.value;
 
       let fullResponse = "";
       if (stream) {
-        const reader = resp.body?.getReader();
-        const decoder = new TextDecoder('utf-8');
-
-        while (true && reader) {
-          const {done, value } = await reader.read();
-          const chunk = decoder.decode(value);
-          if (done) break;
-          if (chunk.toLowerCase() === '[done]') {
-            break;
+        question.value = chatInput.value;
+        await wrapper.value.streamCompletions(request as CompletionRequest, (chunk) => {
+          if (!chunk.isComplete) {
+            // console.log("chunk", chunk);
+            fullResponse += chunk.text;
+            reply.value = fullResponse;
+            emit('streamChunk', fullResponse);
+            // Add scroll after each chunk
+            nextTick(() => scrollToBottom());
+          } else {
+            console.log('Streaming complete. Final message:', fullResponse);
+            messages.value.push({
+              id: generateUUID(),
+              question: [question.value],
+              questionIndex: 0,
+              answer: [fullResponse],
+              answerIndex: 0,
+              aiEmoji: "",
+              actionable: false,
+              actionType: "",
+              blockId: "",
+            });
+            console.log('Updated messages:', messages.value);
+            // Add scroll after each chunk
+            nextTick(() => scrollToBottom());
           }
-          const lines = chunk.split('\n').filter(line => line.trim() !== '')
+        });
 
-          for (const line of lines) {
-            if (line.includes('[DONE]')) continue
-            
-            try {
-              const jsonString = line.replace(/^data: /, '').trim()
-              const json = JSON.parse(jsonString)
-              const content = json.choices[0]?.delta?.content || ''
-              if (content) {
-                fullResponse += content;
-                reply.value = fullResponse;
-                emit('streamChunk', fullResponse);
-              }
-            } catch (e) {
-              console.error('Error parsing chunk:', e)
-            }
-          }
-        }
-        if (fullResponse) {
-          console.log('Streaming complete. Final message:', fullResponse);
-          messages.value.push({
-            id: generateUUID(),
-            question: [question.value],
-            questionIndex: 0,
-            answer: [fullResponse],
-            answerIndex: 0,
-            aiEmoji: "",
-            actionable: false,
-            actionType: "",
-            blockId: "",
-          });
-          console.log('Updated messages:', messages.value);
-        }
-        return fullResponse
       } else {
-        if (!resp.ok) {
-          console.error("unable to fetch request from ai provider");
-          throw new Error(await resp.text());
-        }
-        let response = await resp.json();
-        for (const choice of response.choices) {
-          fullResponse += choice.message.content + "\n";
-        }
-        return fullResponse;
+        const response = await wrapper.value.completions(request as CompletionRequest);
+        return response.text;
+
       }
     }
   } catch (error) {
@@ -180,142 +178,8 @@ async function handleRegenMessage(id: string, question: string) {
 }
 
 
-// async function prompt() {
-//   try {
-//     await preparePrompt();
-
-//     const systemConf = await request("/api/system/getConf", {});
-//     const pluginSetting = plugin.value.settingUtils.dump();
-
-
-//     if (
-//       systemConf.conf.ai.openAI.apiBaseURL !== "" &&
-//       systemConf.conf.ai.openAI.apiKey !== "" &&
-//       systemConf.conf.ai.openAI.apiModel !== "" &&
-//       systemConf.conf.ai.openAI.apiProvider !== ""
-//     ) {
-//       isLoading.value = true;
-//       let history = "";
-//       if (chatHistory.value.length > 0) {
-//         history = chatHistory.value
-//           .map(
-//             (x) =>
-//               `${x.question !== "" ? "Question: " + x.question : ""} ${x.answer !== "" ? "Answer: " + x.answer : ""}`,
-//           )
-//           .join("\n");
-//       }
-//       emit("response", { question: chatInput.value, answer: "" });
-
-//       const contextLen = countWords(`${extraContext.value} ${chatInput.value}`);
-//       let respMessage = "";
-//       if (pluginSetting.usePromptChaining && contextLen > 1024) {
-//         console.log("using prompt chain, context length: " + contextLen);
-//         respMessage = await promptAIChain(
-//           systemConf,
-//           extraContext.value,
-//           rephrasedInput.value,
-//           pluginSetting.systemPrompt,
-//         );
-//       } else {
-//         console.log(
-//           "usng prompt with context only, context length:" + contextLen,
-//         );
-//         respMessage = await promptAI(
-//           systemConf,
-//           previousRole.value !== pluginSetting.systemPrompt ? "" : history,
-//           extraContext.value !== ""
-//             ? `${extraContext.value} ${rephrasedInput.value}`
-//             : rephrasedInput.value,
-//           pluginSetting.systemPrompt,
-//           pluginSetting.customSystemPrompt,
-//           pluginSetting.customUserPrompt,
-//         );
-//       }
-
-//       emit("response", { question: "", answer: respMessage });
-//       previousRole.value = pluginSetting.systemPrompt;
-//       chatInput.value = "";
-//       selectedNotebook.value = "";
-//       extraContext.value = "";
-//       selectedDocument.value = [];
-//       isLoading.value = false;
-//     } else {
-//       await pushErrMsg(
-//         "AI setting is not configured, please configure under Setting > AI",
-//       );
-//     }
-//   } catch (err) {
-//     isLoading.value = false;
-//     selectedNotebook.value = "";
-//     selectedDocument.value = [];
-//     extraContext.value = "";
-//     console.error(err);
-//     await pushErrMsg(err.stack);
-//   }
-// }
-
-async function preparePrompt() {
-  try {
-    isLoading.value = true;
-    const systemConf = await request("/api/system/getConf", {});
-    const pluginSetting = plugin.value.settingUtils.dump();
-    if (
-      pluginSetting.usePromptChaining &&
-      countWords(chatInput.value) > 5 &&
-      (selectedNotebook.value !== "" || selectedDocument.value.length > 0)
-    ) {
-      rephrasedInput.value = await rephrasePrompt(
-        systemConf,
-        chatInput.value,
-        pluginSetting.systemPrompt,
-      );
-    } else {
-      rephrasedInput.value = chatInput.value;
-    }
-    if (selectedNotebook.value !== "" && chatInput.value.includes("@")) {
-      const tokens = tokenize(rephrasedInput.value);
-      let query = "";
-      for (const t of tokens) {
-        if (!t.startsWith("@") && !t.startsWith("/")) {
-          query += `${t} `;
-        }
-      }
-      const searchResult = await searchNotebook(
-        selectedNotebook.value,
-        query,
-        0.2,
-        20,
-      );
-      console.log("search result", searchResult);
-      let evaluateResult = "";
-      for (const sr of searchResult) {
-        for (const block of sr.blocks) {
-          evaluateResult += `${block.markdown} \n`;
-        }
-      }
-      console.log("extra context", evaluateResult);
-      extraContext.value = evaluateResult;
-    } else if (selectedDocument.value.length > 0 && chatInput.value.includes("/")) {
-      for (const doc of selectedDocument.value) {
-        const markdown = await exportMdContent(doc);
-        extraContext.value = `${extraContext.value}\n---\n${markdown.content}`;
-      }
-    } else {
-      extraContext.value = "";
-      selectedDocument.value = [];
-      selectedNotebook.value = "";
-    }
-    isLoading.value = false;
-  } catch (e) {
-    console.error(e);
-    isLoading.value = false;
-    pushErrMsg(e.stack);
-  }
-}
-
 async function typing(ev) {
-  const pluginSetting = plugin.value.settingUtils.dump();
-  if (ev.key === "Enter" && !ev.shiftKey && pluginSetting.enterToSend) {
+  if (ev.key === "Enter" && !ev.shiftKey && enterToSend.value) {
     try {
       await prompt();
     } catch (e) {
@@ -334,6 +198,11 @@ function updateHistory(history) {
 
 function loadingCancel() {
   isLoading.value = false;
+}
+
+function cancelPrompt() {
+  wrapper.value.cancelRequest();
+  loadingCancel()
 }
 
 async function checkVectorizedDb() {
@@ -386,9 +255,31 @@ async function openSetting() {
   plugin.value.openSetting();
 }
 
+async function handleModelChange() {
+  plugin.value.settingUtils.settings.set("selectedModel", selectedModel.value);
+  await plugin.value.settingUtils.save();
+}
+
+async function loadModels() {
+  const settings = plugin.value.settingUtils.settings;
+  const ollamaApiURL = settings.get("ollama.url")?.trim();
+  const ollamaModel = settings.get("ollama.model")?.trim();
+  if (ollamaApiURL && ollamaModel) {
+    models.value.push({ label: ollamaModel, value: ollamaModel, apiKey: "", apiURL: ollamaApiURL, provider: "ollama" });
+  }
+
+  const addModel = (apiKey: string | undefined, model: string | undefined, provider: string, models: any[]) => {
+    if (apiKey && model) {
+      models.push({ label: model, value: model, apiKey, apiURL: null, provider });
+    }
+  };
+  addModel(settings.get("claude.apiKey")?.trim(), settings.get("claude.model")?.trim(), "claude", models.value);
+  addModel(settings.get("deepseek.apiKey")?.trim(), settings.get("deepseek.model")?.trim(), "deepseek", models.value);
+  addModel(settings.get("openai.apiKey")?.trim(), settings.get("openai.model")?.trim(), "openai", models.value);
+}
+
 function handleFocus() {
   isFocused.value = true;
-  // Optional: Scroll to the bottom when the textarea is focused
   setTimeout(() => {
     window.scrollTo(0, document.body.scrollHeight);
   }, 100);
@@ -398,17 +289,37 @@ function handleBlur() {
   isFocused.value = false;
 }
 
+function scrollToBottom() {
+  if (messageWindowRef.value) {
+    const container = messageWindowRef.value;
+    container.scrollTop = container.scrollHeight;
+  }
+}
+
+// Add watch for messages to ensure scroll on any message updates
+watch(() => messages.value, () => {
+  nextTick(() => scrollToBottom());
+}, { deep: true });
+
 onMounted(async () => {
   try {
     isLoading.value = true;
+    await plugin.value.settingUtils.load();
+    await loadModels();
     // await checkVectorizedDb();
     // await checkAllDocuments();
-    enterToSend.value = false;
+    enterToSend.value = plugin.value.settingUtils.settings.get("enterToSend") ? plugin.value.settingUtils.settings.get("enterToSend") : true;
     isLoading.value = false;
     messages.value = [];
+    if (models.value.length > 0) {
+      selectedModel.value = plugin.value.settingUtils.settings.get("selectedModel") ? plugin.value.settingUtils.settings.get("selectedModel"): models.value[0].value;
+    } else {
+      throw new Error("No available model, please complete the setups in plugin setting.");
+    }
   } catch (e) {
     console.error(e);
     isLoading.value = false;
+    await pushErrMsg(e);
   }
 });
 
@@ -420,24 +331,29 @@ defineExpose({
 <template>
   <div class="page-container">
     <div class="chat-wrapper">
-      <div class="chat-container">
+      <div class="chat-container" ref="messageWindowRef">
         <history class="history" ref="historyRef" v-model:messages="messages" v-model:plugin="plugin" :question="question" 
           :streamMessage="reply" :isStreaming="isStreaming" @updateMessage="handleUpdateMessage" @regenMessage="handleRegenMessage"></history>
-        <loading v-model:active="isLoading" :can-cancel="false" :on-cancel="loadingCancel" loader="bars"
-          background-color="#eee" :opacity="0.25" :is-full-page="false" />
       </div>
 
+      <button @click="cancelPrompt" class="cancel-prompt" v-if="isLoading">
+        <CircleStop :size="20" color="#fafafa" :stroke-width="1" />
+      </button>
       <!-- Model selector and input area wrapper -->
       <div class="input-wrapper">
         <!-- Model selector -->
+        <loading v-model:active="isLoading" :can-cancel="false" :on-cancel="loadingCancel" loader="bars"
+          background-color="#eee" :opacity="0.25" :is-full-page="false" />
         <div class="chat-control">
           <span @click="openSetting" class="btn-a">
             <Settings2 class="settings" />
           </span>
           <span class="model-label">model</span>
           <div class="model-dropdown">
-            <select class="model-select">
-              <option value="deepseek-chat">deepseek-chat</option>
+            <select class="model-select" v-model="selectedModel" @change="handleModelChange">
+              <option v-for="model of models" :key="model.value" :value="model.value">
+                {{ model.label }}
+              </option>
             </select>
           </div>
         </div>
@@ -474,6 +390,7 @@ defineExpose({
   flex-grow: 1;
   overflow-y: auto;
   padding: 1em;
+  scroll-behavior: smooth; 
 }
 
 .input-wrapper {
@@ -487,6 +404,7 @@ defineExpose({
   border-radius: 4px;
   margin-top: auto; /* Push the input area to the bottom */
   padding-bottom: env(safe-area-inset-bottom); /* Adjust for safe area */
+  position: relative;
 }
 
 .chat-control {
@@ -551,6 +469,12 @@ defineExpose({
   color: #999;
   font-size: 12px;
   pointer-events: none;
+}
+
+.cancel-prompt {
+  background: var(--b3-theme-surface-lighter);
+  color: var(--b3-theme-on-surface);
+  border: 0px;
 }
 
 

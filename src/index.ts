@@ -331,9 +331,11 @@ export default class PluginSample extends Plugin {
             width: "800px",
             destroyCallback: (options) => {
                 console.log("exit nb assistant setting", options);
+                // window.location.reload();
+                createApp(App, { plugin: this}).mount("#nb-assistant");
             }
         });
-        console.log("open nb setting");
+        console.log("open notebook assistant setting");
         this.settingUtils = new SettingUtils({
             plugin: this,
             name: STORAGE_NAME,

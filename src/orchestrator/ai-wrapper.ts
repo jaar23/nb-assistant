@@ -1,4 +1,4 @@
-import { AIModelInterface, CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse, ListModelResponse } from './types';
+import { AIModelInterface, CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse, ListModelResponse, AIModelConfig } from './types';
 import { OpenAIModel } from './openai-model';
 import { ClaudeModel } from './claude-model';
 import { DeepseekModel } from './deepseek-model';
@@ -7,7 +7,7 @@ import { OllamaModel } from './ollama-model';
 export class AIWrapper {
     private model: AIModelInterface;
 
-    constructor(provider: string, config: any) {
+    constructor(provider: string, config: AIModelConfig) {
         switch (provider.toLowerCase()) {
             case 'openai':
                 this.model = new OpenAIModel(config);
@@ -44,5 +44,9 @@ export class AIWrapper {
 
     async locallyInstalled(request: any): Promise<boolean> {
         return this.model.locallyInstalled(request);
+    }
+
+    cancelRequest(): void {
+        this.model.cancelRequest();
     }
 }

@@ -3,7 +3,7 @@
 export interface CompletionRequest {
     prompt: string;
     model: string;
-    maxTokens?: number;
+    max_tokens?: number;
     temperature?: number;
     stream?: boolean;
     systemPrompt?: {role: string, content: string};
@@ -13,7 +13,8 @@ export interface CompletionRequest {
     top_p?: number;
     presence_penalty?: number;
     frequency_penalty?: number;
-    stop?: string[]
+    stop?: string[];
+    history?: {role: string, content: string}[];
 }
 
 export interface CompletionResponse {
@@ -61,4 +62,5 @@ export interface AIModelInterface {
     createEmbedding(request: EmbeddingRequest): Promise<EmbeddingResponse>;
     listModels(request: any): Promise<ListModelResponse>;
     locallyInstalled(request: any): Promise<boolean>;
+    cancelRequest(): void;
 }

@@ -12,6 +12,7 @@ export abstract class BaseAIModel implements AIModelInterface {
     abstract createEmbedding(request: EmbeddingRequest): Promise<EmbeddingResponse>;
     abstract listModels(request: any): Promise<ListModelResponse>;
     abstract locallyInstalled(request: any): Promise<boolean>;
+    abstract cancelRequest(): void;
 
     protected validateRequest(request: CompletionRequest): void {
         if (!request.prompt) {
