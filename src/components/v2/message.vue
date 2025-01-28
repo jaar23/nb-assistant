@@ -8,8 +8,10 @@ import MarkdownItSub from "markdown-it-sub";
 import MarkdownItSup from "markdown-it-sup";
 import MarkdownItTasklists from "markdown-it-task-lists";
 import MarkdownItStyle from "markdown-it-style";
-import { ref, watch } from "vue";
-import { FilePenLine, Copy, X, CircleCheckBig, Trash, RefreshCcw, ChevronLeft, ChevronRight } from 'lucide-vue-next';
+import { onMounted, ref, watch } from "vue";
+import { FilePenLine, Copy, X, CircleCheckBig, Trash, RefreshCcw, ChevronLeft, ChevronRight, BetweenHorizontalStart } from 'lucide-vue-next';
+import { getCurrentTabs } from "@/utils";
+import { appendBlock, getChildBlocks, insertBlock, request } from "@/api";
 
 const markdown = new MarkdownIt()
   .use(MarkdownItAbbr)
@@ -53,6 +55,7 @@ const isEditing = ref<boolean>(false);
 const editedMessage = ref<string>("");
 const showConfirmDialog = ref<boolean>(false);
 const confirmAction = ref<{ type: string, whoseMessage: string } | null>(null);
+const currentDoc = ref<any>();
 
 const emit = defineEmits(["updateMessage", "removeMessage", "regenMessage", "slideMessage"]);
 
@@ -91,6 +94,15 @@ function slideMessage(which: string, direction: string) {
   emit("slideMessage", props.id, which, direction);
 }
 
+async function appendToDoc(message: string) {
+  const children = currentDoc.value?.children?? null;
+  if (children) {
+    const blockId = children.blockId;
+    await appendBlock("markdown", message, blockId);
+    console.log("appened to last part of the doc");
+  }
+}
+
 function confirmActionHandler() {
   if (confirmAction.value?.type === 'remove') {
     const { whoseMessage } = confirmAction.value;
@@ -108,6 +120,8 @@ function cancelActionHandler() {
   showConfirmDialog.value = false;
   confirmAction.value = null;
 }
+
+
 watch(() => props.streamMessage, (newVal) => {
   if (newVal) {
     console.log('Stream message updated:', newVal);
@@ -121,6 +135,21 @@ watch(() => props.fullMessage, (newVal) => {
     message.value = newVal;
   }
 });
+
+onMounted(async() => {
+  // get current doc
+  try {
+      const systemConf = await request("/api/system/getConf", {});
+      const openTabs = getCurrentTabs(systemConf.conf.uiLayout.layout)
+      console.log("system conf: ", systemConf)
+      currentDoc.value = openTabs.filter(tab => tab?.active)[0] ?? null ;
+      console.log("active block id", currentDoc.value);
+    } catch (e) {
+      console.log("unable to get current active tab");
+      console.error(e);
+    }
+    
+})
 </script>
 
 <template>
@@ -163,6 +192,9 @@ watch(() => props.fullMessage, (newVal) => {
       </button>
       <button @click="regenMessage" class="msg-button">
         <RefreshCcw :size="20" color="#fafafa" :stroke-width="1" />
+      </button>
+      <button @click="appendToDoc(props.fullMessage)" class="msg-button">
+        <BetweenHorizontalStart :size="20" color="#fafafa" :stroke-width="1" />
       </button>
       <button @click="removeMessage('answer')" class="msg-button">
         <Trash :size="20" color="#fafafa" :stroke-width="1" />

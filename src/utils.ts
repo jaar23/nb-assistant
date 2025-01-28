@@ -17,6 +17,7 @@ export function getCurrentTabs(uiLayout: any): Array<{
     notebookId: string;
     blockId: string;
     rootId: string;
+    active?: boolean;
 }> {
     const tabs = flat(uiLayout.children).filter((x) => x.instance === "Tab");
     return tabs;

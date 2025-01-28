@@ -7,8 +7,10 @@ import {
   getAllDocsByNotebook,
   transformDocToList,
   exportMdContent,
+  insertBlock,
+  getFile,
+  putFile,
 } from "@/api";
-import { dataPath } from "@/embedding";
 import { ref, onMounted, watch, nextTick } from "vue";
 import Loading from "vue-loading-overlay";
 import "vue-loading-overlay/dist/css/index.css";
@@ -20,12 +22,15 @@ import {
   promptAIChain,
   rephrasePrompt,
   sleep,
-  generateUUID
+  generateUUID,
+  getCurrentTabs,
+  strToFile
 } from "@/utils";
 import history from "./history.vue";
 import { CircleStop, Settings2 } from 'lucide-vue-next';
 import { AIWrapper } from "@/orchestrator/ai-wrapper";
 import { CompletionRequest } from "@/orchestrator/types";
+import { Message } from "../history.vue";
 
 const chatInput = defineModel<string>("chatInput");
 const plugin: any = defineModel<any>("plugin");
@@ -51,6 +56,8 @@ const models = ref<{value: string, label: string, apiKey: string, apiURL: string
 const selectedModel = ref("");
 const wrapper = ref<AIWrapper>();
 const messageWindowRef = ref(null);
+const dataPath = "temp/nb-assistant";
+const chatUUID = ref("");
 
 async function prompt(stream = true) {
   try {
@@ -155,7 +162,7 @@ async function prompt(stream = true) {
     }
   } catch (error) {
     console.error('Error during streaming:', error);
-    await pushErrMsg(error.stack);
+    await pushErrMsg(`${error.message}, try again with another model`);
   } finally {
     isLoading.value = false;
     isStreaming.value = false;
@@ -182,6 +189,7 @@ async function typing(ev) {
   if (ev.key === "Enter" && !ev.shiftKey && enterToSend.value) {
     try {
       await prompt();
+      await saveChatHistory();
     } catch (e) {
       console.error(e);
       isLoading.value = false;
@@ -190,10 +198,45 @@ async function typing(ev) {
   }
 }
 
-function updateHistory(history) {
-  chatHistory.value = [];
-  chatHistory.value = history;
-  console.log("chatbox history", chatHistory.value);
+async function saveChatHistory() {
+  let historyIndex = []
+  const indexResp = await getFile(`${dataPath}/history-index.json`);
+  if (indexResp.data !== null) {
+    historyIndex = indexResp;
+  }
+  console.log(historyIndex);
+  if (!historyIndex.find(hist => hist.id == chatUUID.value)) {
+    historyIndex.push({
+      id: chatUUID.value,
+      date: new Date(),
+      length: 0
+    });
+  }
+  const jsonStr = JSON.stringify(messages.value ?? []);
+  const file = strToFile(jsonStr, `${chatUUID.value}-history`, "application/json");
+  const historyResp = await putFile(`${dataPath}/${chatUUID.value}-history.json`, false, file);
+  console.log("history", historyResp);
+
+  const jsonStr2 = JSON.stringify(historyIndex ?? []);
+  const file2 = strToFile(jsonStr2, `${chatUUID.value}-history`, "application/json");
+  const historyIndexResp = await putFile(`${dataPath}/history-index.json`, false, file2)
+  console.log("history index", historyIndexResp);
+}
+
+
+async function getChatHistory() {
+  const indexResp = await getFile(`${dataPath}/history-index.json`);
+  let latestIndex: {id: string, date: Date, length: number};
+  if (indexResp.data !== null) {
+    latestIndex = (indexResp ?? []).reduce((a, b) => {
+      return new Date(a.date) > new Date(b.date) ? a : b;
+    });
+    console.log(latestIndex);
+  }
+  const latestHistory: Message[] = await getFile(`${dataPath}/${latestIndex.id}-history.json`);
+  if (latestHistory) {
+    messages.value = latestHistory;
+  }
 }
 
 function loadingCancel() {
@@ -303,6 +346,7 @@ watch(() => messages.value, () => {
 
 onMounted(async () => {
   try {
+    chatUUID.value = generateUUID();
     isLoading.value = true;
     await plugin.value.settingUtils.load();
     await loadModels();
@@ -316,6 +360,7 @@ onMounted(async () => {
     } else {
       throw new Error("No available model, please complete the setups in plugin setting.");
     }
+    await getChatHistory()
   } catch (e) {
     console.error(e);
     isLoading.value = false;
@@ -323,9 +368,6 @@ onMounted(async () => {
   }
 });
 
-defineExpose({
-  updateHistory,
-});
 </script>
 
 <template>
@@ -336,9 +378,9 @@ defineExpose({
           :streamMessage="reply" :isStreaming="isStreaming" @updateMessage="handleUpdateMessage" @regenMessage="handleRegenMessage"></history>
       </div>
 
-      <button @click="cancelPrompt" class="cancel-prompt" v-if="isLoading">
-        <CircleStop :size="20" color="#fafafa" :stroke-width="1" />
-      </button>
+      <div class="control-container">
+        
+      </div>
       <!-- Model selector and input area wrapper -->
       <div class="input-wrapper">
         <!-- Model selector -->
@@ -356,6 +398,9 @@ defineExpose({
               </option>
             </select>
           </div>
+          <button @click="cancelPrompt" class="cancel-prompt" v-if="isLoading">
+            <CircleStop :size="20" color="#fafafa" :stroke-width="1" />
+          </button>
         </div>
 
         <!-- Chat input area -->
@@ -391,6 +436,12 @@ defineExpose({
   overflow-y: auto;
   padding: 1em;
   scroll-behavior: smooth; 
+}
+
+.control-container {
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
 }
 
 .input-wrapper {
@@ -472,9 +523,11 @@ defineExpose({
 }
 
 .cancel-prompt {
-  background: var(--b3-theme-surface-lighter);
+  background: transparent;
   color: var(--b3-theme-on-surface);
   border: 0px;
+  width: 50px;
+  z-index: 10001;
 }
 
 

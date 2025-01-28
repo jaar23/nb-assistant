@@ -68,7 +68,7 @@ export class OpenAIModel extends BaseAIModel {
                 text: response.choices[0].message.content || '',
             };
         } catch (error) {
-            return { text: "request cancelled", images: null };
+            throw new Error(error);
         }
     }
 
@@ -135,7 +135,7 @@ export class OpenAIModel extends BaseAIModel {
             console.log("abort error");
             callback({ text: response, isComplete: false });
             callback({ text: "", isComplete: true });
-            return;
+            throw new Error(error);
         }
     }
 

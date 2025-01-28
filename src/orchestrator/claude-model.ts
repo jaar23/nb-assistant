@@ -91,6 +91,7 @@ export class ClaudeModel extends BaseAIModel {
             if (error.name === 'AbortError') {
                 return { text: "request cancelled" };
             }
+            throw new Error(error);
         }
         // console.log(message.content);
         // return message.content[0].text;
@@ -164,7 +165,7 @@ export class ClaudeModel extends BaseAIModel {
             console.log("abort error");
             callback({ text: response, isComplete: false });
             callback({ text: "", isComplete: true });
-            return;
+            throw new Error(error);
         }
     }
 
