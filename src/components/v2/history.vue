@@ -18,7 +18,7 @@ export type Message = {
 const messages = defineModel<Message[]>("messages");
 const plugin = defineModel("plugin");
 const streamingMessage = ref("");
-const emit = defineEmits(["updateMessage", "regenMessage"]);;
+const emit = defineEmits(["updateMessage", "regenMessage", "removeMessage"]);;
 
 const props = defineProps({
   isStreaming: {
@@ -61,6 +61,7 @@ function handleRemoveMessage(messagePair: Object) {
       msg.answerIndex = Math.max(0, msg.answerIndex - 1);
     }
   }
+  emit("removeMessage");
 }
 
 

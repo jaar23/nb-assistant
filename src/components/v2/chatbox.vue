@@ -34,7 +34,7 @@ import { Message } from "../history.vue";
 
 const chatInput = defineModel<string>("chatInput");
 const plugin: any = defineModel<any>("plugin");
-const chatHistory = ref([]);
+
 const emit = defineEmits(["response", "streamChunk"]);
 const isLoading = defineModel("inferencing");
 const enterToSend = defineModel("enterToSend");
@@ -58,6 +58,9 @@ const wrapper = ref<AIWrapper>();
 const messageWindowRef = ref(null);
 const dataPath = "temp/nb-assistant";
 const chatUUID = ref("");
+const chatHistories = ref([]);
+
+const isDropdownOpen = ref(false);
 
 async function prompt(stream = true) {
   try {
@@ -176,14 +179,19 @@ async function handleUpdateMessage(id: string, updatedMessage: string) {
   chatInput.value = updatedMessage;
   const message = await prompt(false);
   historyRef.value.resetMessage(id, message);
+  await saveChatHistory();
 }
 
 async function handleRegenMessage(id: string, question: string) {
   chatInput.value = question;
   const message = await prompt(false);
   historyRef.value.resetMessage(id, message);
+  await saveChatHistory();
 }
 
+async function handleRemoveMessage() {
+  await saveChatHistory();
+}
 
 async function typing(ev) {
   if (ev.key === "Enter" && !ev.shiftKey && enterToSend.value) {
@@ -201,12 +209,15 @@ async function typing(ev) {
 async function saveChatHistory() {
   let historyIndex = []
   const indexResp = await getFile(`${dataPath}/history-index.json`);
-  if (indexResp.data !== null) {
+  if (indexResp !== null) {
     historyIndex = indexResp;
   }
   console.log(historyIndex);
+  // if new
   if (!historyIndex.find(hist => hist.id == chatUUID.value)) {
+    const firstMessage = messages.value?.[0].question[messages.value?.[0].questionIndex];
     historyIndex.push({
+      name: firstMessage,
       id: chatUUID.value,
       date: new Date(),
       length: 0
@@ -224,20 +235,31 @@ async function saveChatHistory() {
 }
 
 
-async function getChatHistory() {
+async function getChatHistories() {
   const indexResp = await getFile(`${dataPath}/history-index.json`);
   let latestIndex: {id: string, date: Date, length: number};
-  if (indexResp.data !== null) {
+  if (indexResp !== null) {
+    chatHistories.value = indexResp;
     latestIndex = (indexResp ?? []).reduce((a, b) => {
       return new Date(a.date) > new Date(b.date) ? a : b;
     });
-    console.log(latestIndex);
   }
+  console.log("latest index", latestIndex);
   const latestHistory: Message[] = await getFile(`${dataPath}/${latestIndex.id}-history.json`);
   if (latestHistory) {
+    chatUUID.value = latestIndex.id;
     messages.value = latestHistory;
   }
 }
+
+
+async function getChatHistory() {
+  const history: Message[] = await getFile(`${dataPath}/${chatUUID.value}-history.json`);
+  if (history) {
+    messages.value = history;
+  }
+}
+
 
 function loadingCancel() {
   isLoading.value = false;
@@ -339,6 +361,12 @@ function scrollToBottom() {
   }
 }
 
+function selectHistory(hist: any) {
+  chatUUID.value = hist.id;
+  getChatHistory();
+  isDropdownOpen.value = false;
+}
+
 // Add watch for messages to ensure scroll on any message updates
 watch(() => messages.value, () => {
   nextTick(() => scrollToBottom());
@@ -360,7 +388,7 @@ onMounted(async () => {
     } else {
       throw new Error("No available model, please complete the setups in plugin setting.");
     }
-    await getChatHistory()
+    await getChatHistories()
   } catch (e) {
     console.error(e);
     isLoading.value = false;
@@ -373,9 +401,26 @@ onMounted(async () => {
 <template>
   <div class="page-container">
     <div class="chat-wrapper">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <!-- Left side content if needed -->
+        </div>
+
+        <div class="toolbar-right">
+          <div class="dropdown-wrapper">
+            <select class="dropdown" v-model="chatUUID" @change="getChatHistory">
+              <option v-for="hist in chatHistories" :key="hist.id" :value="hist.id">
+                {{ hist.name }}
+              </option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       <div class="chat-container" ref="messageWindowRef">
         <history class="history" ref="historyRef" v-model:messages="messages" v-model:plugin="plugin" :question="question" 
-          :streamMessage="reply" :isStreaming="isStreaming" @updateMessage="handleUpdateMessage" @regenMessage="handleRegenMessage"></history>
+          :streamMessage="reply" :isStreaming="isStreaming" @updateMessage="handleUpdateMessage" @regenMessage="handleRegenMessage"
+          @removeMessage="handleRemoveMessage"></history>
       </div>
 
       <div class="control-container">
@@ -393,7 +438,7 @@ onMounted(async () => {
           <span class="model-label">model</span>
           <div class="model-dropdown">
             <select class="model-select" v-model="selectedModel" @change="handleModelChange">
-              <option v-for="model of models" :key="model.value" :value="model.value">
+              <option v-for="model in models" :key="model.value" :value="model.value">
                 {{ model.label }}
               </option>
             </select>
@@ -434,7 +479,7 @@ onMounted(async () => {
 .chat-container {
   flex-grow: 1;
   overflow-y: auto;
-  padding: 1em;
+  padding: 1em 0em;
   scroll-behavior: smooth; 
 }
 
@@ -489,6 +534,7 @@ onMounted(async () => {
   font-size: 14px;
   cursor: pointer;
   color: var(--b3-empty-color);
+  appearance: none;
 }
 
 .input-area {
@@ -530,6 +576,78 @@ onMounted(async () => {
   z-index: 10001;
 }
 
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background: var(--b3-theme-background);
+  border-bottom: 1px solid var(--b3-border-color);
+  position: relative;
+  z-index: 1000; /* Ensure toolbar is above chat container */
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  position: relative; /* Needed for dropdown positioning */
+  width: 25%;
+}
+
+.dropdown-wrapper {
+  position: relative;
+  width: 100%;
+  height: 35px;
+}
+
+.dropdown-wrapper::after {
+  content: none;
+}
+
+.dropdown {
+  /* appearance: none; */
+  /* -webkit-appearance: none;
+  -moz-appearance: none; */
+  width: 100%;
+  height: 100%;
+  padding: 4px;
+  background: transparent;
+  border: 1px solid var(--b3-border-color);
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--b3-theme-on-surface);
+  font-size: 16px;
+  text-align: center;
+  text-align-last: center;
+  padding-right: 4px; /* Remove extra space for default arrow */
+}
+
+.dropdown:hover {
+  background: var(--b3-theme-background-light);
+}
+
+/* Hide default arrow in IE */
+.dropdown::-ms-expand {
+  display: none;
+}
+
+/* Ensure the "+" is centered */
+.dropdown option {
+  text-align: left;
+  font-size: 14px;
+}
+
+/* Style for the options when dropdown is open */
+.dropdown option:not([disabled]) {
+  color: var(--b3-theme-on-surface);
+  background-color: var(--b3-theme-background);
+  padding: 8px 12px;
+}
+
+.dropdown option:hover {
+  background-color: var(--b3-theme-background-light);
+}
 
 /* Mobile-specific styles */
 @media (max-width: 480px) {
