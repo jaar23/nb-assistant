@@ -11,7 +11,7 @@ import MarkdownItStyle from "markdown-it-style";
 import { onMounted, ref, watch } from "vue";
 import { FilePenLine, Copy, X, CircleCheckBig, Trash, RefreshCcw, ChevronLeft, ChevronRight, BetweenHorizontalStart } from 'lucide-vue-next';
 import { getCurrentTabs } from "@/utils";
-import { appendBlock, getChildBlocks, insertBlock, request } from "@/api";
+import { appendBlock, request } from "@/api";
 
 const markdown = new MarkdownIt()
   .use(MarkdownItAbbr)
@@ -95,7 +95,16 @@ function slideMessage(which: string, direction: string) {
 }
 
 async function appendToDoc(message: string) {
-  const children = currentDoc.value?.children?? null;
+  try {
+    const systemConf = await request("/api/system/getConf", {});
+    const openTabs = getCurrentTabs(systemConf.conf.uiLayout.layout)
+    console.log("system conf: ", systemConf)
+    currentDoc.value = openTabs.filter(tab => tab?.active)[0] ?? null;
+  } catch (e) {
+    console.log("unable to get current active tab");
+    console.error(e);
+  }
+  const children = currentDoc.value?.children ?? null;
   if (children) {
     const blockId = children.blockId;
     await appendBlock("markdown", message, blockId);
@@ -136,19 +145,19 @@ watch(() => props.fullMessage, (newVal) => {
   }
 });
 
-onMounted(async() => {
+onMounted(async () => {
   // get current doc
   try {
-      const systemConf = await request("/api/system/getConf", {});
-      const openTabs = getCurrentTabs(systemConf.conf.uiLayout.layout)
-      console.log("system conf: ", systemConf)
-      currentDoc.value = openTabs.filter(tab => tab?.active)[0] ?? null ;
-      console.log("active block id", currentDoc.value);
-    } catch (e) {
-      console.log("unable to get current active tab");
-      console.error(e);
-    }
-    
+    const systemConf = await request("/api/system/getConf", {});
+    const openTabs = getCurrentTabs(systemConf.conf.uiLayout.layout)
+    console.log("system conf: ", systemConf)
+    currentDoc.value = openTabs.filter(tab => tab?.active)[0] ?? null;
+    // console.log("active block id", currentDoc.value);
+  } catch (e) {
+    console.log("unable to get current active tab");
+    console.error(e);
+  }
+
 })
 </script>
 

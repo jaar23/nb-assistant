@@ -27,10 +27,13 @@ import {
   strToFile
 } from "@/utils";
 import history from "./history.vue";
-import { CircleStop, Settings2 } from 'lucide-vue-next';
+import { CircleStop, Settings2, History, Plus, MessageCircle, Database, Search } from 'lucide-vue-next';
 import { AIWrapper } from "@/orchestrator/ai-wrapper";
 import { CompletionRequest } from "@/orchestrator/types";
 import { Message } from "../history.vue";
+import savedchat from "./savedchat.vue";
+import vectordb from "./vectordb.vue";
+import search from "./search.vue";
 
 const chatInput = defineModel<string>("chatInput");
 const plugin: any = defineModel<any>("plugin");
@@ -52,13 +55,14 @@ const question = ref<string>("");
 const isStreaming = ref<boolean>(false);
 const isFocused = ref(false);
 const historyRef = ref(null);
-const models = ref<{value: string, label: string, apiKey: string, apiURL: string, provider: string}[]>([]);
+const models = ref<{ value: string, label: string, apiKey: string, apiURL: string, provider: string }[]>([]);
 const selectedModel = ref("");
 const wrapper = ref<AIWrapper>();
 const messageWindowRef = ref(null);
 const dataPath = "temp/nb-assistant";
 const chatUUID = ref("");
 const chatHistories = ref([]);
+const view = ref("chat");
 
 const isDropdownOpen = ref(false);
 
@@ -69,7 +73,7 @@ async function prompt(stream = true) {
 
     if (selectedModel.value !== "") {
       const model = models.value.find(m => m.value === selectedModel.value);
-      wrapper.value = new AIWrapper(model.provider, {apiKey: model.apiKey, baseUrl: model.apiURL});
+      wrapper.value = new AIWrapper(model.provider, { apiKey: model.apiKey, baseUrl: model.apiURL });
 
       isLoading.value = true;
       isStreaming.value = true;
@@ -88,7 +92,7 @@ async function prompt(stream = true) {
       let request = {};
 
       if (modelConfig.get("customSystemPrompt")) {
-        request["systemPrompt"] = {role: "system", content: modelConfig.get("customSystemPrompt")};
+        request["systemPrompt"] = { role: "system", content: modelConfig.get("customSystemPrompt") };
       }
       let prompt = chatInput.value;
       if (modelConfig.get("customUserPrompt")) {
@@ -118,10 +122,10 @@ async function prompt(stream = true) {
       }
       if (messages.value.length > 0) {
         const chatHistory = messages.value.reduce((box, m) => {
-          box.push({role: "user", content: m.question[m.questionIndex]});
-          box.push({role: "assistant", content: m.answer[m.answerIndex]});
+          box.push({ role: "user", content: m.question[m.questionIndex] });
+          box.push({ role: "assistant", content: m.answer[m.answerIndex] });
           return box;
-        }, [] as Array<{role: string, content: string}>);
+        }, [] as Array<{ role: string, content: string }>);
         request["history"] = chatHistory;
       }
       request["prompt"] = prompt;
@@ -237,18 +241,24 @@ async function saveChatHistory() {
 
 async function getChatHistories() {
   const indexResp = await getFile(`${dataPath}/history-index.json`);
-  let latestIndex: {id: string, date: Date, length: number};
+  let latestIndex: { id: string, date: Date, length: number, name: string };
   if (indexResp !== null) {
-    chatHistories.value = indexResp;
-    latestIndex = (indexResp ?? []).reduce((a, b) => {
-      return new Date(a.date) > new Date(b.date) ? a : b;
-    });
+    if (indexResp.code === 404) {
+        console.log("history updated to 0.1.4 onwards");
+    } else {
+      chatHistories.value = indexResp;
+      latestIndex = (indexResp ?? []).reduce((a, b) => {
+        return new Date(a.date) > new Date(b.date) ? a : b;
+      });
+    }
   }
   console.log("latest index", latestIndex);
-  const latestHistory: Message[] = await getFile(`${dataPath}/${latestIndex.id}-history.json`);
-  if (latestHistory) {
-    chatUUID.value = latestIndex.id;
-    messages.value = latestHistory;
+  if (latestIndex) {
+    const latestHistory: Message[] = await getFile(`${dataPath}/${latestIndex.id}-history.json`);
+    if (latestHistory) {
+      chatUUID.value = latestIndex.id;
+      messages.value = latestHistory;
+    }
   }
 }
 
@@ -320,6 +330,49 @@ async function openSetting() {
   plugin.value.openSetting();
 }
 
+async function openSavedChat() {
+  view.value = "saved_chat";
+}
+
+async function openNewChat() {
+  view.value = "chat";
+  chatUUID.value = generateUUID();
+  messages.value = [];
+  let historyIndex = [];
+  const indexResp = await getFile(`${dataPath}/history-index.json`);
+  if (indexResp !== null) {
+    if (indexResp.code === 404) {
+      console.log("history updated to 0.1.4 onwards");
+    } else { 
+      historyIndex = indexResp;
+    }
+  }
+  console.log(historyIndex);
+}
+
+async function openChat() {
+  view.value = "chat";
+}
+
+async function openVectorDb() {
+  view.value = "vectordb";
+}
+
+async function openSearchView() {
+  view.value = "similar_search";
+}
+
+async function handleOpenChatHistory(id: string) {
+  chatUUID.value = id;
+  await getChatHistory();
+  view.value = "chat";
+}
+
+
+async function handleGetStarted() {
+  console.log("display tutorial")
+}
+
 async function handleModelChange() {
   plugin.value.settingUtils.settings.set("selectedModel", selectedModel.value);
   await plugin.value.settingUtils.save();
@@ -361,11 +414,6 @@ function scrollToBottom() {
   }
 }
 
-function selectHistory(hist: any) {
-  chatUUID.value = hist.id;
-  getChatHistory();
-  isDropdownOpen.value = false;
-}
 
 // Add watch for messages to ensure scroll on any message updates
 watch(() => messages.value, () => {
@@ -384,7 +432,7 @@ onMounted(async () => {
     isLoading.value = false;
     messages.value = [];
     if (models.value.length > 0) {
-      selectedModel.value = plugin.value.settingUtils.settings.get("selectedModel") ? plugin.value.settingUtils.settings.get("selectedModel"): models.value[0].value;
+      selectedModel.value = plugin.value.settingUtils.settings.get("selectedModel") ? plugin.value.settingUtils.settings.get("selectedModel") : models.value[0].value;
     } else {
       throw new Error("No available model, please complete the setups in plugin setting.");
     }
@@ -403,37 +451,57 @@ onMounted(async () => {
     <div class="chat-wrapper">
       <div class="toolbar">
         <div class="toolbar-left">
-          <!-- Left side content if needed -->
+          <h3>nb</h3>
         </div>
-
         <div class="toolbar-right">
           <div class="dropdown-wrapper">
-            <select class="dropdown" v-model="chatUUID" @change="getChatHistory">
-              <option v-for="hist in chatHistories" :key="hist.id" :value="hist.id">
-                {{ hist.name }}
-              </option>
-            </select>
+            <span @click="openSearchView" class="toolbar-btn">
+              <Search :size="20" color="#fafafa" :stroke-width="1"/>
+            </span>
+            <span @click="openVectorDb" class="toolbar-btn">
+              <Database :size="20" color="#fafafa" :stroke-width="1"/>
+            </span>
+            <span @click="openNewChat" class="toolbar-btn">
+              <Plus :size="20" color="#fafafa" :stroke-width="1" />
+            </span>
+            <span @click="openSavedChat" class="toolbar-btn">
+              <History :size="20" color="#fafafa" :stroke-width="1" />
+            </span>
+            <span @click="openChat" class="toolbar-btn">
+              <MessageCircle :size="20" color="#fafafa" :stroke-width="1" />
+            </span>
           </div>
         </div>
       </div>
 
-      <div class="chat-container" ref="messageWindowRef">
-        <history class="history" ref="historyRef" v-model:messages="messages" v-model:plugin="plugin" :question="question" 
-          :streamMessage="reply" :isStreaming="isStreaming" @updateMessage="handleUpdateMessage" @regenMessage="handleRegenMessage"
-          @removeMessage="handleRemoveMessage"></history>
+      <div class="chat-overlay" v-if="view == 'chat' && messages.length === 0">
+        <h2>nb</h2>
+        <br/>
+        <p>Hi, I'm your notebook assistant. </p>
+        <br/>
+        <p>How can I help you today?</p>
+        <br/>
+        <span class="get-started" @click="handleGetStarted">Getting started</span>
+      </div>
+      <div v-if="view == 'chat'" class="chat-container" ref="messageWindowRef">
+        <history class="history" ref="historyRef" v-model:messages="messages" v-model:plugin="plugin"
+          :question="question" :streamMessage="reply" :isStreaming="isStreaming" @updateMessage="handleUpdateMessage"
+          @regenMessage="handleRegenMessage" @removeMessage="handleRemoveMessage"></history>
       </div>
 
-      <div class="control-container">
-        
+      <div v-if="view == 'chat'" class="control-container">
+        <!-- move selection of doc to here -->
+        <!-- move save chat to here -->
+        <!-- move auto tag to here -->
+        <!-- move attach external file to here  -->
       </div>
-      <!-- Model selector and input area wrapper -->
-      <div class="input-wrapper">
-        <!-- Model selector -->
+
+      <div v-if="view == 'chat'" class="input-wrapper">
         <loading v-model:active="isLoading" :can-cancel="false" :on-cancel="loadingCancel" loader="bars"
           background-color="#eee" :opacity="0.25" :is-full-page="false" />
         <div class="chat-control">
           <span @click="openSetting" class="btn-a">
-            <Settings2 class="settings" />
+            <Settings2 class="settings" :size="20" color="#fafafa" :stroke-width="1" />
           </span>
           <span class="model-label">model</span>
           <div class="model-dropdown">
@@ -447,14 +515,20 @@ onMounted(async () => {
             <CircleStop :size="20" color="#fafafa" :stroke-width="1" />
           </button>
         </div>
-
-        <!-- Chat input area -->
         <div class="input-area">
-          <textarea class="textarea" v-model="chatInput" :placeholder="plugin.i18n.chatPlaceHolder"
-            @keypress="typing" @focus="handleFocus" @blur="handleBlur"></textarea>
-          <!-- Enter to send indicator -->
+          <textarea class="textarea" v-model="chatInput" :placeholder="plugin.i18n.chatPlaceHolder" @keypress="typing"
+            @focus="handleFocus" @blur="handleBlur"></textarea>
           <div class="enter-indicator">[ Enter ] to Send</div>
         </div>
+      </div>
+      <div v-if="view == 'saved_chat'">
+        <savedchat @openChatHistory="handleOpenChatHistory"/>
+      </div>
+      <div v-if="view == 'vectordb'">
+        <vectordb v-model:plugin="plugin"/>
+      </div>
+      <div v-if="view == 'similar_search'">
+        <search v-model:plugin="plugin"></search>
       </div>
     </div>
   </div>
@@ -462,11 +536,29 @@ onMounted(async () => {
 
 
 <style scoped>
+svg {
+  fill: var(--b3-bq-background);
+  display: inline-block;
+}
+
+h3 {
+  display: inline;
+  padding: 0.65em;
+}
+
+h2 {
+  display: inline;
+  padding: 0.65em;
+  border: 1px solid var(--b3-border-color);
+  border-radius: var(--b3-border-radius);
+}
+
 .page-container {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  height: calc(95vh - env(safe-area-inset-bottom)); /* Adjust for safe area */
+  height: calc(95vh - env(safe-area-inset-bottom));
+  /* Adjust for safe area */
 }
 
 .chat-wrapper {
@@ -479,8 +571,8 @@ onMounted(async () => {
 .chat-container {
   flex-grow: 1;
   overflow-y: auto;
-  padding: 1em 0em;
-  scroll-behavior: smooth; 
+  padding: 0.25em 0.5em;
+  scroll-behavior: smooth;
 }
 
 .control-container {
@@ -498,8 +590,10 @@ onMounted(async () => {
   border: 1px solid var(--b3-border-color);
   color: var(--b3-empty-color);
   border-radius: 4px;
-  margin-top: auto; /* Push the input area to the bottom */
-  padding-bottom: env(safe-area-inset-bottom); /* Adjust for safe area */
+  margin-top: auto;
+  /* Push the input area to the bottom */
+  padding-bottom: env(safe-area-inset-bottom);
+  /* Adjust for safe area */
   position: relative;
 }
 
@@ -507,6 +601,24 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.chat-overlay {
+  background: transparent;
+  z-index: 10001;
+  position: absolute;
+  width: 100%;
+  height: calc(85vh - env(safe-area-inset-bottom));
+  top: 3%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+}
+
+.get-started {
+  cursor: pointer;
+  text-decoration: underline;
 }
 
 .settings {
@@ -581,73 +693,29 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 16px;
+  padding: 1.25em 0em;
   background: var(--b3-theme-background);
   border-bottom: 1px solid var(--b3-border-color);
   position: relative;
-  z-index: 1000; /* Ensure toolbar is above chat container */
+  z-index: 1000;
+  /* Ensure toolbar is above chat container */
 }
 
 .toolbar-right {
   display: flex;
-  align-items: center;
-  position: relative; /* Needed for dropdown positioning */
-  width: 25%;
+  justify-content: end;
+  gap: 10px;
+  height: 20px;
 }
 
-.dropdown-wrapper {
-  position: relative;
-  width: 100%;
-  height: 35px;
-}
-
-.dropdown-wrapper::after {
-  content: none;
-}
-
-.dropdown {
-  /* appearance: none; */
-  /* -webkit-appearance: none;
-  -moz-appearance: none; */
-  width: 100%;
-  height: 100%;
+.toolbar-btn {
+  width: 24px;
+  height: 24px;
   padding: 4px;
-  background: transparent;
-  border: 1px solid var(--b3-border-color);
-  border-radius: 4px;
+  margin: 0px 5px;
   cursor: pointer;
-  color: var(--b3-theme-on-surface);
-  font-size: 16px;
-  text-align: center;
-  text-align-last: center;
-  padding-right: 4px; /* Remove extra space for default arrow */
 }
 
-.dropdown:hover {
-  background: var(--b3-theme-background-light);
-}
-
-/* Hide default arrow in IE */
-.dropdown::-ms-expand {
-  display: none;
-}
-
-/* Ensure the "+" is centered */
-.dropdown option {
-  text-align: left;
-  font-size: 14px;
-}
-
-/* Style for the options when dropdown is open */
-.dropdown option:not([disabled]) {
-  color: var(--b3-theme-on-surface);
-  background-color: var(--b3-theme-background);
-  padding: 8px 12px;
-}
-
-.dropdown option:hover {
-  background-color: var(--b3-theme-background-light);
-}
 
 /* Mobile-specific styles */
 @media (max-width: 480px) {
@@ -661,7 +729,8 @@ onMounted(async () => {
   }
 
   .textarea:focus {
-    margin-bottom: 150px; /* Adjust this value based on your keyboard height */
+    margin-bottom: 150px;
+    /* Adjust this value based on your keyboard height */
   }
 }
 
@@ -677,7 +746,8 @@ onMounted(async () => {
   }
 
   .textarea:focus {
-    margin-bottom: 100px; /* Adjust this value based on your keyboard height */
+    margin-bottom: 100px;
+    /* Adjust this value based on your keyboard height */
   }
 }
 
