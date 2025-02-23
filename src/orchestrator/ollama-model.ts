@@ -227,7 +227,7 @@ export class OllamaModel extends BaseAIModel {
         try {
             const response = await fetch(`${this.client.baseURL}/api/tags`, {
                 method: "GET",
-                headers: this.client.headers
+                headers: this.client.headers,
             });
             const json = await response.json();
             let models = { models: [] }
