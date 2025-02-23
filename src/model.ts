@@ -2,9 +2,11 @@ import { env, pipeline, PipelineType, AutoModelForSequenceClassification, AutoTo
 import { getFile } from "@/api";
 export type ModelType = "embedding" | "rerank";
 
-
 // TODO: choose model to be initialize
 export async function createModel() {
+    // fix for #8 
+    env.allowLocalModels = false;
+    env.useBrowserCache = false;
     const pipe = await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2");
     return pipe;
 }

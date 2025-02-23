@@ -109,6 +109,7 @@ const openaiSettings = ref({
 });
 
 const embeddingSettings = ref({
+    used_in: '',
     provider: '',
     model: ''
 })
@@ -213,10 +214,24 @@ async function saveOpenAISetting(key: string, value: any) {
 }
 
 async function saveEmbeddingSetting(key: string, value: any) {
-    plugin.value.settingUtils.settings.set(`embedding.${key}`, value);
+    if (value.includes("|")) {
+        const embeddingOption = value.split("|");
+        plugin.value.settingUtils.settings.set(`embedding.used_in`, embeddingOption[0]);
+        plugin.value.settingUtils.settings.set(`embedding.provider`, embeddingOption[1]);
+        let model = embeddingOption[2];
+        model = model.replace(`${embeddingOption[1]}/`, "");
+        plugin.value.settingUtils.settings.set(`embedding.model`, model);
+    } else {
+        plugin.value.settingUtils.settings.set(`embedding.${key}`, value);
+    }
     await plugin.value.settingUtils.save();
+    embeddingSettings.value.used_in = plugin.value.settingUtils.settings.get("embedding.used_in") || "local";
     embeddingSettings.value.provider = plugin.value.settingUtils.settings.get("embedding.provider") || "";
-    embeddingSettings.value.model = plugin.value.settingUtils.settings.get("embedding.model") || "";
+    if (embeddingSettings.value.used_in === "local") {
+        embeddingSettings.value.model = `${embeddingSettings.value.used_in}|${embeddingSettings.value.provider}|${plugin.value.settingUtils.settings.get("embedding.model")}` || "";
+    } else {
+        embeddingSettings.value.model = `${embeddingSettings.value.used_in}|${embeddingSettings.value.provider}|${embeddingSettings.value.provider}/${plugin.value.settingUtils.settings.get("embedding.model")}` || "";
+    }
     await embeddingModelChange();
     loadingCancel();
 }
@@ -225,11 +240,11 @@ async function embeddingModelChange() {
     try {
         isLoading.value = true;
         if (openaiSettings.value.apiKey !== "" && openaiModels.value.length === 0
-            && embeddingSettings.value.provider !== "local") {
+            && embeddingSettings.value.used_in !== "local") {
             await listModels("openai");
         }
         if (ollamaSettings.value.url !== "" && ollamaModels.value.length === 0
-            && embeddingSettings.value.provider !== "local") {
+            && embeddingSettings.value.used_in !== "local") {
             const ollama = new AIWrapper("ollama", {
                 apiKey: "",
                 baseUrl: ollamaSettings.value.url
@@ -241,7 +256,7 @@ async function embeddingModelChange() {
         }
 
         embeddingModels.value.forEach(m => {
-            if (embeddingSettings.value.provider === "local") {
+            if (embeddingSettings.value.used_in === "local") {
                 if (m.used_in !== "local") {
                     m.exists = false;
                 } else {
@@ -363,8 +378,13 @@ onMounted(async () => {
     openaiSettings.value.presence_penalty = plugin.value.settingUtils.settings.get("openai.presence_penalty") || 0.5;
     openaiSettings.value.stop = plugin.value.settingUtils.settings.get("openai.stop") || "";
 
+    embeddingSettings.value.used_in = plugin.value.settingUtils.settings.get("embedding.used_in") || "";
     embeddingSettings.value.provider = plugin.value.settingUtils.settings.get("embedding.provider") || "";
-    embeddingSettings.value.model = plugin.value.settingUtils.settings.get("embedding.model") || "";
+    if (embeddingSettings.value.used_in === "local") {
+        embeddingSettings.value.model = `${embeddingSettings.value.used_in}|${embeddingSettings.value.provider}|${plugin.value.settingUtils.settings.get("embedding.model")}` || "";
+    } else {
+        embeddingSettings.value.model = `${embeddingSettings.value.used_in}|${embeddingSettings.value.provider}|${embeddingSettings.value.provider}/${plugin.value.settingUtils.settings.get("embedding.model")}` || "";
+    }
     isLoading.value = false;
 })
 
@@ -939,8 +959,8 @@ onUnmounted(async () => {
                             <div class="form-item">
                                 <label v-for="opt in embedOpts" :key="opt.value" class="radio-option">
                                     <input type="radio" :value="opt.value"
-                                        :checked="embeddingSettings.provider == opt.value ? true : false"
-                                        @click="saveEmbeddingSetting('provider', opt.value);" />
+                                        :checked="embeddingSettings.used_in == opt.value ? true : false"
+                                        @click="saveEmbeddingSetting('used_in', opt.value);" />
                                     <span class="radio-label">{{ opt.label }}</span>
                                 </label>
                             </div>
@@ -955,7 +975,7 @@ onUnmounted(async () => {
                                 <select v-model="embeddingSettings.model" class="provider-select"
                                     @change="saveEmbeddingSetting('model', embeddingSettings.model)">
                                     <option v-for="model in embeddingModels.filter(m => m.exists)" :key="model.value"
-                                        :value="model.value">
+                                        :value="`${model.used_in}|${model.provider}|${model.value}`">
                                         {{ model.label }}
                                     </option>
                                 </select>

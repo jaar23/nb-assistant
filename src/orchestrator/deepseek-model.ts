@@ -198,7 +198,6 @@ export class DeepseekModel extends BaseAIModel {
         try {
             const response = await fetch(`${this.client.baseURL}/v1/models`, {
                 method: "GET",
-                mode: "no-cors",
                 headers: this.client.headers
             });
             const json = await response.json();

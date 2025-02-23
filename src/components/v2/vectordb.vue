@@ -4,6 +4,8 @@ import {
   getAllBlocksByNotebook,
   promptPersistPermission,
   dataPath,
+  initDbV2,
+  transformModelNamePathSafeStr,
 } from "@/embedding";
 import { createModel, createEmbedding } from "@/model";
 import {
@@ -23,7 +25,9 @@ const localEmbeddingEnable = ref(false);
 const plugin: any = defineModel("plugin");
 const isLoading = ref(false);
 const vectorizedDb = ref([]);
-
+const embeddingUsedIn = ref("local");
+const embeddingProvider = ref("");
+const embeddingModel = ref("Xenova/all-MiniLM-L6-v2");
 // async function enableDb() {
 //   const pluginSetting = plugin.value.settingUtils.dump();
 //   plugin.value.settingUtils.setAndSave(
@@ -42,7 +46,7 @@ async function setupVectorDb() {
       const model = await createModel();
       console.log("model created");
       await pushMsg(plugin.value.i18n.embeddingModelCreated);
-      const embeddings = await createEmbedding(model, "hello");
+      const _embeddings = await createEmbedding(model, "hello");
       // console.log("embeddings created", embeddings);
       await pushMsg(plugin.value.i18n.createdEmbeddingsSuccess);
       isLoading.value = false;
@@ -58,17 +62,27 @@ async function setupVectorDb() {
 }
 
 async function checkVectorizedDb() {
-  vectorizedDb.value = [];
+  const provider = plugin.value.settingUtils.settings.get("embedding.provider");
+  const used_in = plugin.value.settingUtils.settings.get("embedding.used_in");
+  const model = plugin.value.settingUtils.settings.get("embedding.model");
+  const modelSafePathName = transformModelNamePathSafeStr(model);
   const dir: any = await readDir(dataPath);
   const notebooks = await lsNotebooks();
-  for (const nb of notebooks.notebooks) {
-    if (dir.filter((f) => f.name.includes(nb.id)).length > 0) {
-      vectorizedDb.value.push(nb.name);
+  vectorizedDb.value = [];
+  if (used_in === "ai-provider" && ["ollama", "openai"].includes(provider)) {
+    for (const nb of notebooks.notebooks) {
+      if (dir.filter((f) => f.name.includes(`${nb.id}-${modelSafePathName}`)).length > 0) {
+        vectorizedDb.value.push(nb.name);
+      }
+    }
+  } else {
+    for (const nb of notebooks.notebooks) {
+      if (dir.filter((f) => f.name.includes(nb.id)).length > 0) {
+        vectorizedDb.value.push(nb.name);
+      }
     }
   }
-  console.log("vectorized db", vectorizedDb.value);
 }
-
 async function initVectorDb() {
   try {
     isLoading.value = true;
@@ -101,7 +115,12 @@ async function initVectorDb() {
 
     for (const nb of nbDocs) {
       await pushMsg(`${plugin.value.i18n.embeddedAndChunk} [${nb.name}]`);
-      await initDb(nb.id, nb.name, nb.docs, model, plugin.value);
+      if (embeddingUsedIn.value === "local") {
+        await initDb(nb.id, nb.name, nb.docs, model, plugin.value);
+      } else if (embeddingUsedIn.value === "ai-provider") {
+        console.log("using v2 embedding", embeddingModel.value);
+        await initDbV2(nb.id, nb.name, nb.docs, embeddingModel.value, plugin.value);
+      }
       console.log("notebook vector and md splitted db inited", nb.id, nb.name);
       await pushMsg(`${plugin.value.i18n.createdEmbeddingsSuccess} [${nb.name}]`);
     }
@@ -132,6 +151,9 @@ onMounted(async () => {
   localEmbeddingEnable.value = pluginSetting.localEmbeddingEnable;
   await checkVectorizedDb();
   localEmbeddingEnable.value = await window.caches.has("transformers-cache");
+  embeddingModel.value = plugin.value.settingUtils.settings.get("embedding.model") ?? "Xenova/all-MiniLM-L6-v2";
+  embeddingUsedIn.value = plugin.value.settingUtils.settings.get("embedding.used_in") ?? "local";
+  embeddingProvider.value = plugin.value.settingUtils.settings.get("embedding.provider") ?? "";
 });
 </script>
 <template>
@@ -140,7 +162,7 @@ onMounted(async () => {
       background-color="#eee" :opacity="0.25" :is-full-page="false" />
 
     <br />
-    <div>
+    <div v-if="embeddingUsedIn === 'local'">
       <label style="display: inline-flex; width: 100%">
         <div class="switch">{{ plugin.i18n.cacheModel}}</div>
         <input type="checkbox" class="b3-switch" @change="setupVectorDb" v-model="localEmbeddingEnable" />
@@ -150,6 +172,15 @@ onMounted(async () => {
       </small>
     </div>
     <br />
+    <small v-if="embeddingUsedIn === 'local'">
+        Currently using local embedding model <b>{{ embeddingModel }}</b>, provided by Transformer.js and Huggingface.
+        <i>If the model failed to pull from Huggingface, recommended to use other embedding model provided by OpenAI or Ollama.</i>
+    </small>
+    <small v-if="embeddingUsedIn === 'ai-provider'">
+        Currently using embedding model <b>{{ embeddingModel }}</b>, provided by {{ embeddingProvider }}.
+        <i>Only for Ollama, ensure it is up and running when you are creating embeddings.</i>
+    </small>
+    <br/>
     <div>
       <label> {{ plugin.i18n.selectNotebook }} </label>
       <select class="b3-select" v-model="selectedNotebook">

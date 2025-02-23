@@ -7,6 +7,8 @@ import {
   getChildBlocksContents,
   putFile,
   getFile,
+  fullTextSearchBlock,
+  getBlocksByIds,
 } from "@/api";
 import { MarkdownTextSplitter } from "@langchain/textsplitters";
 import { createEmbedding, createModel } from "@/model";
@@ -18,7 +20,9 @@ import {
   textSplitter,
   nlpPipe,
   checkIfDbExist,
+  mergeSearchResult,
 } from "@/utils";
+import { AIWrapper } from "./orchestrator/ai-wrapper";
 
 export const dataPath = "temp/nb-assistant";
 
@@ -131,7 +135,6 @@ export async function deleteMDTextDb(dbName: string) {
 
 export async function getMemVectorDb(dbName: string) {
   const dbExists = await checkIfDbExist(dbName);
-  //let hnswdb: any;
   let hnswJson: any;
   if (!dbExists) {
     const hnswFile = await getFile(`${dataPath}/${dbName}.json`);
@@ -141,22 +144,13 @@ export async function getMemVectorDb(dbName: string) {
       },
     });
     await tempdb.put("hnsw-index", hnswFile, "hnsw");
-    // console.log("hnswfile", hnswFile);
-    // hnswdb = await createVectorDb(
-    //   hnswFile.M,
-    //   hnswFile.efConstruction,
-    //   dbName,
-    // );
-    // await saveVector(hnswdb, hnswFile.embedding);
     hnswJson = hnswFile;
     tempdb.close();
   } else {
     const tempdb = await openDB(dbName);
     hnswJson = await tempdb.get("hnsw-index", "hnsw");
   }
-  // console.log("hnsw json", hnswJson);
   const db = HNSW.fromJSON(hnswJson);
-  // console.log("hnsw", db)
   return db;
 }
 
@@ -214,11 +208,12 @@ export async function initDb(
       `${plugin.i18n.processTakeX} ${Math.round((flatlist.length * 3) / 60)} ${plugin.i18n.minutes}`,
     );
     // console.log("init db list", flatlist);
+    const dimension = await modelDimension(plugin);
     const vectors = await embedDocList(model, flatlist, plugin);
     console.log("end embedding at ", new Date());
     //console.log("init db vectors", vectors);
     //const vectordb = await createVectorDb(100, 16, nbId);
-    const vectordb = await createMemVectorDb(100, 16, 384, "cosine");
+    const vectordb = await createMemVectorDb(100, 16, dimension, "cosine");
     //await saveVector(vectordb, vectors);
     await saveMemVectorDb(vectordb, vectors, nbId, plugin);
     // vectordb.db.close();
@@ -231,6 +226,56 @@ export async function initDb(
     await pushErrMsg(err.stack);
   }
 }
+
+
+export async function initDbV2(
+  nbId: string,
+  nbName: string,
+  nbDocs: any[],
+  model: any,
+  plugin: any
+) {
+  try {
+    const modelName = transformModelNamePathSafeStr(model);
+    console.log("safe file name for model", modelName);
+
+    await deleteVectorDb(`${nbId}-${modelName}`);
+    await deleteMDTextDb(`${nbId}-${modelName}-md`);
+
+    let flatlist = [];
+    // transformDocToList(flatlist, nbDocs, nbName, nbId, 1);
+    transformBlocksToList(flatlist, nbDocs, nbName, nbId, 1);
+    if (flatlist.length === 0) {
+      await pushMsg(
+        plugin.i18n.nothingToEmbed,
+      );
+      return;
+    }
+    console.log("transformed list size:", flatlist.length);
+    console.log("start embeeding at ", new Date());
+    await pushMsg(
+      `${plugin.i18n.processTakeX} ${Math.round((flatlist.length * 3) / 60)} ${plugin.i18n.minutes}`,
+    );
+    // console.log("init db list", flatlist);
+    const dimension = await modelDimension(plugin);
+    const vectors = await embedDocListV2(flatlist, plugin);
+    console.log("end embedding at ", new Date());
+    //console.log("init db vectors", vectors);
+    //const vectordb = await createVectorDb(100, 16, nbId);
+    const vectordb = await createMemVectorDb(24, 200, dimension, "cosine");
+    //await saveVector(vectordb, vectors);
+    await saveMemVectorDb(vectordb, vectors, `${nbId}-${modelName}`, plugin);
+    // vectordb.db.close();
+
+    // const mdTextDb = await createMDTextDb(`${nbId}-md`);
+    await saveMDTextDb(flatlist, `${nbId}-${modelName}`, plugin);
+    // await closeMDTextDbInstance(mdTextDb);
+  } catch (err) {
+    console.error(err);
+    await pushErrMsg(err.stack);
+  }
+}
+
 
 export type Metric = "cosine" | "euclidean";
 
@@ -363,6 +408,42 @@ export async function queryMdChunk(
     // always return one since id is unique index
     const embd = embeddingResult.filter((e) => e.id == chunk.id);
     // console.log("embd", embd);
+    if (embd.length > 0) {
+      chunk["score"] = embd[0].score;
+    } else {
+      chunk["score"] = 0;
+    }
+  }
+  return chunkResult;
+}
+
+export async function queryMdChunkV2(
+  aiwrapper: AIWrapper,
+  model: string,
+  notebookId: string,
+  queryText: string,
+  minScore = 0.25,
+  resultLimit = 50,
+) {
+  const embeddingRequest = {
+    model: model,
+    chunk: queryText
+  }
+  const response = await aiwrapper.createEmbedding(embeddingRequest);
+  const embedding = response.embeddings[0];
+  const modelName = transformModelNamePathSafeStr(model);
+  const vectordb = await getMemVectorDb(`${notebookId}-${modelName}`);
+  const embeddingResult = queryMemVector(vectordb, embedding, resultLimit);
+  console.log("embedding result", embeddingResult);
+  const closestResult = embeddingResult
+    .filter((embd) => embd.score > minScore)
+    .map((embd) => embd.id);
+  const mdTextDb = await getMDTextDbInstance(`${notebookId}-${modelName}-md`);
+  let chunkResult = await queryMDTextDb(mdTextDb, closestResult);
+  //chunkResult.sort((a, b) => (a.score > b.score ? a : b));
+  for (let chunk of chunkResult) {
+    // always return one since id is unique index
+    const embd = embeddingResult.filter((e) => e.id == chunk.id);
     if (embd.length > 0) {
       chunk["score"] = embd[0].score;
     } else {
@@ -520,6 +601,84 @@ export async function embedDocList(model: any, docList: any[], plugin: any) {
   return vectors;
 }
 
+
+export async function embedDocListV2(docList: any[], plugin: any) {
+  let vectors = [];
+  let enableSleep = false;
+  if (docList.length > 500) {
+    enableSleep = true;
+    await pushMsg(`${plugin.i18n.remainingXToProcess.replace("[x]", docList.length)}`);
+  }
+  let count = 0;
+  for (const doc of docList) {
+    // console.log(doc);
+    if (doc.content == null) {
+      continue;
+    }
+    const words = nlpPipe(doc.content);
+    const provider = plugin.settingUtils.settings.get("embedding.provider");
+    const used_in = plugin.settingUtils.settings.get("embedding.used_in");
+    let model = plugin.settingUtils.settings.get("embedding.model");
+    let apiKey = "";
+    let apiURL = "";
+    if (provider === "openai") {
+      apiKey = plugin.settingUtils.settings.get("openai.apiKey");
+      if (!apiKey) {
+        throw new Error("Missing OpenAI API key");
+      }
+    } else if (provider === "ollama") {
+      apiURL = plugin.settingUtils.settings.get("ollama.url") || "http://localhost:11434";
+    }
+    const aiwrapper = new AIWrapper(provider, { apiKey: apiKey, baseUrl: apiURL });
+    const embeddingRequest = {
+      model: model,
+      chunk: words
+    }
+    const embedding = await aiwrapper.createEmbedding(embeddingRequest);
+    if (!(embedding.embeddings ?? false)) {
+      continue;
+    }
+    vectors.push({ id: doc.id, vector: embedding.embeddings[0]});
+    if (enableSleep) {
+      await sleep(30);
+    } else {
+      await sleep(30);
+    }
+    count = count + 1;
+    if (count % 100 === 0) {
+      const left = docList.length - count;
+      const message = plugin.i18n.processedXAndYLeft.replace("[x]", count).replace("[y]", left);
+      await pushMsg(message);
+    }
+  }
+  return vectors;
+}
+
+export async function modelDimension(plugin) {
+  const provider = plugin.settingUtils.settings.get("embedding.provider");
+  let model = plugin.settingUtils.settings.get("embedding.model");
+  let apiKey = "";
+  let apiURL = "";
+  if (provider === "openai") {
+    apiKey = plugin.settingUtils.settings.get("openai.apiKey");
+    if (!apiKey) {
+      throw new Error("Missing OpenAI API key");
+    }
+  } else if (provider === "ollama") {
+    apiURL = plugin.settingUtils.settings.get("ollama.url") || "http://localhost:11434";
+  }
+  const aiwrapper = new AIWrapper(provider, { apiKey: apiKey, baseUrl: apiURL });
+  const embeddingRequest = {
+    model: model,
+    chunk: "test embedding"
+  }
+  const embedding = await aiwrapper.createEmbedding(embeddingRequest);
+  if (!(embedding.embeddings ?? false)) {
+    throw new Error("Embedding model is not available, unable to check for dimension");
+  }
+  return embedding.embeddings[0].length;
+}
+
 // export function transformDocToList(
 //   list: any[],
 //   docs: any[],
@@ -594,4 +753,93 @@ export function transformBlocksToList(
   }
   //console.log("list return", list);
   return list;
+}
+
+
+export function transformModelNamePathSafeStr(input: string): string {
+  // Use a regular expression to match the pattern "xxxx/yyyyy:zzzzz"
+  const regex = /([^:\s]+):([^\s]+)/;
+  
+  // Replace the matched pattern with "xxxx-yyyyy-zzzzz"
+  const result = input.replace(regex, "$1-$2");
+  
+  return result;
+}
+
+export async function searchNotebook(notebookId: string, query: string, plugin: any, minScore = 0.2, resultLimit = 25) {
+  try {
+      const provider = plugin.settingUtils.settings.get("embedding.provider");
+      const used_in = plugin.settingUtils.settings.get("embedding.used_in");
+      let model = plugin.settingUtils.settings.get("embedding.model");
+      let apiKey = "";
+      let apiURL = "";
+      if (provider === "openai") {
+        apiKey = plugin.settingUtils.settings.get("openai.apiKey");
+        if (!apiKey) {
+          throw new Error("Missing OpenAI API key");
+        }
+      } else if (provider === "ollama") {
+        apiURL = plugin.settingUtils.settings.get("ollama.url") || "http://localhost:11434";
+      }
+      const aiwrapper = new AIWrapper(provider, { apiKey: apiKey, baseUrl: apiURL });
+      // const embeddingRequest = {
+      //   model: model,
+      //   chunk: "test embedding"
+      // }
+      // const embedding = await aiwrapper.createEmbedding(embeddingRequest);
+      // if (!(embedding.embeddings ?? false)) {
+      //   throw new Error("Embedding model is not available, unable to check for dimension");
+      // }
+
+      let searchResult = [];
+      
+      const words = nlpPipe(query);
+      
+      console.log("searching", words);
+      
+      let chunkResult = [];
+      if (used_in === "local") {
+        chunkResult = await queryMdChunk(notebookId, words, minScore, resultLimit);
+      } else {
+        chunkResult = await queryMdChunkV2(aiwrapper, model, notebookId, words, minScore, resultLimit);
+      }
+      const ftsResult = await fullTextSearchBlock(
+          notebookId,
+          query,
+      );
+      const result = mergeSearchResult(ftsResult, chunkResult);
+
+      for (const chunk of result) {
+          const blocks = await getBlocksByIds(chunk.blockIds);
+          let div = [];
+          for (const block of blocks) {
+              if (
+                  (block.content.length === 0 && block.content === "") ||
+                  block.markdown === ""
+              ) {
+                  continue;
+              }
+              div.push({ id: block.id, markdown: block.markdown });
+          }
+          if (div.length > 0) {
+              searchResult.push({
+                  blocks: div,
+                  score: chunk.score.toFixed(2),
+                  fts: chunk.fts,
+              });
+          }
+      }
+
+      searchResult.sort((a, b) =>
+          a.score > b.score ? -1 : b.score > a.score ? 0 : 1,
+      );
+
+      if (searchResult.length === 0) {
+          await pushMsg("Nothing is found");
+      }
+      return searchResult;
+  } catch (err) {
+      await pushErrMsg(err.stack);
+      throw new Error(err);
+  }
 }

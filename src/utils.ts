@@ -454,6 +454,17 @@ export function removeStopWord(strs: string[]): string[] {
 //     return lemwords;
 // }
 
+function removeHyphens(input) {
+    // Use a regex to globally replace all '-' characters with an empty string
+    return input.replace(/--/g, '');
+}
+
+function removeAsterisks(input) {
+    // Use a regex to globally replace all '-' characters with an empty string
+    return input.replace(/\*/g, '');
+}
+
+
 export function nlpPipe(str: string): string {
     const tokens = tokenize(str);
     // console.log("tokens--->>\n", tokens);
@@ -462,7 +473,9 @@ export function nlpPipe(str: string): string {
     // const lemwords = lemmatizeWords(words);
     // console.log("lemwords---->>\n", lemwords);
     const lowercase = smallcap(words.join(" "));
-    return lowercase;
+    const cleantext1 = removeAsterisks(lowercase);
+    const cleantext2 = removeHyphens(cleantext1);
+    return cleantext2;
 }
 
 export function mergeSearchResult(ftsResult: any, chunkResult: any[]) {
@@ -490,6 +503,7 @@ export async function checkIfDbExist(dbName: string): Promise<boolean> {
     return (await window.indexedDB.databases()).map(db => db.name).includes(dbName);
 }
 
+/* deprecated*/
 export async function searchNotebook(notebookId: string, query: string, minScore = 0.2, resultLimit = 25) {
     try {
         let searchResult = [];

@@ -130,6 +130,11 @@ function cancelActionHandler() {
   confirmAction.value = null;
 }
 
+function containsHTML(input) {
+    const htmlRegex = /<([A-Za-z][A-Za-z0-9]*)\b[^>]*>(.*?)<\/\1>|<[A-Za-z][A-Za-z0-9]*\b[^>]*\/>/;
+    return htmlRegex.test(input);
+}
+
 
 watch(() => props.streamMessage, (newVal) => {
   if (newVal) {
@@ -163,7 +168,8 @@ onMounted(async () => {
 
 <template>
   <div class="msg-container">
-    <div v-if="props.question && !isEditing" class="question" v-html="markdown.render(props.question)"></div>
+    <div v-if="props.question && !isEditing && containsHTML(props.question)" class="question" v-html="props.question"></div>
+    <div v-if="props.question && !isEditing && !containsHTML(props.question)" class="question" v-html="markdown.render(props.question)"></div>
     <div class="ques-button-area" v-if="props.question && !isEditing">
       <button @click="copy" class="msg-button">
         <Copy :size="20" color="#fafafa" :stroke-width="1" />
@@ -192,7 +198,8 @@ onMounted(async () => {
         </button>
       </div>
     </div>
-    <div v-if="props.fullMessage" class="answer" v-html="markdown.render(props.fullMessage)"></div>
+    <div v-if="props.fullMessage && containsHTML(props.fullMessage)" class="answer" v-html="props.fullMessage"></div>
+    <div v-if="props.fullMessage && !containsHTML(props.fullMessage)" class="answer" v-html="markdown.render(props.fullMessage)"></div>
     <div v-else-if="props.streamMessage && !isEditing" class="answer" v-html="markdown.render(props.streamMessage)">
     </div>
     <div class="ans-button-area" v-if="props.fullMessage && !isEditing">

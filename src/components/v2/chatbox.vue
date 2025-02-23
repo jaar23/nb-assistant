@@ -10,16 +10,16 @@ import {
   insertBlock,
   getFile,
   putFile,
+  checkBlockExist,
+  pushMsg,
 } from "@/api";
 import { ref, onMounted, watch, nextTick } from "vue";
 import Loading from "vue-loading-overlay";
 import "vue-loading-overlay/dist/css/index.css";
 import {
-  promptAI,
   countWords,
   searchNotebook,
   tokenize,
-  promptAIChain,
   rephrasePrompt,
   sleep,
   generateUUID,
@@ -34,12 +34,13 @@ import { Message } from "../history.vue";
 import savedchat from "./savedchat.vue";
 import vectordb from "./vectordb.vue";
 import search from "./search.vue";
+import { transformModelNamePathSafeStr } from "@/embedding";
 
 const chatInput = defineModel<string>("chatInput");
 const plugin: any = defineModel<any>("plugin");
 
 const emit = defineEmits(["response", "streamChunk"]);
-const isLoading = defineModel("inferencing");
+const isLoading = ref(false);
 const enterToSend = defineModel("enterToSend");
 const previousRole = ref("");
 const selectedNotebook = ref("");
@@ -63,10 +64,24 @@ const dataPath = "temp/nb-assistant";
 const chatUUID = ref("");
 const chatHistories = ref([]);
 const view = ref("chat");
+const chatControl = ref("");
+const showChatAction = ref(false);
+const openTabs = ref([]);
+const selectedSumTab = ref("");
+const chatAlias = ref("");
+const summarizeTemplate = `
+Provide a comprehensive summary of the given text. The summary should cover all the key points and main ideas presented 
+in the original text, while also condensing the information into a concise and easy-to-understand format. 
+Please ensure that the summary includes relevant details and examples that support the main ideas, 
+while avoiding any unnecessary information or repetition. The length of the summary should be appropriate for the 
+length and complexity of the original text, providing a clear and accurate overview without omitting any important information.
+
+Input: {text}
+`
 
 const isDropdownOpen = ref(false);
 
-async function prompt(stream = true) {
+async function prompt(stream = true, withHistory = true) {
   try {
     console.log('Starting stream...');
     const settings = plugin.value.settingUtils.settings;
@@ -120,7 +135,7 @@ async function prompt(stream = true) {
         const stop_words = modelConfig.get("stop").split(",");
         request["stop"] = stop_words;
       }
-      if (messages.value.length > 0) {
+      if (messages.value.length > 0 && withHistory) {
         const chatHistory = messages.value.reduce((box, m) => {
           box.push({ role: "user", content: m.question[m.questionIndex] });
           box.push({ role: "assistant", content: m.answer[m.answerIndex] });
@@ -133,7 +148,11 @@ async function prompt(stream = true) {
 
       let fullResponse = "";
       if (stream) {
-        question.value = chatInput.value;
+        if (chatAlias.value !== "") {
+          question.value = chatAlias.value;
+        } else {
+          question.value = chatInput.value;
+        }
         await wrapper.value.streamCompletions(request as CompletionRequest, (chunk) => {
           if (!chunk.isComplete) {
             // console.log("chunk", chunk);
@@ -175,6 +194,7 @@ async function prompt(stream = true) {
     isStreaming.value = false;
     question.value = "";
     chatInput.value = "";
+    chatAlias.value = "";
     console.log('Streaming ended');
   }
 }
@@ -199,6 +219,7 @@ async function handleRemoveMessage() {
 
 async function typing(ev) {
   if (ev.key === "Enter" && !ev.shiftKey && enterToSend.value) {
+    ev.preventDefault();
     try {
       await prompt();
       await saveChatHistory();
@@ -270,6 +291,50 @@ async function getChatHistory() {
   }
 }
 
+async function getOpenTabs() {
+  const systemConf = await request("/api/system/getConf", {});
+  openTabs.value = getCurrentTabs(systemConf.conf.uiLayout.layout);
+}
+
+async function openBlock(blockId) {
+  const url = "siyuan://blocks/";
+  const blockExist = await checkBlockExist(blockId);
+  if (!blockExist) {
+    await pushMsg(plugin.i18n.blockNotFound);
+    return;
+  }
+  // @ts-ignore: siyuan specific function
+  window.openFileByURL(url + blockId);
+}
+
+
+async function summarizeOpenDoc(ev) {
+  try {
+    // const systemConf = await request("/api/system/getConf", {});
+    const blockArr = ev.target.value.split("|");
+    const blockId = blockArr[0];
+    const blockTitle = blockArr[1];
+    const doc = await request("/api/export/exportMdContent", { id: blockId });
+    // const pluginSetting = plugin.value.settingUtils.dump()
+    chatAlias.value = `Summarize <a href="siyuan://blocks/${blockId}" 
+            data-type="block-ref"
+            data-subtype="d" :data-id="${blockId}">${blockTitle}</a>`
+    isLoading.value = true;
+    chatInput.value = summarizeTemplate.replace("{text}", doc.content);
+    await prompt(true, false);
+    isLoading.value = false;
+  } catch (err) {
+    isLoading.value = false;
+    await pushErrMsg(err.stack);
+  }
+}
+
+// async function handleChatControl(e) {
+//   if (chatControl.value === "summary")  {
+//     summarizeOpenDoc()
+//   }
+// }
+
 
 function loadingCancel() {
   isLoading.value = false;
@@ -281,25 +346,64 @@ function cancelPrompt() {
 }
 
 async function checkVectorizedDb() {
-  vectorizedDb.value = [];
+  const provider = plugin.value.settingUtils.settings.get("embedding.provider");
+  const used_in = plugin.value.settingUtils.settings.get("embedding.used_in");
+  const model = plugin.value.settingUtils.settings.get("embedding.model");
+  const modelSafePathName = transformModelNamePathSafeStr(model);
   const dir: any = await readDir(dataPath);
   const notebooks = await lsNotebooks();
-  for (const nb of notebooks.notebooks) {
-    if ((nb.name === "SiYuan User Guide" || nb.name === "思源笔记用户指南") || nb.closed) {
-      continue;
+  vectorizedDb.value = [];
+  if (used_in === "ai-provider" && ["ollama", "openai"].includes(provider)) {
+    for (const nb of notebooks.notebooks) {
+      if ((nb.name === "SiYuan User Guide" || nb.name === "思源笔记用户指南") || nb.closed) {
+        continue;
+      }
+      if (dir.filter((f) => f.name.includes(`${nb.id}-${modelSafePathName}`)).length > 0) {
+        vectorizedDb.value.push({
+          id: nb.id,
+          name: nb.name,
+          value: `@${nb.name}`,
+          key: nb.id,
+        });
+      }
     }
-
-    if (dir.filter((f) => f.name.includes(nb.id)).length > 0) {
-      vectorizedDb.value.push({
-        id: nb.id,
-        name: nb.name,
-        value: `@${nb.name}`,
-        key: nb.id,
-      });
+  } else {
+    for (const nb of notebooks.notebooks) {
+      if ((nb.name === "SiYuan User Guide" || nb.name === "思源笔记用户指南") || nb.closed) {
+        continue;
+      }
+      if (dir.filter((f) => f.name.includes(nb.id)).length > 0) {
+        vectorizedDb.value.push({
+          id: nb.id,
+          name: nb.name,
+          value: `@${nb.name}`,
+          key: nb.id,
+        });
+      }
     }
   }
-  console.log("vectorized db", vectorizedDb.value);
 }
+
+// async function checkVectorizedDb() {
+//   vectorizedDb.value = [];
+//   const dir: any = await readDir(dataPath);
+//   const notebooks = await lsNotebooks();
+//   for (const nb of notebooks.notebooks) {
+//     if ((nb.name === "SiYuan User Guide" || nb.name === "思源笔记用户指南") || nb.closed) {
+//       continue;
+//     }
+
+//     if (dir.filter((f) => f.name.includes(nb.id)).length > 0) {
+//       vectorizedDb.value.push({
+//         id: nb.id,
+//         name: nb.name,
+//         value: `@${nb.name}`,
+//         key: nb.id,
+//       });
+//     }
+//   }
+//   console.log("vectorized db", vectorizedDb.value);
+// }
 
 async function checkAllDocuments() {
   documents.value = [];
@@ -489,7 +593,24 @@ onMounted(async () => {
           @regenMessage="handleRegenMessage" @removeMessage="handleRemoveMessage"></history>
       </div>
 
+      <!-- Popup Container -->
+      <div id="popup" class="popup" v-if="showChatAction">
+          <div class="popup-content">
+              <span id="closePopup" @click="showChatAction = false" class="close">&times;</span>
+              <p>This is a centered popup!</p>
+          </div>
+      </div>
+
       <div v-if="view == 'chat'" class="control-container">
+        <!-- <select class="b3-select" v-model="selectedSumTab" :disabled="isStreaming" @change="summarizeOpenDoc"
+          @focus="getOpenTabs">
+          <option class="b3-option" disabled value="">
+            {{ plugin.i18n.summarize }}
+          </option>
+          <option class="b3-option" v-for="opt in openTabs" :value="opt.children.blockId + '|' + opt.title">
+            {{ opt.title }}
+          </option>
+        </select> -->
         <!-- move selection of doc to here -->
         <!-- move save chat to here -->
         <!-- move auto tag to here -->
@@ -511,6 +632,9 @@ onMounted(async () => {
               </option>
             </select>
           </div>
+          <span class="btn-a" @click="showChatAction = !showChatAction">
+             more action
+          </span>
           <button @click="cancelPrompt" class="cancel-prompt" v-if="isLoading">
             <CircleStop :size="20" color="#fafafa" :stroke-width="1" />
           </button>
@@ -566,6 +690,7 @@ h2 {
   flex-direction: column;
   flex-grow: 1;
   overflow: hidden;
+  position: relative;
 }
 
 .chat-container {
@@ -595,6 +720,7 @@ h2 {
   padding-bottom: env(safe-area-inset-bottom);
   /* Adjust for safe area */
   position: relative;
+  z-index: 6;
 }
 
 .chat-control {
@@ -605,7 +731,7 @@ h2 {
 
 .chat-overlay {
   background: transparent;
-  z-index: 10001;
+  z-index: 11;
   position: absolute;
   width: 100%;
   height: calc(85vh - env(safe-area-inset-bottom));
@@ -685,7 +811,7 @@ h2 {
   color: var(--b3-theme-on-surface);
   border: 0px;
   width: 50px;
-  z-index: 10001;
+  z-index: 12;
 }
 
 
@@ -697,7 +823,7 @@ h2 {
   background: var(--b3-theme-background);
   border-bottom: 1px solid var(--b3-border-color);
   position: relative;
-  z-index: 1000;
+  z-index: 10;
   /* Ensure toolbar is above chat container */
 }
 
@@ -716,6 +842,48 @@ h2 {
   cursor: pointer;
 }
 
+/* Popup Container */
+.popup {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 5; /* Ensure it's above other elements */
+}
+
+/* Popup Content */
+.popup-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%); /* Center the popup */
+    background: var(--b3-theme-background);
+    padding: 1em;
+    border-radius: var(--b3-border-radius);
+    box-shadow: 0 10px 8px rgba(0, 0, 0, 0.2);
+    max-width: 90%;
+    width: 90%;
+    text-align: center;
+    min-height: 50%;
+}
+
+/* Close Button */
+.close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--b3-empty-color);
+}
+
+.close:hover {
+    color: #000;
+}
+.block {
+  cursor: pointer;
+}
 
 /* Mobile-specific styles */
 @media (max-width: 480px) {

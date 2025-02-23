@@ -8,7 +8,8 @@ import {
 } from "@/api";
 import {  
   searchNotebook,
-} from "@/utils";
+  transformModelNamePathSafeStr,
+} from "@/embedding";
 import { ref, onMounted } from "vue";
 import Loading from "vue-loading-overlay";
 import "vue-loading-overlay/dist/css/index.css";
@@ -25,6 +26,8 @@ const dbEnable = ref(false);
 const plugin = defineModel<any>("plugin");
 const searchResult = ref([]);
 
+//0.1.4
+
 async function search(ev) {
   if (ev.key === "Enter" && !ev.shiftKey) {
     try {
@@ -35,6 +38,7 @@ async function search(ev) {
       searchResult.value = await searchNotebook(
         selectedNotebook.value,
         searchInput.value,
+        plugin.value
       );
       isLoading.value = false;
     } catch (err) {
@@ -45,12 +49,24 @@ async function search(ev) {
 }
 
 async function checkVectorizedDb() {
-  vectorizedDb.value = [];
+  const provider = plugin.value.settingUtils.settings.get("embedding.provider");
+  const used_in = plugin.value.settingUtils.settings.get("embedding.used_in");
+  const model = plugin.value.settingUtils.settings.get("embedding.model");
+  const modelSafePathName = transformModelNamePathSafeStr(model);
   const dir: any = await readDir(dataPath);
   const notebooks = await lsNotebooks();
-  for (const nb of notebooks.notebooks) {
-    if (dir.filter((f) => f.name.includes(nb.id)).length > 0) {
-      vectorizedDb.value.push(nb.name);
+  vectorizedDb.value = [];
+  if (used_in === "ai-provider" && ["ollama", "openai"].includes(provider)) {
+    for (const nb of notebooks.notebooks) {
+      if (dir.filter((f) => f.name.includes(`${nb.id}-${modelSafePathName}`)).length > 0) {
+        vectorizedDb.value.push(nb.name);
+      }
+    }
+  } else {
+    for (const nb of notebooks.notebooks) {
+      if (dir.filter((f) => f.name.includes(nb.id)).length > 0) {
+        vectorizedDb.value.push(nb.name);
+      }
     }
   }
 }
@@ -98,7 +114,7 @@ onMounted(async () => {
       <label :title="plugin.i18n.searchNote"> {{ plugin.i18n.searchNotebook }} </label>
       <select class="b3-select" v-model="selectedNotebook" placeholder="Select a notebook">
         <option value="" disabled>{{ plugin.i18n.pleaseSelect }}</option>
-        <option value="*">{{ plugin.i18n.allNotebook }}</option>
+        <!-- <option value="*">{{ plugin.i18n.allNotebook }}</option> -->
         <option v-for="nb in notebooks" :value="nb.id" :disabled="disableSelection(nb.name)">
           {{ nb.name }}
         </option>
