@@ -1,5 +1,5 @@
 import { BaseAIModel } from './base-model';
-import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse, ListModelResponse } from './types';
+import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse, ListModelResponse, CompletionJSONResponse } from './types';
 
 export class OllamaModel extends BaseAIModel {
     private client: { baseURL: string, headers: {} };
@@ -253,6 +253,55 @@ export class OllamaModel extends BaseAIModel {
             return true;
         } catch (e) {
             return false
+        }
+    }
+
+    async jsonCompletions(request: CompletionRequest, jsonSchema: any): Promise<CompletionJSONResponse> {
+        this.validateRequest(request);
+        this.abortController = new AbortController();
+        let request_body = {
+            model: request.model,
+            stream: false,
+            prompt: request.prompt,
+            format: jsonSchema,
+            options: {
+                max_tokens: request.max_tokens ? request.max_tokens : 2048,
+                temperature: request.temperature ? request.temperature : 0,
+            }
+        }
+        if (request.top_p) {
+            request_body.options["top_p"] = request.top_p;
+        }
+        if (request.top_k) {
+            request_body.options["top_k"] = request.top_k;
+        }
+        if (request.frequency_penalty) {
+            request_body.options["frequency_penalty"] = request.frequency_penalty;
+        }
+        if (request.presence_penalty) {
+            request_body.options["presence_penalty"] = request.presence_penalty;
+        }
+
+        try {
+            const response = await fetch(`${this.client.baseURL}/api/generate`, {
+                method: "POST",
+                headers: this.client.headers,
+                body: JSON.stringify(request_body),
+                signal: this.abortController.signal
+            });
+
+            if (!response.ok) {
+                console.error("unable to fetch request from ai provider");
+                throw new Error(await response.text());
+            }
+            let response_json = await response.json();
+
+            return { json: JSON.parse(response_json.response) };
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                return { json: null };
+            }
+            throw error;
         }
     }
 }

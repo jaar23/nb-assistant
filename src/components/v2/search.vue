@@ -128,10 +128,10 @@ onMounted(async () => {
       <input class="b3-text-field" :disabled="selectedNotebook === ''" @keypress="search" v-model="searchInput"
         :placeholder="plugin.i18n.searchContent" />
     </div>
-    <small v-if="searchResult.length > 0">
-      {{ plugin.i18n.resultFound }}: {{ searchResult.length }}
+    <small v-if="(searchResult || []).length > 0">
+      {{ plugin.i18n.resultFound }}: {{ (searchResult || []).length }}
     </small>
-    <searchresult v-model:result="searchResult" v-model:plugin="plugin"/>
+    <searchresult v-if="(searchResult || []).length > 0" v-model:result="searchResult" v-model:plugin="plugin"/>
   </div>
 </template>
 

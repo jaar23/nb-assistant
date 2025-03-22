@@ -1,6 +1,8 @@
 import { engStopWords, zhStopWords } from "./stopwords";
 import { queryMdChunk } from "./embedding";
 import { fullTextSearchBlock, getBlocksByIds, pushMsg, pushErrMsg } from "./api";
+import { AIWrapper } from "./orchestrator/ai-wrapper";
+import { createModel, createEmbedding } from "./model";
 
 export function flat(array: any) {
     var result = [];
@@ -560,4 +562,42 @@ export function generateUUID(): string {
         const v = c === 'x' ? r : (r & 0x3) | 0x8;
         return v.toString(16);
     });
+}
+
+export function cosineSimilarity(a: number[], b: number[]): number {
+    const dotProduct = a.reduce((sum, val, i) => sum + val * b[i], 0);
+    const magnitudeA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
+    const magnitudeB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
+    return dotProduct / (magnitudeA * magnitudeB);
+}
+
+export async function pluginCreateEmbedding(plugin, text) {
+    try {
+        const provider = plugin.settingUtils.settings.get("embedding.provider");
+        const used_in = plugin.settingUtils.settings.get("embedding.used_in");
+        if (used_in === 'local') {
+            const model = await createModel();
+            return await createEmbedding(model, text);
+        } else if (used_in === 'ai-provider') {
+            let model = plugin.settingUtils.settings.get("embedding.model");
+            let apiKey = "";
+            let apiURL = "";
+            if (provider === "openai") {
+                apiKey = plugin.settingUtils.settings.get("openai.apiKey");
+                if (!apiKey) {
+                    throw new Error("Missing OpenAI API key");
+                }
+            } else if (provider === "ollama") {
+                apiURL = plugin.settingUtils.settings.get("ollama.url") || "http://localhost:11434";
+            }
+            const aiwrapper = new AIWrapper(provider, { apiKey: apiKey, baseUrl: apiURL });
+            const embedding = await aiwrapper.createEmbedding({model: model, chunk: text});
+            if (!(embedding.embeddings ?? false)) {
+              return []
+            }
+            return embedding.embeddings[0];
+        }
+    } catch (error) {
+        console.error('unable to get embedding model', error);
+    }
 }

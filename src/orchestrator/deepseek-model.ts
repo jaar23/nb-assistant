@@ -1,5 +1,5 @@
 import { BaseAIModel } from './base-model';
-import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse, ListModelResponse } from './types';
+import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse, ListModelResponse, CompletionJSONResponse } from './types';
 
 export class DeepseekModel extends BaseAIModel {
     private client: { baseURL: string, headers: {} };
@@ -222,4 +222,64 @@ export class DeepseekModel extends BaseAIModel {
         return false;
     }
 
+    async jsonCompletions(request: CompletionRequest, jsonSchema: any): Promise<CompletionJSONResponse> {
+        this.validateRequest(request);
+        this.abortController = new AbortController();
+        let messages = [];
+        if (request.systemPrompt) {
+            switch (request.systemPrompt.role) {
+                case "system":
+                    messages.push({ role: "system", content: request.systemPrompt.content });
+                    break;
+                case "tool":
+                    messages.push({ role: "tool", content: request.systemPrompt.content });
+                    break;
+                case "assistant":
+                    messages.push({ role: "assistant", content: request.systemPrompt.content });
+                    break;
+                default:
+                    messages.push({ role: request.systemPrompt.role, content: request.systemPrompt.content });
+                    break;
+            }
+        }
+        messages.push({ role: "user", content: request.prompt });
+        let request_body = {
+            model: request.model,
+            max_tokens: request.max_tokens ? request.max_tokens : 2048,
+            stream: false,
+            temperature: request.temperature ? request.temperature : 0,
+            messages: messages,
+            response_format: {type: "json_object", json_schema: jsonSchema}
+        };
+        if (request.top_p) {
+            request_body["top_p"] = request.top_p;
+        }
+        if (request.presence_penalty) {
+            request_body["presence_penalty"] = request.presence_penalty;
+        }
+        
+        try {
+            const response = await fetch(`${this.client.baseURL}/chat/completions`, {
+                method: "POST",
+                headers: this.client.headers,
+                body: JSON.stringify(request_body)
+            });
+
+            if (!response.ok) {
+                console.error("unable to fetch request from ai provider");
+                throw new Error(await response.text());
+            }
+            let fullResponse = "";
+            let response_json = await response.json();
+            for (const choice of response_json.choices) {
+                fullResponse += choice.message.content + "\n";
+            }
+            return { json: JSON.parse(fullResponse) };
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                return { json: null };
+            }
+            throw error;
+        }
+    }
 }

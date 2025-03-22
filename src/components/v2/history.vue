@@ -120,7 +120,7 @@ defineExpose({
         @updateMessage="handleUpdateMessage" @removeMessage="handleRemoveMessage" 
         @regenMessage="handleRegenMessage" @slideMessage="handleSlideMessage"/>
     </li>
-    <message class="focus-msg" v-if="props.isStreaming && streamingMessage !== ''" :question="props.question" 
+    <message style="border: 1px solid red" class="focus-msg" v-if="props.isStreaming && streamingMessage !== ''" :question="props.question" 
       :streamMessage="streamingMessage" :isStreaming="props.isStreaming" :id="'temp'" />
   </ul>
 </template>

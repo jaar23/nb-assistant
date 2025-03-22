@@ -12,6 +12,8 @@ import {
   putFile,
   checkBlockExist,
   pushMsg,
+  fullTextSearchBlock,
+  getBlocksByIds,
 } from "@/api";
 import { ref, onMounted, watch, nextTick } from "vue";
 import Loading from "vue-loading-overlay";
@@ -24,7 +26,9 @@ import {
   sleep,
   generateUUID,
   getCurrentTabs,
-  strToFile
+  strToFile,
+  cosineSimilarity,
+  pluginCreateEmbedding
 } from "@/utils";
 import history from "./history.vue";
 import { CircleStop, Settings2, History, Plus, MessageCircle, Database, Search } from 'lucide-vue-next';
@@ -45,11 +49,13 @@ const enterToSend = defineModel("enterToSend");
 const previousRole = ref("");
 const selectedNotebook = ref("");
 const selectedDocument = ref([]);
-const vectorizedDb = ref([]);
-const documents = ref([]);
+
 const extraContext = ref("");
 const rephrasedInput = ref("");
 // 0.1.4
+const vectorizedDb = ref([]);
+const documents = ref([]);
+const notebooks = ref([]);
 const messages = ref<any[]>();
 const reply = ref<string>("");
 const question = ref<string>("");
@@ -65,19 +71,60 @@ const chatUUID = ref("");
 const chatHistories = ref([]);
 const view = ref("chat");
 const chatControl = ref("");
+// chat control
 const showChatAction = ref(false);
+const actionCommand = ref("add context");
+const chatActions = [
+  { label: "Save Chat", cmd: "save chat", action: saveChatToNote, shortcut: "sc" },
+  { label: "Summarize Doc", cmd: "summarize doc", action: summarizeOpenDoc, shortcut: "sd" },
+  { label: "Auto Tag Doc", cmd: "tag doc", action: autoTagOpenDoc, shortcut: "atd" },
+  { label: "Add Context", cmd: "add context", action: addChatContext, shortcut: "ac" }
+];
+const actionParam = ref({
+  blockId: "",
+  blockTitle: ""
+});
+const actionTarget = ref("");
+const actionInputRef = ref(null);
+const chatInputRef = ref(null);
+const isProcessing = ref(false);
+const selectedTarget = ref<Set<string>>(new Set());
+
 const openTabs = ref([]);
 const selectedSumTab = ref("");
 const chatAlias = ref("");
-const summarizeTemplate = `
-Provide a comprehensive summary of the given text. The summary should cover all the key points and main ideas presented 
-in the original text, while also condensing the information into a concise and easy-to-understand format. 
-Please ensure that the summary includes relevant details and examples that support the main ideas, 
-while avoiding any unnecessary information or repetition. The length of the summary should be appropriate for the 
+const SUMMARIZE_PROMPT = `
+Provide a comprehensive summary of the given text. The summary should cover all the key points and main ideas presented
+in the original text, while also condensing the information into a concise and easy-to-understand format.
+Please ensure that the summary includes relevant details and examples that support the main ideas,
+while avoiding any unnecessary information or repetition. The length of the summary should be appropriate for the
 length and complexity of the original text, providing a clear and accurate overview without omitting any important information.
 
 Input: {text}
 `
+
+const COMMAND_PARSER_PROMPT = `
+You are a command parser. Parse the user input into structured commands.
+Only respond with JSON format containing "command" and "target".
+Only support these commands: "save chat", "summarize doc", "auto tag doc", "add context"
+Output must be in JSON string, {"command": "value", target: ["value"]}
+
+Examples:
+Input: "save chat to my textbook\n available notebook target: ['textbook', 'textbook2', 'textbook3']\navailable doc target:[]"
+Output: {"command": "save chat", "target": ["textbook"]}
+
+Input: "summarize the document about architecture\n available notebook target: ['textbook', 'textbook2', 'textbook3']\navailable doc target: ['framework', 'arch', 'system']"
+Output: {"command": "summarize doc", "target": ["arch", 'framework']}
+
+Input: "add tags to development guide\n available notebook target: ['textbook', 'textbook2', 'textbook3']\navailable doc target: ['how-tos', 'development guide', 'storybook']"
+Output: {"command": "auto tag doc", "target": ['how-tos', 'development guide']}
+
+Input: "use project specs as context\n available notebook target: ['textbook', 'textbook2', 'textbook3']\navailable doc target: ['project specs', 'specification', 'document 123']"
+Output: {"command": "add context", "target": ['project specs', 'specification']}
+
+Keep the command exactly as listed above. If command is not recognized, return null for both values.
+`;
+
 
 const isDropdownOpen = ref(false);
 
@@ -153,7 +200,7 @@ async function prompt(stream = true, withHistory = true) {
         } else {
           question.value = chatInput.value;
         }
-        await wrapper.value.streamCompletions(request as CompletionRequest, (chunk) => {
+        await wrapper.value.streamCompletions(request as CompletionRequest, async (chunk) => {
           if (!chunk.isComplete) {
             // console.log("chunk", chunk);
             fullResponse += chunk.text;
@@ -163,18 +210,21 @@ async function prompt(stream = true, withHistory = true) {
             nextTick(() => scrollToBottom());
           } else {
             console.log('Streaming complete. Final message:', fullResponse);
-            messages.value.push({
-              id: generateUUID(),
-              question: [question.value],
-              questionIndex: 0,
-              answer: [fullResponse],
-              answerIndex: 0,
-              aiEmoji: "",
-              actionable: false,
-              actionType: "",
-              blockId: "",
-            });
-            console.log('Updated messages:', messages.value);
+            if (question.value !== '') {
+              messages.value.push({
+                id: generateUUID(),
+                question: [question.value],
+                questionIndex: 0,
+                answer: [fullResponse],
+                answerIndex: 0,
+                aiEmoji: "",
+                actionable: false,
+                actionType: "",
+                blockId: "",
+              });
+              console.log('Updated messages:', messages.value);
+              await saveChatHistory();
+            }
             // Add scroll after each chunk
             nextTick(() => scrollToBottom());
           }
@@ -220,13 +270,33 @@ async function handleRemoveMessage() {
 async function typing(ev) {
   if (ev.key === "Enter" && !ev.shiftKey && enterToSend.value) {
     ev.preventDefault();
+
     try {
       await prompt();
-      await saveChatHistory();
     } catch (e) {
       console.error(e);
       isLoading.value = false;
       pushErrMsg(e.stack);
+    }
+  } else {
+    // Check for @ command trigger
+    if (chatInput.value?.trim() === "@") {
+      setTimeout(async () => {
+        if (chatInput.value?.trim() === "@") {
+          showChatAction.value = true;          
+          chatInput.value = "";
+          await handleActionCommand();
+          return;
+        }
+      }, 500)
+    } else if (chatInput.value?.trim().endsWith("@")) {
+      setTimeout(async () => {
+        if (chatInput.value?.trim().endsWith("@")) {
+          showChatAction.value = true;
+          await handleActionCommand();
+          return;
+        }
+      }, 500)
     }
   }
 }
@@ -265,7 +335,7 @@ async function getChatHistories() {
   let latestIndex: { id: string, date: Date, length: number, name: string };
   if (indexResp !== null) {
     if (indexResp.code === 404) {
-        console.log("history updated to 0.1.4 onwards");
+      console.log("history updated to 0.1.4 onwards");
     } else {
       chatHistories.value = indexResp;
       latestIndex = (indexResp ?? []).reduce((a, b) => {
@@ -308,19 +378,18 @@ async function openBlock(blockId) {
 }
 
 
-async function summarizeOpenDoc(ev) {
+async function summarizeOpenDoc() {
   try {
     // const systemConf = await request("/api/system/getConf", {});
-    const blockArr = ev.target.value.split("|");
-    const blockId = blockArr[0];
-    const blockTitle = blockArr[1];
+    const blockId = actionParam.value.blockId;
+    const blockTitle = actionParam.value.blockTitle;
     const doc = await request("/api/export/exportMdContent", { id: blockId });
     // const pluginSetting = plugin.value.settingUtils.dump()
-    chatAlias.value = `Summarize <a href="siyuan://blocks/${blockId}" 
+    chatAlias.value = `Summarize <a href="siyuan://blocks/${blockId}"
             data-type="block-ref"
             data-subtype="d" :data-id="${blockId}">${blockTitle}</a>`
     isLoading.value = true;
-    chatInput.value = summarizeTemplate.replace("{text}", doc.content);
+    chatInput.value = SUMMARIZE_PROMPT.replace("{text}", doc.content);
     await prompt(true, false);
     isLoading.value = false;
   } catch (err) {
@@ -329,11 +398,13 @@ async function summarizeOpenDoc(ev) {
   }
 }
 
-// async function handleChatControl(e) {
-//   if (chatControl.value === "summary")  {
-//     summarizeOpenDoc()
-//   }
-// }
+async function autoTagOpenDoc() {
+
+}
+
+async function addChatContext() {
+
+}
 
 
 function loadingCancel() {
@@ -384,34 +455,23 @@ async function checkVectorizedDb() {
   }
 }
 
-// async function checkVectorizedDb() {
-//   vectorizedDb.value = [];
-//   const dir: any = await readDir(dataPath);
-//   const notebooks = await lsNotebooks();
-//   for (const nb of notebooks.notebooks) {
-//     if ((nb.name === "SiYuan User Guide" || nb.name === "思源笔记用户指南") || nb.closed) {
-//       continue;
-//     }
-
-//     if (dir.filter((f) => f.name.includes(nb.id)).length > 0) {
-//       vectorizedDb.value.push({
-//         id: nb.id,
-//         name: nb.name,
-//         value: `@${nb.name}`,
-//         key: nb.id,
-//       });
-//     }
-//   }
-//   console.log("vectorized db", vectorizedDb.value);
-// }
-
 async function checkAllDocuments() {
   documents.value = [];
-  const notebooks = await lsNotebooks();
-  for (const nb of notebooks.notebooks) {
+  notebooks.value = [];
+  const nbs = await lsNotebooks();
+
+  for (const nb of nbs.notebooks) {
     if ((nb.name === "SiYuan User Guide" || nb.name === "思源笔记用户指南") || nb.closed) {
       continue;
     }
+
+    notebooks.value.push({
+      key: nb.id,
+      id: nb.id,
+      value: nb.name,
+      name: nb.name,
+      embedding: []
+    });
 
     const alldocs = await getAllDocsByNotebook(nb.id, "/");
     let flatlist = [];
@@ -422,11 +482,13 @@ async function checkAllDocuments() {
         ...doc,
         id: doc.docId,
         key: doc.docId,
-        value: `/${docName}`,
+        value: docName,
         name: docName,
+        embedding: []
       });
     }
   }
+  // console.log("all docs", documents.value)
 }
 
 
@@ -447,7 +509,7 @@ async function openNewChat() {
   if (indexResp !== null) {
     if (indexResp.code === 404) {
       console.log("history updated to 0.1.4 onwards");
-    } else { 
+    } else {
       historyIndex = indexResp;
     }
   }
@@ -511,6 +573,162 @@ function handleBlur() {
   isFocused.value = false;
 }
 
+async function handleActionCommand() {
+  try {
+    isProcessing.value = true;
+
+    if (actionCommand.value) {
+      if (actionCommand.value === "save chat") {
+        if (!notebooks.value.some(nb => nb.embedding.length > 0)) {
+          await pushMsg("generating index for search");
+          for (let nb of notebooks.value) {
+            nb.embedding = await pluginCreateEmbedding(plugin.value, nb.name);
+          }
+        }
+      } else {
+        if (!documents.value.some(doc => doc.embedding.length > 0)) {
+          await pushMsg("generating index for search");
+          for (let doc of documents.value) {
+            doc.embedding = await pluginCreateEmbedding(plugin.value, doc.name);
+          }
+        }
+      }
+      actionInputRef.value?.focus();
+    }
+  } catch (error) {
+    console.error("Error parsing command:", error);
+    await pushErrMsg(error.message);
+  } finally {
+    isProcessing.value = false;
+    actionInputRef.value?.focus();
+  }
+}
+
+async function handleActionTarget(ev?: KeyboardEvent) {
+  try {
+    if (ev?.key === 'Backspace' && (actionTarget.value || "").trim() == "") {
+      console.log("exit command menu");
+      ev.preventDefault();
+      setTimeout(() => {
+        if (ev?.key === 'Backspace' && (actionTarget.value || "").trim() == "") {
+          if (actionCommand.value.includes("save chat") || actionCommand.value.startsWith("sc")) {
+            notebooks.value = notebooks.value.map(m => {
+              delete m.matchScore;
+              return m;
+            });
+          } else {
+            documents.value = documents.value.map(d => {
+              delete d.matchScore;
+              return d;
+            });
+          }
+          // showChatAction.value = false;
+        }
+      }, 500);
+      return;
+    }
+
+    const matchedAction = chatActions.find(a => actionCommand.value.toLowerCase().includes(a.cmd));
+    if (ev?.key !== 'Enter') {
+      const tempquery = structuredClone(actionTarget.value);
+      setTimeout(async () => {
+        console.log(tempquery + '===' + actionTarget.value);
+        if (actionCommand.value && (tempquery === actionTarget.value)) {
+          const items = matchedAction.cmd === "save chat" ? notebooks.value : documents.value;
+
+          const cmdEmbedding = await pluginCreateEmbedding(plugin.value, actionTarget.value);
+          const matches = await Promise.all(
+            items.map(async item => {
+              if (item.name.toLowerCase().includes(actionTarget.value)) {
+                return {
+                  item,
+                  score: 0.99
+                };
+              } else {
+                return {
+                  item,
+                  score: cosineSimilarity(cmdEmbedding, item.embedding)
+                };
+              }
+            })
+          );
+          // console.log("item filtered", matches);
+
+          // Update the relevant list with similarity scores
+          const filteredMatches = matches
+            .filter(m => m.score > 0.5)
+            .sort((a, b) => b.score - a.score);
+
+          if (actionCommand.value.includes("save chat") || actionCommand.value.startsWith("sc")) {
+            notebooks.value = filteredMatches.map(m => ({
+              ...m.item,
+              matchScore: m.score
+            }));
+          } else {
+            documents.value = filteredMatches.map(m => ({
+              ...m.item,
+              matchScore: m.score
+            }));
+          }
+          // Execute the action
+          // await matchedAction.action();
+          // await pushMsg(`Action completed: ${matchedAction.label}`);
+        }
+      }, 1500);
+    } else {
+      const selectedIds = Array.from(selectedTarget.value);
+      
+      if (selectedIds.length === 0) {
+        await pushErrMsg("Please select target(s) first");
+        return;
+      }
+      await matchedAction.action();
+      await pushMsg(`Action completed: ${matchedAction.label}`);
+      showChatAction.value = false;
+    }
+    
+  } catch (error) {
+    console.error("Error parsing command:", error);
+    await pushErrMsg(error.message);
+  } finally {
+    isProcessing.value = false;
+    actionInputRef.value.removeAttribute('disabled');
+  }
+}
+
+function toggleSelection(id: string) {
+  if (actionCommand.value === 'add context') {
+    // Allow multiple selections for 'add context'
+    if (selectedTarget.value.has(id)) {
+      selectedTarget.value.delete(id);
+    } else {
+      selectedTarget.value.add(id);
+    }
+  } else {
+    // Single selection for other commands
+    if (selectedTarget.value.has(id)) {
+      selectedTarget.value.delete(id);
+    } else {
+      selectedTarget.value.clear(); // Clear previous selection
+      selectedTarget.value.add(id);
+    }
+  }
+}
+async function saveChatToNote() {
+  const content = messages.value
+    .map(m => `Q: ${m.question[0]}\nA: ${m.answer[0]}`)
+    .join("\n\n");
+
+  // const blockId = await insertBlock(
+  //   "markdown",
+  //   content,
+  //   "Chat History"
+  // );
+
+  // await pushMsg(`Chat saved to note: ${blockId}`);
+  console.log("save chat", content);
+}
+
 function scrollToBottom() {
   if (messageWindowRef.value) {
     const container = messageWindowRef.value;
@@ -524,6 +742,40 @@ watch(() => messages.value, () => {
   nextTick(() => scrollToBottom());
 }, { deep: true });
 
+watch(() => showChatAction.value, (newValue) => {
+  if (newValue) {
+    nextTick(() => {
+      console.log("action input focus")
+      actionInputRef.value?.focus();
+    });
+  } else {
+    // Only clear selections if not 'add context'
+    if (actionCommand.value !== 'add context') {
+      selectedTarget.value.clear();
+    }
+    nextTick(() => {
+      console.log("chat input focus")
+      chatInputRef.value?.focus();
+    })
+  }
+});
+
+watch(() => isProcessing.value, (newValue) => {
+  if (!newValue) {
+    nextTick(() => {
+      console.log("action input focus")
+      actionInputRef.value?.focus();
+    });
+  }
+});
+
+watch(() => actionCommand.value, (newValue, oldValue) => {
+  // Only clear selections when changing from 'add context' to another command
+  if (oldValue === 'add context' && newValue !== 'add context') {
+    selectedTarget.value.clear();
+  }
+});
+
 onMounted(async () => {
   try {
     chatUUID.value = generateUUID();
@@ -531,7 +783,7 @@ onMounted(async () => {
     await plugin.value.settingUtils.load();
     await loadModels();
     // await checkVectorizedDb();
-    // await checkAllDocuments();
+    await checkAllDocuments();
     enterToSend.value = plugin.value.settingUtils.settings.get("enterToSend") ? plugin.value.settingUtils.settings.get("enterToSend") : true;
     isLoading.value = false;
     messages.value = [];
@@ -540,7 +792,17 @@ onMounted(async () => {
     } else {
       throw new Error("No available model, please complete the setups in plugin setting.");
     }
-    await getChatHistories()
+    await getChatHistories();
+    plugin.value.addCommand({
+      langKey: "ExitChatControl",
+      hotkey: "⌫",
+      dockCallback: (_element: HTMLElement) => {
+        showChatAction.value = false;
+      }
+    });
+    setTimeout(() => {
+      chatInputRef.value?.focus();
+    }, 1000);
   } catch (e) {
     console.error(e);
     isLoading.value = false;
@@ -560,10 +822,10 @@ onMounted(async () => {
         <div class="toolbar-right">
           <div class="dropdown-wrapper">
             <span @click="openSearchView" class="toolbar-btn">
-              <Search :size="20" color="#fafafa" :stroke-width="1"/>
+              <Search :size="20" color="#fafafa" :stroke-width="1" />
             </span>
             <span @click="openVectorDb" class="toolbar-btn">
-              <Database :size="20" color="#fafafa" :stroke-width="1"/>
+              <Database :size="20" color="#fafafa" :stroke-width="1" />
             </span>
             <span @click="openNewChat" class="toolbar-btn">
               <Plus :size="20" color="#fafafa" :stroke-width="1" />
@@ -578,13 +840,13 @@ onMounted(async () => {
         </div>
       </div>
 
-      <div class="chat-overlay" v-if="view == 'chat' && messages.length === 0">
+      <div class="chat-overlay" v-if="view == 'chat' && (messages || []).length === 0">
         <h2>nb</h2>
-        <br/>
+        <br />
         <p>Hi, I'm your notebook assistant. </p>
-        <br/>
+        <br />
         <p>How can I help you today?</p>
-        <br/>
+        <br />
         <span class="get-started" @click="handleGetStarted">Getting started</span>
       </div>
       <div v-if="view == 'chat'" class="chat-container" ref="messageWindowRef">
@@ -595,10 +857,72 @@ onMounted(async () => {
 
       <!-- Popup Container -->
       <div id="popup" class="popup" v-if="showChatAction">
-          <div class="popup-content">
-              <span id="closePopup" @click="showChatAction = false" class="close">&times;</span>
-              <p>This is a centered popup!</p>
+        <div class="popup-content">
+          <loading v-model:active="isProcessing" :can-cancel="false" :on-cancel="loadingCancel" loader="bars"
+            background-color="#eee" :opacity="0.25" :is-full-page="false" />
+          <span id="closePopup" @click="showChatAction = false" class="close">&times;</span>
+          <div class="action-input-wrapper">
+            <div class="command-hints">
+              <span class="hint">Action: </span>
+              <span v-for="act of chatActions" :key="act.cmd" class="hint-example"
+                @click="actionCommand = act.cmd; handleActionCommand()" :title="'shortcut: ' + act.shortcut"
+                :class="{ 'cmd-matches': ((actionCommand || '').trim().toLowerCase().includes(act.cmd.toLowerCase())) || (actionCommand || '').trim().toLowerCase().startsWith(act.shortcut.toLowerCase()) }">
+                {{ act.label }}
+              </span>
+            </div>
+            <input ref="actionInputRef" type="text" class="b3-text-field" v-model="actionTarget"
+              placeholder="Notebook name / Document name" @keypress="handleActionTarget" @keyup="handleActionTarget"
+              :disabled="isProcessing || actionCommand === ''" :class="{ 'processing': isProcessing }" />
+            <small>
+              Search for notebook or document
+            </small>
+            <div class="doc-list" 
+              v-if="actionCommand.toLowerCase().includes('save chat') || actionCommand.toLowerCase().startsWith('sc')">
+              <ul>
+                <li v-for="nb in notebooks" 
+                    :key="nb.key"
+                    :class="{ 
+                      'high-match': nb.matchScore > 0.8, 
+                      'medium-match': nb.matchScore > 0.6,
+                      'selected': selectedTarget.has(nb.id)
+                    }"
+                    @click="toggleSelection(nb.id)">
+                  <div class="list-item-content">
+                    <span class="item-name">{{ nb.name }}</span>
+                    <div class="item-indicators">
+                      <span v-if="selectedTarget.has(nb.id)" class="tick-icon">✓</span>
+                      <span class="match-score" v-if="nb.matchScore">
+                        {{ Math.round(nb.matchScore * 100) }}% match
+                      </span>
+                    </div>
+                  </div>
+                </li>
+              </ul>
+            </div>
+            <div class="doc-list" v-else>
+              <ul>
+                <li v-for="doc in documents" 
+                    :key="doc.key"
+                    :class="{ 
+                      'high-match': doc.matchScore > 0.8, 
+                      'medium-match': doc.matchScore > 0.6,
+                      'selected': selectedTarget.has(doc.id)
+                    }"
+                    @click="toggleSelection(doc.id)">
+                  <div class="list-item-content">
+                    <span class="item-name">{{ doc.name }}</span>
+                    <div class="item-indicators">
+                      <span v-if="selectedTarget.has(doc.id)" class="tick-icon">✓</span>
+                      <span class="match-score" v-if="doc.matchScore">
+                        {{ Math.round(doc.matchScore * 100) }}% match
+                      </span>
+                    </div>
+                  </div>
+                </li>
+              </ul>
+            </div>
           </div>
+        </div>
       </div>
 
       <div v-if="view == 'chat'" class="control-container">
@@ -632,24 +956,24 @@ onMounted(async () => {
               </option>
             </select>
           </div>
-          <span class="btn-a" @click="showChatAction = !showChatAction">
-             more action
+          <span class="btn-a" @click="showChatAction = !showChatAction; handleActionCommand()">
+            @ more action
           </span>
           <button @click="cancelPrompt" class="cancel-prompt" v-if="isLoading">
             <CircleStop :size="20" color="#fafafa" :stroke-width="1" />
           </button>
         </div>
         <div class="input-area">
-          <textarea class="textarea" v-model="chatInput" :placeholder="plugin.i18n.chatPlaceHolder" @keypress="typing"
-            @focus="handleFocus" @blur="handleBlur"></textarea>
+          <textarea ref="chatInputRef" class="textarea" v-model="chatInput" :placeholder="plugin.i18n.chatPlaceHolder"
+            @keypress="typing" @keyup="typing" @focus="handleFocus" @blur="handleBlur"></textarea>
           <div class="enter-indicator">[ Enter ] to Send</div>
         </div>
       </div>
       <div v-if="view == 'saved_chat'">
-        <savedchat @openChatHistory="handleOpenChatHistory"/>
+        <savedchat @openChatHistory="handleOpenChatHistory" />
       </div>
       <div v-if="view == 'vectordb'">
-        <vectordb v-model:plugin="plugin"/>
+        <vectordb v-model:plugin="plugin" />
       </div>
       <div v-if="view == 'similar_search'">
         <search v-model:plugin="plugin"></search>
@@ -811,7 +1135,7 @@ h2 {
   color: var(--b3-theme-on-surface);
   border: 0px;
   width: 50px;
-  z-index: 12;
+  z-index: 10000;
 }
 
 
@@ -844,43 +1168,186 @@ h2 {
 
 /* Popup Container */
 .popup {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 5; /* Ensure it's above other elements */
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 5;
+  /* Ensure it's above other elements */
 }
 
 /* Popup Content */
 .popup-content {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%); /* Center the popup */
-    background: var(--b3-theme-background);
-    padding: 1em;
-    border-radius: var(--b3-border-radius);
-    box-shadow: 0 10px 8px rgba(0, 0, 0, 0.2);
-    max-width: 90%;
-    width: 90%;
-    text-align: center;
-    min-height: 50%;
+  position: absolute;
+  top: 55%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  /* Center the popup */
+  background: var(--b3-theme-background);
+  padding: 1em;
+  border-radius: var(--b3-border-radius);
+  box-shadow: 0 10px 8px rgba(0, 0, 0, 0.2);
+  max-width: 90%;
+  width: 90%;
+  text-align: center;
+  min-height: 50%;
 }
 
 /* Close Button */
 .close {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    font-size: 24px;
-    cursor: pointer;
-    color: var(--b3-empty-color);
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--b3-empty-color);
 }
 
 .close:hover {
-    color: #000;
+  color: #000;
 }
+
+.popup-content small {
+  color: var(--b3-empty-color);
+  text-align: left;
+}
+
+/* Button Row */
+.popup-action {
+  display: flex;
+  justify-content: space-evenly;
+  /* Space buttons evenly */
+  bottom: 0;
+  position: absolute;
+  width: 89%;
+  padding: 1em;
+}
+
+/* Popup Buttons */
+.popup-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  background-color: #007bff;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.popup-btn:hover {
+  background-color: #0056b3;
+}
+
+.action-input-wrapper {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.action-input {
+  width: 95%;
+  padding: 0.75rem;
+  border: 1px solid var(--b3-border-color);
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.command-hints {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--b3-empty-color);
+}
+
+.hint-example {
+  cursor: pointer;
+  padding: 4px 8px;
+  background: var(--b3-border-color);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.hint-example:hover {
+  background: var(--b3-border-hover);
+}
+
+.cmd-matches {
+  background: #0056b3;
+}
+
+.doc-list {
+  height: 100%;
+  overflow: scroll;
+  max-height: 35rem;
+  text-align: left;
+}
+
+.doc-list ul {
+  list-style: none;
+}
+
+.doc-list ul li {
+  list-style: none;
+  padding: 1rem;
+  border: 1px solid var(--b3-border-color);
+  min-height: 2rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.doc-list li:hover {
+  transform: translateX(2px) translateY(2px);
+}
+
+.high-match {
+  background: var(--b3-theme-primary-light);
+  border-left: 3px solid var(--b3-theme-primary);
+}
+
+.medium-match {
+  background: var(--b3-theme-background-light);
+  border-left: 3px solid var(--b3-theme-secondary);
+}
+
+.match-score {
+  float: right;
+  font-size: 0.8em;
+  color: var(--b3-theme-on-surface);
+  opacity: 0.7;
+}
+
+.list-item-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.item-indicators {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tick-icon {
+  color: var(--b3-theme-primary);
+  font-weight: bold;
+}
+
+.doc-list ul li.selected {
+  background-color: var(--b3-theme-primary-light);
+  border-left: 3px solid var(--b3-theme-primary);
+}
+
+.item-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .block {
   cursor: pointer;
 }
@@ -931,7 +1398,7 @@ h2 {
   }
 
   .textarea:focus {
-    margin-bottom: 50px; 
+    margin-bottom: 50px;
   }
 } */
 </style>

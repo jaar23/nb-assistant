@@ -22,6 +22,12 @@ export interface CompletionResponse {
     images?: Object;
 }
 
+
+export interface CompletionJSONResponse {
+    json: Object
+}
+
+
 export interface StreamChunk {
     text: string;
     image?: Object;
@@ -62,5 +68,6 @@ export interface AIModelInterface {
     createEmbedding(request: EmbeddingRequest): Promise<EmbeddingResponse>;
     listModels(request: any): Promise<ListModelResponse>;
     locallyInstalled(request: any): Promise<boolean>;
+    jsonCompletions(request: CompletionRequest, jsonSchema: any): Promise<CompletionJSONResponse>;
     cancelRequest(): void;
 }

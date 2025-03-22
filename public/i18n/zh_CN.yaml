@@ -9,7 +9,7 @@ summarize: "总结"
 autoTag: 生成标记
 saveChat: 保存
 clear: 清除
-chatPlaceHolder: 您好，我是您的笔记小助手! 尝试使用 @ 或 / 与笔记本和文档进行聊天。
+chatPlaceHolder: 您好，我是您的笔记小助手! 尝试使用 @ 已开启更多功能。
 send: 发送
 saveChatTitle: 保存到
 saveChatDesc: 插件会使用当前选择的笔记本来保存聊天记录

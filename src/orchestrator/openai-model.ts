@@ -1,6 +1,6 @@
 import { OpenAI } from 'openai';
 import { BaseAIModel } from './base-model';
-import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse, ListModelResponse } from './types';
+import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse, ListModelResponse, CompletionJSONResponse } from './types';
 import { Stream } from 'openai/streaming';
 import { ChatCompletionChunk } from 'openai/resources';
 
@@ -184,5 +184,55 @@ export class OpenAIModel extends BaseAIModel {
 
     async locallyInstalled(_request: any): Promise<boolean> {
         return false;
+    }
+
+    async jsonCompletions(request: CompletionRequest, jsonSchema: any): Promise<CompletionJSONResponse> {
+        this.validateRequest(request);
+        this.abortController = new AbortController();
+        let messages = request.history?.map(msg => ({
+            role: msg.role as OpenAIRole, 
+            content: msg.content
+        })) || [];
+        if (request.systemPrompt) {
+            switch (request.systemPrompt.role) {
+                case "system":
+                    messages.push({ role: "system", content: request.systemPrompt.content });
+                    break;
+                case "developer":
+                    messages.push({ role: "developer", content: request.systemPrompt.content });
+                    break;
+                case "assistant":
+                    messages.push({ role: "assistant", content: request.systemPrompt.content });
+                    break;
+                default:
+                    messages.push({ role: request.systemPrompt.role, content: request.systemPrompt.content });
+                    break;
+            }
+        }
+        messages.push({ role: "user", content: request.prompt });
+        let request_body = {
+            model: request.model,
+            messages: messages,
+            max_tokens: request.max_tokens ? request.max_tokens : 2048,
+            temperature: request.temperature ? request.temperature : 0,
+            response_format: { type: "json_object" }
+        };
+        if (request.top_p) {
+            request_body["top_p"] = request.top_p;
+        }
+        if (request.presence_penalty) {
+            request_body["presence_penalty"] = request.presence_penalty;
+        }
+        
+        try {
+            // @ts-ignore
+            const response = await this.client.chat.completions.create(request_body, { signal: this.abortController.signal });
+
+            return {
+                json: JSON.parse(response.choices[0].message.content),
+            };
+        } catch (error) {
+            throw new Error(error);
+        }
     }
 }

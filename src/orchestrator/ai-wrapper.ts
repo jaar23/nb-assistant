@@ -1,4 +1,4 @@
-import { AIModelInterface, CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse, ListModelResponse, AIModelConfig } from './types';
+import { AIModelInterface, CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse, ListModelResponse, AIModelConfig, CompletionJSONResponse } from './types';
 import { OpenAIModel } from './openai-model';
 import { ClaudeModel } from './claude-model';
 import { DeepseekModel } from './deepseek-model';
@@ -44,6 +44,10 @@ export class AIWrapper {
 
     async locallyInstalled(request: any): Promise<boolean> {
         return this.model.locallyInstalled(request);
+    }
+
+    async jsonCompletions(request: any, jsonSchema: any): Promise<CompletionJSONResponse> {
+        return this.model.jsonCompletions(request, jsonSchema);
     }
 
     cancelRequest(): void {

@@ -1,5 +1,5 @@
 import { BaseAIModel } from './base-model';
-import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse, ListModelResponse } from './types';
+import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse, ListModelResponse, CompletionJSONResponse } from './types';
 import Anthropic from '@anthropic-ai/sdk';
 
 type ClaudeRole = "assistant" | "user" | "system" | "developer" | any;
@@ -202,4 +202,65 @@ export class ClaudeModel extends BaseAIModel {
     async locallyInstalled(_request: any): Promise<boolean> {
         return false;
     }
+
+    async jsonCompletions(request: CompletionRequest, jsonSchema: any): Promise<CompletionJSONResponse> {
+        this.validateRequest(request);
+        this.abortController = new AbortController();
+        let messages = [];
+        if (request.systemPrompt) {
+            switch (request.systemPrompt.role) {
+                case "system":
+                    messages.push({ role: "system", content: request.systemPrompt.content });
+                    break;
+                case "developer":
+                    messages.push({ role: "developer", content: request.systemPrompt.content });
+                    break;
+                case "assistant":
+                    messages.push({ role: "assistant", content: request.systemPrompt.content });
+                    break;
+                default:
+                    messages.push({ role: request.systemPrompt.role, content: request.systemPrompt.content });
+                    break;
+            }
+        }
+        messages.push({ role: "user", content: `${request.prompt}\n JSON Schema Output format: ${jsonSchema}` });
+
+        let request_body = {
+            max_tokens: request.max_tokens ? request.max_tokens : 2048,
+            messages: messages,
+            model: request.model,
+            temperature: request.temperature ? request.temperature : 0,
+        };
+
+        if (request.top_p) {
+            request_body["top_p"] = request.top_p;
+        }
+        if (request.top_k) {
+            request_body["top_k"] = request.top_k;
+        }
+        try {
+            const message = await this.client.messages.create(request_body, { signal: this.abortController.signal });
+
+            const textContent = message.content
+                .filter(block => block.type === 'text' && block.text)
+                .map(block => block["text"])
+                .join('');
+
+            if (!textContent) {
+                throw new Error('No text content found in the response');
+            }
+
+            return {
+                json: JSON.parse(textContent)
+            };
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                return { json: null };
+            }
+            throw new Error(error);
+        }
+        // console.log(message.content);
+        // return message.content[0].text;
+    }
+
 }

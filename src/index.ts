@@ -17,6 +17,7 @@ import {
     ICard,
     ICardData,
     fetchPost,
+    ICommand,
 } from "siyuan";
 import "@/index.scss";
 

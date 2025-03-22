@@ -110,12 +110,12 @@ async function initVectorDb() {
       });
     }
 
-    // create model, storing embeddings
-    const model = await createModel();
 
     for (const nb of nbDocs) {
       await pushMsg(`${plugin.value.i18n.embeddedAndChunk} [${nb.name}]`);
       if (embeddingUsedIn.value === "local") {
+        // create model, storing embeddings
+        const model = await createModel();
         await initDb(nb.id, nb.name, nb.docs, model, plugin.value);
       } else if (embeddingUsedIn.value === "ai-provider") {
         console.log("using v2 embedding", embeddingModel.value);
