@@ -79,6 +79,8 @@ const currentDoc = ref<any>();
 const checklist = ref([]);
 const emit = defineEmits(["updateMessage", "removeMessage", "regenMessage", "slideMessage"]);
 const messageKey = computed(() => `${props.slideKey}-${props.fullMessage}`);
+const thoughts = ref("");
+const isThoughtCollapsed = ref(false);
 
 function copy() {
   const textToCopy = `${props.question}\n${props.fullMessage || props.streamMessage}`;
@@ -192,6 +194,51 @@ function msgToList() {
   }
 }
 
+function extractThought(text: string): string | null {
+  // First try to match complete thought tags
+  const completeThoughtRegex = /<thought>([\s\S]*?)<\/thought>/;
+  const completeMatch = text.match(completeThoughtRegex);
+  
+  if (completeMatch) {
+    return completeMatch[1].trim();
+  }
+  
+  // if no complete match, try to match from <thought> to the end of the text
+  const openTagIndex = text.indexOf('<thought>');
+  if (openTagIndex !== -1) {
+    // 8 is length of '<thought>'
+    const thoughtContent = text.slice(openTagIndex + 8).trim(); 
+    return thoughtContent;
+  }
+  console.log("extract null return null");
+  return null;
+}
+
+// function renderThought() {
+//   if (!props.fullMessage && !props.streamMessage) return;
+//   const msg = props.fullMessage ? props.fullMessage : props.streamMessage;
+//   thoughts.value = extractThought(msg);
+// }
+
+function toggleThoughts() {
+  isThoughtCollapsed.value = !isThoughtCollapsed.value;
+}
+
+function renderMessage() {
+  if (!props.fullMessage && !props.streamMessage) return;
+  let msg = props.fullMessage ? props.fullMessage : props.streamMessage;
+  thoughts.value = extractThought(msg);
+  if (thoughts.value) {
+    msg = msg.replace(`${thoughts.value}`, "");
+    msg = msg.replace(`<thought>`, "");
+    msg = msg.replace(`</thought>`, "");
+    msg = msg.replace(`<thought`, "");
+    return msg || "...";
+  } else {
+    return props.fullMessage
+  }
+}
+
 
 watch(() => props.streamMessage, (newVal) => {
   if (newVal) {
@@ -218,6 +265,9 @@ onMounted(async () => {
     currentDoc.value = openTabs.filter(tab => tab?.active)[0] ?? null;
     if (props.actionType === 'save_tags') {
       msgToList();
+    }
+    if (props.fullMessage) {
+      message.value = props.fullMessage;
     }
   } catch (e) {
     console.log("unable to get current active tab");
@@ -274,10 +324,20 @@ onMounted(async () => {
       </ul>
     </div>
     <div v-else>
-      <div v-if="props.fullMessage && containsHTML(props.fullMessage)" class="answer" v-html="props.fullMessage"></div>
+      <div v-if="thoughts" class="thought">
+        <div class="thought-header" @click="toggleThoughts">
+          <span>Thought Process</span>
+          <ChevronRight v-if="isThoughtCollapsed" :size="20" :stroke-width="1" class="collapse-icon" />
+          <ChevronDown v-else :size="20" :stroke-width="1" class="collapse-icon" />
+        </div>
+        <div v-show="!isThoughtCollapsed" class="thought-content" v-html="markdown.render(thoughts)"></div>
+      </div>
+      <div v-if="props.fullMessage && containsHTML(props.fullMessage)" class="answer" v-html="renderMessage()"></div>
       <div v-if="props.fullMessage && !containsHTML(props.fullMessage)" class="answer"
-        v-html="markdown.render(props.fullMessage)"></div>
-      <div v-else-if="props.streamMessage && !isEditing" class="answer" v-html="markdown.render(props.streamMessage)">
+        v-html="markdown.render(renderMessage())"></div>
+      <!-- <div v-else-if="props.streamMessage && !isEditing" class="answer" v-html="markdown.render(props.streamMessage)">
+      </div> -->
+      <div v-else-if="props.streamMessage && !isEditing" class="answer" v-html="markdown.render(renderMessage() || props.streamMessage)">
       </div>
     </div>
     <div class="ans-button-area" v-if="props.fullMessage && !isEditing">
@@ -514,9 +574,35 @@ ul {
     margin: 10px;
 }
 
-code {
-  background: var(--b3-theme-background) !important;
-  border: 1px solid var(--b3-border-color) !important;
-  border-radius: var(--b3-border-radius) !important;
+.thought {
+  padding: 0.5rem;
+  background: var(--b3-theme-background-light);
+  margin: 1rem 0rem 0rem 0rem;
+  border-radius: var(--b3-border-radius);
+  text-align: justify;
+}
+
+.thought-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  padding: 0.5rem;
+  font-weight: bold;
+}
+
+.thought-header:hover {
+  background: var(--b3-theme-background);
+  border-radius: var(--b3-border-radius);
+}
+
+.collapse-icon {
+  transition: transform 0.2s ease;
+}
+
+.thought-content {
+  padding: 0.5rem;
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--b3-border-color);
 }
 </style>

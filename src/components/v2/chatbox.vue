@@ -1053,7 +1053,7 @@ onMounted(async () => {
         </div>
       </div>
 
-      <div class="chat-overlay" v-if="view == 'chat' && (messages || []).length === 0">
+      <div class="chat-overlay" v-if="(view == 'chat' && (messages || []).length === 0) && !isStreaming">
         <h2>nb</h2>
         <br />
         <p>Hi, I'm your notebook assistant. </p>
