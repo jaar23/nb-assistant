@@ -242,7 +242,7 @@ export class DeepseekModel extends BaseAIModel {
                     break;
             }
         }
-        messages.push({ role: "user", content: request.prompt });
+        messages.push({ role: "user", content: `${request.prompt}. ALWAYS RESPONSE IN JSON ACCORDING TO THE SCHEMA PROVIDED` });
         let request_body = {
             model: request.model,
             max_tokens: request.max_tokens ? request.max_tokens : 2048,

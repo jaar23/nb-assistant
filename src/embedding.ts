@@ -430,6 +430,7 @@ export async function queryMdChunkV2(
     chunk: queryText
   }
   const response = await aiwrapper.createEmbedding(embeddingRequest);
+  console.log("query md chunk v2", response);
   const embedding = response.embeddings[0];
   const modelName = transformModelNamePathSafeStr(model);
   const vectordb = await getMemVectorDb(`${notebookId}-${modelName}`);
@@ -782,19 +783,9 @@ export async function searchNotebook(notebookId: string, query: string, plugin: 
         apiURL = plugin.settingUtils.settings.get("ollama.url") || "http://localhost:11434";
       }
       const aiwrapper = new AIWrapper(provider, { apiKey: apiKey, baseUrl: apiURL });
-      // const embeddingRequest = {
-      //   model: model,
-      //   chunk: "test embedding"
-      // }
-      // const embedding = await aiwrapper.createEmbedding(embeddingRequest);
-      // if (!(embedding.embeddings ?? false)) {
-      //   throw new Error("Embedding model is not available, unable to check for dimension");
-      // }
-
       let searchResult = [];
       
-      const words = nlpPipe(query);
-      
+      const words = nlpPipe(query) === "" ? query : nlpPipe(query);      
       console.log("searching", words);
       
       let chunkResult = [];

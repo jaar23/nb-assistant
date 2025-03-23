@@ -19,7 +19,7 @@ const messages = defineModel<Message[]>("messages");
 const plugin = defineModel("plugin");
 const streamingMessage = ref("");
 const emit = defineEmits(["updateMessage", "regenMessage", "removeMessage"]);;
-
+const slideMsgKey = ref(0);
 const props = defineProps({
   isStreaming: {
     type: Boolean,
@@ -65,8 +65,12 @@ function handleRemoveMessage(messagePair: Object) {
 }
 
 
-function handleRegenMessage(id: string, message: string) {
-  emit("regenMessage", id, message);
+function handleRegenMessage(id: string, message: string, blockId?: string, actionType?: string) {
+  if (blockId && actionType) {
+    emit("regenMessage", id, message, blockId, actionType);
+  } else {
+    emit("regenMessage", id, message);
+  }
 }
 
 
@@ -85,8 +89,10 @@ function handleSlideMessage(id: string, which: string, direction: string) {
     if (msg.id === id) {
       if (which === "question") {
         msg.questionIndex = direction === "left" ? Math.max(0, msg.questionIndex - 1): Math.min(msg.questionIndex + 1, msg.question.length - 1);
+        slideMsgKey.value += 1;
       } else if (which === "answer") {
         msg.answerIndex = direction === "left" ? Math.max(0, msg.answerIndex - 1): Math.min(msg.answerIndex + 1, msg.answer.length - 1);
+        slideMsgKey.value += 1;
       }
     }
   }
@@ -118,9 +124,10 @@ defineExpose({
       <message :question="msg.question.length > 0 ? msg.question[msg.questionIndex]:''" 
         :fullMessage="msg.answer.length > 0 ?msg.answer[msg.answerIndex] : ''" :isStreaming="false" :id="msg.id"
         @updateMessage="handleUpdateMessage" @removeMessage="handleRemoveMessage" 
-        @regenMessage="handleRegenMessage" @slideMessage="handleSlideMessage"/>
+        @regenMessage="handleRegenMessage" @slideMessage="handleSlideMessage" :plugin="plugin"
+        :actionable="msg.actionable" :blockId="msg.blockId" :actionType="msg.actionType" :slideKey="slideMsgKey"/>
     </li>
-    <message style="border: 1px solid red" class="focus-msg" v-if="props.isStreaming && streamingMessage !== ''" :question="props.question" 
+    <message class="focus-msg" v-if="props.isStreaming && streamingMessage !== ''" :question="props.question" 
       :streamMessage="streamingMessage" :isStreaming="props.isStreaming" :id="'temp'" />
   </ul>
 </template>
@@ -154,5 +161,6 @@ ul {
 
 .focus-msg {
   border: 1px solid var(--b3-border-color);
+  border-radius: var(--b3-border-radius);
 }
 </style>

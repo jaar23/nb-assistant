@@ -8,10 +8,10 @@ import MarkdownItSub from "markdown-it-sub";
 import MarkdownItSup from "markdown-it-sup";
 import MarkdownItTasklists from "markdown-it-task-lists";
 import MarkdownItStyle from "markdown-it-style";
-import { onMounted, ref, watch } from "vue";
-import { FilePenLine, Copy, X, CircleCheckBig, Trash, RefreshCcw, ChevronLeft, ChevronRight, BetweenHorizontalStart } from 'lucide-vue-next';
+import { computed, onMounted, ref, watch } from "vue";
+import { FilePenLine, Copy, X, CircleCheckBig, Trash, RefreshCcw, ChevronLeft, ChevronRight, BetweenHorizontalStart, Save } from 'lucide-vue-next';
 import { getCurrentTabs } from "@/utils";
-import { appendBlock, request } from "@/api";
+import { appendBlock, request, pushMsg, setBlockAttrs } from "@/api";
 
 const markdown = new MarkdownIt()
   .use(MarkdownItAbbr)
@@ -47,6 +47,27 @@ const props = defineProps({
   question: {
     type: String,
     required: false
+  },
+  actionable: {
+    type: Boolean,
+    required: false
+  },
+  actionType: {
+    type: String,
+    required: false
+  },
+  blockId: {
+    type: String,
+    required: false
+  },
+  plugin: {
+    type: Object,
+    required: false
+  },
+  slideKey: {
+    type: Number,
+    required: false,
+    default: 0
   }
 });
 
@@ -56,8 +77,9 @@ const editedMessage = ref<string>("");
 const showConfirmDialog = ref<boolean>(false);
 const confirmAction = ref<{ type: string, whoseMessage: string } | null>(null);
 const currentDoc = ref<any>();
-
+const checklist = ref([]);
 const emit = defineEmits(["updateMessage", "removeMessage", "regenMessage", "slideMessage"]);
+const messageKey = computed(() => `${props.slideKey}-${props.fullMessage}`);
 
 function copy() {
   const textToCopy = `${props.question}\n${props.fullMessage || props.streamMessage}`;
@@ -87,7 +109,11 @@ function removeMessage(whoseMessage: string) {
 
 function regenMessage() {
   const rewriteMessage = `Regenerate response with following context\n${props.question}\n${props.fullMessage}`;
-  emit("regenMessage", props.id, rewriteMessage);
+  if (props.blockId && props.actionType) {
+    emit("regenMessage", props.id, rewriteMessage, props.blockId, props.actionType);
+  } else {
+    emit("regenMessage", props.id, rewriteMessage);
+  }
 }
 
 function slideMessage(which: string, direction: string) {
@@ -112,6 +138,25 @@ async function appendToDoc(message: string) {
   }
 }
 
+async function save(id: string, action: string) {
+  if (action === 'save_summary') {
+    const data = `### ${props.plugin.i18n.summaryText}\n${props.fullMessage}`;
+    await appendBlock("markdown", data, id);
+    await pushMsg(props.plugin.i18n.summarySaved);
+  } else if (action === 'save_tags') {
+    const tags = checklist.value.filter((x) => x.checked).map((x) => x.tag);
+    if (tags.length > 0) {
+      const attrs = {
+        tags: tags.join(","),
+      };
+      await setBlockAttrs(id, attrs);
+      await pushMsg(props.plugin.i18n.tagsAdded);
+    } else {
+      await pushMsg(props.plugin.i18n.noTagsSelected);
+    }
+  }
+}
+
 function confirmActionHandler() {
   if (confirmAction.value?.type === 'remove') {
     const { whoseMessage } = confirmAction.value;
@@ -131,14 +176,27 @@ function cancelActionHandler() {
 }
 
 function containsHTML(input) {
-    const htmlRegex = /<([A-Za-z][A-Za-z0-9]*)\b[^>]*>(.*?)<\/\1>|<[A-Za-z][A-Za-z0-9]*\b[^>]*\/>/;
-    return htmlRegex.test(input);
+  const htmlRegex = /<([A-Za-z][A-Za-z0-9]*)\b[^>]*>(.*?)<\/\1>|<[A-Za-z][A-Za-z0-9]*\b[^>]*\/>/;
+  return htmlRegex.test(input);
+}
+
+function msgToList() {
+  if (props.fullMessage) {
+    checklist.value = [];
+    const content = JSON.parse(props.fullMessage);
+    for (const tag of content.tags) {
+        checklist.value.push({
+            checked: false,
+            tag: tag,
+        });
+    }
+  }
 }
 
 
 watch(() => props.streamMessage, (newVal) => {
   if (newVal) {
-    console.log('Stream message updated:', newVal);
+    // console.log('Stream message updated:', newVal);
     message.value = newVal;
   }
 });
@@ -147,6 +205,9 @@ watch(() => props.fullMessage, (newVal) => {
   if (newVal) {
     console.log('Full message updated:', newVal);
     message.value = newVal;
+    if (props.actionType === 'save_tags') {
+      msgToList();
+    }
   }
 });
 
@@ -155,9 +216,10 @@ onMounted(async () => {
   try {
     const systemConf = await request("/api/system/getConf", {});
     const openTabs = getCurrentTabs(systemConf.conf.uiLayout.layout)
-    console.log("system conf: ", systemConf)
     currentDoc.value = openTabs.filter(tab => tab?.active)[0] ?? null;
-    // console.log("active block id", currentDoc.value);
+    if (props.actionType === 'save_tags') {
+      msgToList();
+    }
   } catch (e) {
     console.log("unable to get current active tab");
     console.error(e);
@@ -168,58 +230,76 @@ onMounted(async () => {
 
 <template>
   <div class="msg-container">
-    <div v-if="props.question && !isEditing && containsHTML(props.question)" class="question" v-html="props.question"></div>
-    <div v-if="props.question && !isEditing && !containsHTML(props.question)" class="question" v-html="markdown.render(props.question)"></div>
+    <div v-if="props.question && !isEditing && containsHTML(props.question)" class="question" v-html="props.question">
+    </div>
+    <div v-if="props.question && !isEditing && !containsHTML(props.question)" class="question"
+      v-html="markdown.render(props.question)"></div>
     <div class="ques-button-area" v-if="props.question && !isEditing">
       <button @click="copy" class="msg-button">
-        <Copy :size="20" color="#fafafa" :stroke-width="1" />
+        <Copy :size="20" :stroke-width="1" />
       </button>
       <button @click="startEditing" class="msg-button">
-        <FilePenLine :size="20" color="#fafafa" :stroke-width="1" />
+        <FilePenLine :size="20" :stroke-width="1" />
       </button>
       <button @click="removeMessage('question')" class="msg-button">
-        <Trash :size="20" color="#fafafa" :stroke-width="1" />
+        <Trash :size="20" :stroke-width="1" />
       </button>
       <button @click="slideMessage('question', 'left')" class="msg-button">
-        <ChevronLeft :size="20" color="#fafafa" :stroke-width="1" />
+        <ChevronLeft :size="20" :stroke-width="1" />
       </button>
       <button @click="slideMessage('question', 'right')" class="msg-button">
-        <ChevronRight :size="20" color="#fafafa" :stroke-width="1" />
+        <ChevronRight :size="20" :stroke-width="1" />
       </button>
     </div>
     <div v-if="isEditing" class="question">
       <textarea class="inline-edit-textarea" v-model="editedMessage"></textarea>
       <div class="ques-button-area">
         <button @click="saveEdit" class="msg-button" :disabled="editedMessage.trim() === ''">
-          <CircleCheckBig :size="20" color="#fafafa" :stroke-width="1" />
+          <CircleCheckBig :size="20" :stroke-width="1" />
         </button>
         <button @click="cancelEdit" class="msg-button">
-          <X :size="20" color="#fafafa" :stroke-width="1" />
+          <X :size="20" :stroke-width="1" />
         </button>
       </div>
     </div>
-    <div v-if="props.fullMessage && containsHTML(props.fullMessage)" class="answer" v-html="props.fullMessage"></div>
-    <div v-if="props.fullMessage && !containsHTML(props.fullMessage)" class="answer" v-html="markdown.render(props.fullMessage)"></div>
-    <div v-else-if="props.streamMessage && !isEditing" class="answer" v-html="markdown.render(props.streamMessage)">
+    <!-- answer section -->
+    <div v-if="props.actionType === 'save_tags' && props.fullMessage" class="action" :key="messageKey">
+      <span>{{ plugin.i18n.selectTags }}</span>
+      <ul>
+        <li v-for="item in checklist">
+            <input type="checkbox" :value="item.tag" @click="item.checked = !item.checked" />
+            <label>{{ item.tag }}</label>
+        </li>
+      </ul>
+    </div>
+    <div v-else>
+      <div v-if="props.fullMessage && containsHTML(props.fullMessage)" class="answer" v-html="props.fullMessage"></div>
+      <div v-if="props.fullMessage && !containsHTML(props.fullMessage)" class="answer"
+        v-html="markdown.render(props.fullMessage)"></div>
+      <div v-else-if="props.streamMessage && !isEditing" class="answer" v-html="markdown.render(props.streamMessage)">
+      </div>
     </div>
     <div class="ans-button-area" v-if="props.fullMessage && !isEditing">
+      <button v-if="props.actionable" @click="save(props.blockId, props.actionType)" class="msg-button">
+        <Save :size="20" :stroke-width="1" />
+      </button>
       <button @click="copy" class="msg-button">
-        <Copy :size="20" color="#fafafa" :stroke-width="1" />
+        <Copy :size="20" :stroke-width="1" />
       </button>
       <button @click="regenMessage" class="msg-button">
-        <RefreshCcw :size="20" color="#fafafa" :stroke-width="1" />
+        <RefreshCcw :size="20" :stroke-width="1" />
       </button>
       <button @click="appendToDoc(props.fullMessage)" class="msg-button">
-        <BetweenHorizontalStart :size="20" color="#fafafa" :stroke-width="1" />
+        <BetweenHorizontalStart :size="20" :stroke-width="1" />
       </button>
       <button @click="removeMessage('answer')" class="msg-button">
-        <Trash :size="20" color="#fafafa" :stroke-width="1" />
+        <Trash :size="20" :stroke-width="1" />
       </button>
       <button @click="slideMessage('answer', 'left')" class="msg-button">
-        <ChevronLeft :size="20" color="#fafafa" :stroke-width="1" />
+        <ChevronLeft :size="20" :stroke-width="1" />
       </button>
       <button @click="slideMessage('answer', 'right')" class="msg-button">
-        <ChevronRight :size="20" color="#fafafa" :stroke-width="1" />
+        <ChevronRight :size="20" :stroke-width="1" />
       </button>
     </div>
 
@@ -237,9 +317,28 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-svg {
-  fill: var(--b3-bq-background);
+/* svg {
   display: inline-block;
+  border: 1px solid var(--b3-border-color);
+  border-radius: var(--b3-border-radius);
+  padding: 2px;
+  color: transparent !important;
+} */
+
+svg {
+  fill: transparent;
+  display: inline-block;
+  background: transparent;
+  color: currentColor;
+  stroke: var(--b3-theme-on-background);
+  padding: 2px;
+  border: 1px solid var(--b3-border-color);
+  border-radius: var(--b3-border-radius);
+}
+
+
+svg:hover {
+  stroke: var(--b3-theme-primary);
 }
 
 code {
@@ -377,5 +476,31 @@ ul {
 .cancel-button {
   background-color: var(--b3-theme-secondary);
   color: white;
+}
+
+.act-button:active {
+    transform: scale(0.98);
+    /* Scaling button to 0.98 to its original size */
+    box-shadow: 3px 2px 22px 1px rgba(0, 0, 0, 0.24);
+    /* Lowering the shadow */
+}
+
+.action {
+    margin: 0.25em;
+    text-align: justify;
+    text-justify: inter-word;
+    padding: 0.4em;
+}
+
+.action ul {
+    list-style-type: none;
+}
+
+.action ul li input {
+    cursor: pointer;
+}
+
+.action ul li label {
+    margin: 10px;
 }
 </style>
