@@ -139,8 +139,6 @@ Input: {text}
 `;
 
 
-const isDropdownOpen = ref(false);
-
 async function prompt(stream = true, withHistory = true) {
   try {
     console.log('Starting stream...');
@@ -209,7 +207,7 @@ async function prompt(stream = true, withHistory = true) {
       let fullResponse = "";
       if (stream) {
         if (chatAlias.value !== "") {
-          question.value = chatAlias.value;
+          question.value = `${chatAlias.value}\n${chatInput.value}`;
         } else {
           question.value = chatInput.value;
         }
@@ -537,11 +535,14 @@ async function autoTagDoc(msgId?: string, id?: string) {
 
 async function getChatContext() {
   let context = "";
+  let title = "";
   const selectedIds = Array.from(selectedTarget.value);
   for (const doc of selectedIds) {
     const markdown = await exportMdContent(doc);
     context = `${context}\n---\n${markdown.content}`;
+    title = `${title}\n - ${markdown.hPath.replace("/", "")}\n\n`
   }
+  chatAlias.value = title;
   extraContext.value = context;
   console.log("extra context", extraContext.value);
   showChatAction.value = false;

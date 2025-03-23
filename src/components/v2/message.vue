@@ -22,10 +22,9 @@ const markdown = new MarkdownIt()
   .use(MarkdownItSup)
   .use(MarkdownItTasklists)
   .use(MarkdownItStyle, {
-    'code': 'border: 1px solid var(--b3-border-color);border-radius: var(--b3-border-radius);background: var(--b3-theme-background)',
     'p': 'line-height: 1.75;',
-    'ul': 'line-height: 1.75;',
-    'ol': 'line-height: 1.75;'
+    'ul': 'line-height: 1.75; padding: 0rem 1rem;',
+    'ol': 'line-height: 1.75; padding: 0rem 1rem;'
   });
 const props = defineProps({
   id: {
@@ -230,10 +229,12 @@ onMounted(async () => {
 
 <template>
   <div class="msg-container">
-    <div v-if="props.question && !isEditing && containsHTML(props.question)" class="question" v-html="props.question">
-    </div>
-    <div v-if="props.question && !isEditing && !containsHTML(props.question)" class="question"
+    <div class="question-area">
+      <div v-if="props.question && !isEditing && containsHTML(props.question)" class="question" v-html="props.question">
+      </div>
+      <div v-if="props.question && !isEditing && !containsHTML(props.question)" class="question"
       v-html="markdown.render(props.question)"></div>
+    </div>
     <div class="ques-button-area" v-if="props.question && !isEditing">
       <button @click="copy" class="msg-button">
         <Copy :size="20" :stroke-width="1" />
@@ -415,10 +416,19 @@ ul {
   padding: 0.4em;
 }
 
-.question {
+.question-area {
   margin: 0.25em;
-  text-align: right;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.question {
   padding: 0.4em;
+  border: 1px solid var(--b3-border-color);
+  border-radius: var(--b3-border-radius);
+  padding: 1rem;
+  background: var(--b3-theme-background-light);
+  width: fit-content;
 }
 
 .msg-container {
@@ -502,5 +512,11 @@ ul {
 
 .action ul li label {
     margin: 10px;
+}
+
+code {
+  background: var(--b3-theme-background) !important;
+  border: 1px solid var(--b3-border-color) !important;
+  border-radius: var(--b3-border-radius) !important;
 }
 </style>
