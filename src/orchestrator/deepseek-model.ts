@@ -74,7 +74,11 @@ export class DeepseekModel extends BaseAIModel {
             let fullResponse = "";
             let response_json = await response.json();
             for (const choice of response_json.choices) {
-                fullResponse += choice.message.content + "\n";
+                if (choice.message.reasoning_content) {
+                    fullResponse += choice.message.reasoning_content + "\n";
+                } else {   
+                    fullResponse += choice.message.content + "\n";
+                }
             }
             return { text: fullResponse };
         } catch (error) {
@@ -134,7 +138,7 @@ export class DeepseekModel extends BaseAIModel {
             const reader = resp.body?.getReader();
             const decoder = new TextDecoder('utf-8');
             let buffer = "";
-
+            let reasoning = false;
             while (true && reader) {
                 try {
                     const { done, value } = await reader.read();
@@ -155,9 +159,23 @@ export class DeepseekModel extends BaseAIModel {
                             const jsonString = line.replace(/^data: /, '').trim();
                             const json = JSON.parse(jsonString);
                             const content = json.choices[0]?.delta?.content || '';
-                            if (content !== '') {
-                                callback({ text: content, isComplete: false });
+                            const reasoning_content = json.choices[0]?.delta?.reasoning_content || '';
+                            if (reasoning_content !== '') {
+                                if (!reasoning) {
+                                    callback({ text: `<thought>${reasoning_content}`, isComplete: false });
+                                    reasoning = true;
+                                } else {
+                                    callback({ text: reasoning_content, isComplete: false });
+                                }
                             }
+                            if (content !== '') {
+                                if (reasoning) {
+                                    callback({ text: `</thought>${content}`, isComplete: false });
+                                    reasoning = false;
+                                } else {
+                                    callback({ text: content, isComplete: false });
+                                }
+                            } 
                         } catch (e) {
                             // console.error('Error parsing chunk:', e);
                             // console.log(line);

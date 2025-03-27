@@ -115,5 +115,7 @@
     "aiTitleTopK": "Top K",
     "aiTitlePresencePenalty": "Presence Penalty",
     "aiTitleFrequencyPenalty": "Frequency Penalty",
-    "aiTitleStopWords": "Stop Words"
+    "aiTitleStopWords": "Stop Words",
+    "truncateHistory": "Chat History Truncate",
+    "truncateHistoryDesc": "Exclude older messages in the chat history, preserve on x number of messages for chat context"
 }

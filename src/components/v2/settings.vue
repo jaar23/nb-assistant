@@ -18,6 +18,7 @@ const sections = ref([
 const isLoading = ref(false);
 const enterToSend = ref(true);
 const aiEmoji = ref("aiEmoji");
+const truncateHistory = ref(7);
 const selectedNotebook = ref("-");
 const nbOptions = ref([]);
 const embedOpts = ref([{ label: plugin.value.i18n.aiLocalEmbedding, value: "local" }, { label: plugin.value.i18n.aiAiproviderEmbedding, value: "ai-provider" }]);
@@ -188,6 +189,7 @@ async function saveSetting() {
     plugin.value.settingUtils.settings.set("chatSaveNotebook", selectedNotebook.value);
     plugin.value.settingUtils.settings.set("aiEmoji", aiEmoji.value);
     plugin.value.settingUtils.settings.set("enterToSend", enterToSend.value);
+    plugin.value.settingUtils.settings.set("chatHistoryTruncate", truncateHistory.value);
     console.log("update setting");
     await plugin.value.settingUtils.save();
     console.log("setting updated");
@@ -330,6 +332,11 @@ onMounted(async () => {
     }
     enterToSend.value = plugin.value.settingUtils.settings.get("enterToSend");
 
+    if (!plugin.value.settingUtils.settings.get("chatHistoryTruncate")) {
+        await plugin.value.settingUtils.settings.set("chatHistoryTruncate", 7);
+    }
+    truncateHistory.value = plugin.value.settingUtils.settings.get("chatHistoryTruncate");
+
     claudeSettings.value.customSystemPrompt = plugin.value.settingUtils.settings.get("claude.customSystemPrompt") || '';
     claudeSettings.value.customUserPrompt = plugin.value.settingUtils.settings.get("claude.customUserPrompt") || '';
     claudeSettings.value.model = plugin.value.settingUtils.settings.get("claude.model") || 'claude-3-5-haiku-20241022';
@@ -446,6 +453,16 @@ onUnmounted(async () => {
                             </div>
                         </div>
                         <p class="setting-description">{{ plugin.i18n.saveChatDesc }}</p>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-header">
+                            <span>{{ plugin.i18n.truncateHistory }}</span>
+                            <div class="form-item">
+                                <input type="number" class="emoji-input" v-model="truncateHistory" @focusout="saveSetting">
+                            </div>
+                        </div>
+                        <p class="setting-description">{{ plugin.i18n.truncateHistoryDesc }}</p>
                     </div>
                 </div>
             </div>

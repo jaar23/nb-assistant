@@ -113,6 +113,7 @@ aiTitleTopK: Top K
 aiTitlePresencePenalty: 出现率惩罚
 aiTitleFrequencyPenalty: 频率率惩罚
 aiTitleStopWords: 停止词
-
+truncateHistory: 保留对话上下文
+truncateHistoryDesc: 在聊天历史中排除较早的消息，仅保留最近的 X 条消息以维持对话上下文
 
 

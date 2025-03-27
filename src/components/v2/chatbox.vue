@@ -138,6 +138,44 @@ ALWAYS RESPONSE ONLY IN PLAINTEXT FORMAT
 Input: {text}
 `;
 
+// getting started
+const isTutorialActive = ref(false);
+const currentTutorialStep = ref(0);
+const highlightStyle = ref({});
+const currentStep = ref(null);
+const tutorialSteps = [
+  {
+    target: '.toolbar-right',
+    title: 'Navigation',
+    content: 'These buttons help you navigate between different views: Search, Vector Database, New Chat, History, and Chat.',
+    position: 'bottom'
+  },
+  {
+    target: '.model-select',
+    title: 'AI Model Selection',
+    content: 'Choose which AI model to use for your conversations.',
+    position: 'top'
+  },
+  {
+    target: '.quick-action',
+    title: 'Quick Actions',
+    content: 'Use @ commands for quick actions like saving chats, summarizing documents, auto-tagging, and adding context.',
+    position: 'top'
+  },
+  {
+    target: '.input-area',
+    title: 'Chat Input',
+    content: 'Type your messages here. Press Enter to send (can be configured in settings).',
+    position: 'top'
+  },
+  {
+    target: '.settings',
+    title: 'Settings',
+    content: 'Configure your preferences, API keys, and other options.',
+    position: 'right'
+  }
+];
+
 
 async function prompt(stream = true, withHistory = true) {
   try {
@@ -707,8 +745,45 @@ async function handleOpenChatHistory(id: string) {
 }
 
 async function handleGetStarted() {
-  console.log("display tutorial")
+  isTutorialActive.value = true;
+  currentTutorialStep.value = 0;
+  await nextTick();
+  updateTutorialHighlight();
 }
+
+function updateTutorialHighlight() {
+  const step = tutorialSteps[currentTutorialStep.value];
+  currentStep.value = step;
+  
+  const element = document.querySelector(step.target);
+  if (element) {
+    const rect = element.getBoundingClientRect();
+    highlightStyle.value = {
+      top: `${rect.top - 4}px`,
+      left: `${rect.left - 4}px`,
+      width: `${rect.width + 8}px`,
+      height: `${rect.height + 8}px`
+    };
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+function nextTutorialStep() {
+  if (currentTutorialStep.value >= tutorialSteps.length - 1) {
+    isTutorialActive.value = false;
+    currentStep.value = null;
+    return;
+  }
+  currentTutorialStep.value++;
+  updateTutorialHighlight();
+}
+
+// Add a watch for window resize to update highlight position
+window.addEventListener('resize', () => {
+  if (isTutorialActive.value) {
+    updateTutorialHighlight();
+  }
+});
 
 async function handleModelChange() {
   plugin.value.settingUtils.settings.set("selectedModel", selectedModel.value);
@@ -735,9 +810,10 @@ async function loadModels() {
 
 function handleFocus() {
   isFocused.value = true;
+  // window.scrollTo(0, document.body.scrollHeight);
   setTimeout(() => {
     window.scrollTo(0, document.body.scrollHeight);
-  }, 100);
+  }, 250);
 }
 
 function handleBlur() {
@@ -1027,6 +1103,25 @@ onMounted(async () => {
 
 <template>
   <div class="page-container">
+    <!-- Add this new component to the template, just after the chat-wrapper div -->
+    <div class="tutorial-overlay" v-if="isTutorialActive">
+      <div class="tutorial-backdrop"></div>
+      <div class="tutorial-highlight-container" v-if="currentStep">
+        <div class="tutorial-highlight" :style="highlightStyle">
+          <div class="tutorial-tooltip" :class="currentStep.position">
+            <h4>{{ currentStep.title }}</h4>
+            <p>{{ currentStep.content }}</p>
+            <div class="tutorial-controls">
+              <span class="tutorial-progress">{{ currentTutorialStep + 1 }} / {{ tutorialSteps.length }}</span>
+              <button class="tutorial-next" @click="nextTutorialStep">
+                {{ currentTutorialStep === tutorialSteps.length - 1 ? 'Finish' : 'Next' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
     <div class="chat-wrapper">
       <div class="toolbar">
         <div class="toolbar-left">
@@ -1168,7 +1263,7 @@ onMounted(async () => {
               </option>
             </select>
           </div>
-          <span class="btn-a" @click="showChatAction = !showChatAction; handleActionCommand()">
+          <span class="btn-a quick-action" @click="showChatAction = !showChatAction; handleActionCommand()">
             @ more action
           </span>
           <button @click="cancelPrompt" class="cancel-prompt" v-if="isLoading">
@@ -1667,6 +1762,154 @@ h2 {
 }
 
 /** selection context */
+
+/** getting started */
+.tutorial-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 10000;
+  pointer-events: none;
+}
+
+.tutorial-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+.tutorial-highlight-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.tutorial-highlight {
+  position: absolute;
+  border: 2px solid var(--b3-theme-primary);
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  pointer-events: none;
+}
+
+.tutorial-tooltip {
+  position: absolute;
+  background: var(--b3-theme-background);
+  border: 1px solid var(--b3-border-color);
+  border-radius: 4px;
+  padding: 16px;
+  width: 280px;
+  pointer-events: all;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.tutorial-tooltip.top {
+  bottom: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.tutorial-tooltip.bottom {
+  top: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.tutorial-tooltip.left {
+  right: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.tutorial-tooltip.right {
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.tutorial-tooltip h4 {
+  margin: 0 0 8px 0;
+  color: var(--b3-theme-primary);
+  font-size: 16px;
+}
+
+.tutorial-tooltip p {
+  margin: 0 0 16px 0;
+  color: var(--b3-theme-on-background);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.tutorial-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tutorial-progress {
+  color: var(--b3-theme-on-surface);
+  font-size: 12px;
+}
+
+.tutorial-next {
+  background: var(--b3-theme-primary);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s ease;
+}
+
+.tutorial-next:hover {
+  background: var(--b3-theme-primary-dark);
+}
+
+/* Add position indicators */
+.tutorial-tooltip::before {
+  content: '';
+  position: absolute;
+  border: 8px solid transparent;
+}
+
+.tutorial-tooltip.top::before {
+  border-top-color: var(--b3-border-color);
+  bottom: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.tutorial-tooltip.bottom::before {
+  border-bottom-color: var(--b3-border-color);
+  top: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.tutorial-tooltip.left::before {
+  border-left-color: var(--b3-border-color);
+  right: -16px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.tutorial-tooltip.right::before {
+  border-right-color: var(--b3-border-color);
+  left: -16px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+/** getting started */
 
 /* Mobile-specific styles */
 @media (max-width: 480px) {
