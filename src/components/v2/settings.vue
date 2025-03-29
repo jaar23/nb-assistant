@@ -913,6 +913,7 @@ onUnmounted(async () => {
                                 class="provider-input" min="1" max="200000">
                         </div>
                     </div>
+                    <p class="setting-description">{{ plugin.i18n.notWorkingInO1 }}</p>
                     <p class="setting-description">{{ plugin.i18n.aiMaxTokens }}</p>
                 </div>
 
@@ -925,6 +926,7 @@ onUnmounted(async () => {
                                 class="provider-input" min="0" max="1" step="0.1">
                         </div>
                     </div>
+                    <p class="setting-description">{{ plugin.i18n.notWorkingInO1 }}</p>
                     <p class="setting-description">{{ plugin.i18n.aiTemperature }}</p>
                 </div>
 
@@ -938,6 +940,7 @@ onUnmounted(async () => {
                                 class="provider-input" min="0" max="1" step="0.1">
                         </div>
                     </div>
+                    <p class="setting-description">{{ plugin.i18n.notWorkingInO1 }}</p>
                     <p class="setting-description">{{ plugin.i18n.aiTopP }}</p>
                 </div>
 
@@ -950,6 +953,7 @@ onUnmounted(async () => {
                                 class="provider-input" min="-2" max="2" step="0.1">
                         </div>
                     </div>
+                    <p class="setting-description">{{ plugin.i18n.notWorkingInO1 }}</p>
                     <p class="setting-description">{{ plugin.i18n.aiPresencePenalty }}</p>
                 </div>
 
@@ -963,6 +967,7 @@ onUnmounted(async () => {
                                 class="provider-input">
                         </div>
                     </div>
+                    <p class="setting-description">{{ plugin.i18n.notWorkingInO1 }}</p>
                     <p class="setting-description">{{ plugin.i18n.aiStopWords }}</p>
                 </div>
             </div>

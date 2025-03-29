@@ -35,7 +35,7 @@ import {
 import history from "./history.vue";
 import { CircleStop, Settings2, History, Plus, MessageCircle, Database, Search } from 'lucide-vue-next';
 import { AIWrapper } from "@/orchestrator/ai-wrapper";
-import { CompletionRequest } from "@/orchestrator/types";
+import { CompletionRequest, ImageSize2, ImageStyle } from "@/orchestrator/types";
 import { Message } from "../history.vue";
 import savedchat from "./savedchat.vue";
 import vectordb from "./vectordb.vue";
@@ -82,7 +82,8 @@ const chatActions = [
   { label: "Save Chat", cmd: "save chat", action: saveChatToNote, shortcut: "sc" },
   { label: "Summarize Doc", cmd: "summarize doc", action: summarizeOpenDoc, shortcut: "sd" },
   { label: "Auto Tag Doc", cmd: "tag doc", action: autoTagDoc, shortcut: "atd" },
-  { label: "Add Context", cmd: "add context", action: getChatContext, shortcut: "ac" }
+  { label: "Add Context", cmd: "add context", action: getChatContext, shortcut: "ac" },
+  { label: "Image Generation", cmd: "image generation", action: generateImage, shortcut: "ig" }
 ];
 const actionTarget = ref("");
 const actionInputRef = ref(null);
@@ -92,8 +93,23 @@ const selectedTarget = ref<Set<string>>(new Set());
 const docListIndex = ref(-1);
 const extraContext = ref("");
 const newDocName = ref("");
+const imagePrompt = ref("");
+const imageStyle = ref("vivid");
+const imageSize = ref("1024x1024");
+const showImageOptions = ref(false);
+
+const imageStyles = [
+  { label: "Vivid", value: "vivid" },
+  { label: "Natural", value: "natural" }
+];
+
+const imageSizes = [
+  { label: "1024x1024", value: "1024x1024" },
+  { label: "1792x1024", value: "1792x1024" },
+  { label: "1024x1792", value: "1024x1792" }
+];
+
 const openTabs = ref([]);
-const selectedSumTab = ref("");
 const chatAlias = ref("");
 const SUMMARIZE_PROMPT = `
 Provide a comprehensive summary of the given text. The summary should cover all the key points and main ideas presented
@@ -231,18 +247,32 @@ async function prompt(stream = true, withHistory = true) {
         const stop_words = modelConfig.get("stop").split(",");
         request["stop"] = stop_words;
       }
-      if (messages.value.length > 0 && withHistory) {
-        const chatHistory = messages.value.reduce((box, m) => {
-          box.push({ role: "user", content: m.question[m.questionIndex] });
-          box.push({ role: "assistant", content: m.answer[m.answerIndex] });
+      // Handle chat history with truncation
+      if (messages.value?.length > 0 && withHistory) {
+        const historyLimit = settings.get("chatHistoryTruncate") || 7; // Default to 7 if not set
+        const recentMessages = messages.value.slice(-historyLimit); // Take only the most recent messages
+        
+        const chatHistory = recentMessages.reduce((box, m) => {
+          if (m.question[m.questionIndex] && m.answer[m.answerIndex]) {
+            box.push({ role: "user", content: m.question[m.questionIndex] });
+            box.push({ role: "assistant", content: m.answer[m.answerIndex] });
+          }
           return box;
         }, [] as Array<{ role: string, content: string }>);
+        
         request["history"] = chatHistory;
+        
+        // Log truncation info for debugging
+        if (messages.value.length > historyLimit) {
+          console.log(`Chat history truncated from ${messages.value.length} to ${historyLimit} messages`);
+        }
       }
+
       request["prompt"] = `${extraContext.value !== '' ? extraContext.value + '\n' : ''}${prompt}`;
       request["model"] = selectedModel.value;
 
       let fullResponse = "";
+      reply.value = "";
       if (stream) {
         if (chatAlias.value !== "") {
           question.value = `${chatAlias.value}\n${chatInput.value}`;
@@ -253,7 +283,12 @@ async function prompt(stream = true, withHistory = true) {
           if (!chunk.isComplete) {
             // console.log("chunk", chunk);
             fullResponse += chunk.text;
-            reply.value = fullResponse;
+            if ((countWords(reply.value) % 20) === 0) {
+              reply.value = fullResponse;
+            } else {
+              reply.value += chunk.text;
+            }
+            // reply.value += chunk.text;
             emit('streamChunk', fullResponse);
             // Add scroll after each chunk
             nextTick(() => scrollToBottom());
@@ -316,6 +351,9 @@ async function handleRegenMessage(id: string, question: string, blockId?: string
       await autoTagDoc(id, blockId);
     } else if (actionType === "save_summary") {
       await summarizeOpenDoc(id, blockId);
+    } else if (actionType === "generate_image") {
+      imagePrompt.value = question;
+      await generateImage(id);
     }
   }
 }
@@ -455,6 +493,7 @@ async function summarizeOpenDoc(msgId?: string, id?: string) {
             data-type="block-ref"
             data-subtype="d" :data-id="${blockId}">${blockTitle}</a>`
     let fullResponse = "";
+    reply.value = "";
     question.value = SUMMARIZE_PROMPT.replace("{text}", doc.content);
     await wrapper.value.streamCompletions({
       prompt: question.value,
@@ -612,6 +651,54 @@ async function saveChatToNote() {
   } finally {
     selectedTarget.value.clear();
     newDocName.value = "";
+  }
+}
+
+async function generateImage(msgId?: string) {
+  try {
+    isLoading.value = true;
+    isProcessing.value = true;
+    const model = models.value.find(m => m.provider === "openai");
+    wrapper.value = new AIWrapper("openai", { apiKey: model.apiKey, baseUrl: model.apiURL });
+    
+    const response = await wrapper.value.imageGeneration({
+      model: "dall-e-3",
+      prompt: imagePrompt.value,
+      //@ts-ignore
+      style: imageStyle.value || "vivid",
+      //@ts-ignore
+      size: imageSize.value || "1024x1024"
+    });
+
+    if (response.data) {
+      if (!msgId) {
+        // Add to chat history
+        messages.value.push({
+          id: generateUUID(),
+          question: [imagePrompt.value],
+          questionIndex: 0,
+          answer: [`![Generated image](data:image/png;base64,${response.data})`],
+          answerIndex: 0,
+          aiEmoji: "",
+          actionable: true,
+          actionType: "generate_image",
+          blockId: "",
+        });
+        nextTick(() => scrollToBottom());
+      } else {
+        historyRef.value.resetMessage(msgId, `![Generated image](data:image/png;base64,${response.data})`);
+      }
+      await saveChatHistory();
+    }
+    
+    showChatAction.value = false;
+  } catch (error) {
+    console.error("Image generation error:", error);
+    await pushErrMsg(error.message);
+  } finally {
+    isLoading.value = false;
+    isProcessing.value = false;
+    imagePrompt.value = "";
   }
 }
 
@@ -987,7 +1074,7 @@ async function confirmQuickAction() {
   const matchedAction = chatActions.find(a => actionCommand.value.toLowerCase().includes(a.cmd));
   const selectedIds = Array.from(selectedTarget.value);
 
-  if (selectedIds.length === 0) {
+  if (selectedIds.length === 0 && actionCommand.value !== "image generation") {
     await pushErrMsg("Please select target(s) first");
     return;
   }
@@ -1171,17 +1258,19 @@ onMounted(async () => {
           <span id="closePopup" @click="showChatAction = false" class="close">&times;</span>
           <div class="action-input-wrapper">
             <div class="command-hints">
-              <span class="hint">Action: </span>
+              <!-- <span class="hint">Action: </span> -->
               <span v-for="act of chatActions" :key="act.cmd" class="hint-example"
+                v-show="act.cmd !== 'image generation' || models.find(m => m.provider === 'openai' && m.apiKey)"
                 @click="actionCommand = act.cmd; handleActionCommand()" :title="'shortcut: ' + act.shortcut"
                 :class="{ 'cmd-matches': ((actionCommand || '').trim().toLowerCase().includes(act.cmd.toLowerCase())) || (actionCommand || '').trim().toLowerCase().startsWith(act.shortcut.toLowerCase()) }">
                 {{ act.label }}
               </span>
             </div>
-            <input ref="actionInputRef" type="text" class="b3-text-field" v-model="actionTarget"
+            <input ref="actionInputRef" type="text" class="b3-text-field" v-model="actionTarget" 
+              v-show="actionCommand !== 'image generation'"
               placeholder="Notebook name / Document name" @keypress="handleActionTarget" @keyup="handleActionTarget"
               :disabled="isProcessing || actionCommand === ''" :class="{ 'processing': isProcessing }" />
-            <small>
+            <small v-show="actionCommand !== 'image generation'">
               Search for notebook or document
             </small>
             <div class="doc-list"
@@ -1207,7 +1296,40 @@ onMounted(async () => {
                 </li>
               </ul>
             </div>
-            <div class="doc-list" v-else @keydown="(e) => handleListKeydown(e, documents)" tabindex="0">
+            <!-- Image Generation Options -->
+            <div v-if="actionCommand === 'image generation'" class="image-generation-options">
+              <textarea
+                v-model="imagePrompt"
+                class="image-prompt textarea"
+                placeholder="Describe the image you want to generate..."
+                rows="3"
+              ></textarea>
+              
+              <div class="image-settings">
+                <div class="setting-group">
+                  <label>Style:</label>
+                  <select v-model="imageStyle">
+                    <option v-for="style in imageStyles" 
+                            :key="style.value" 
+                            :value="style.value">
+                      {{ style.label }}
+                    </option>
+                  </select>
+                </div>
+                
+                <div class="setting-group">
+                  <label>Size:</label>
+                  <select v-model="imageSize">
+                    <option v-for="size in imageSizes" 
+                            :key="size.value" 
+                            :value="size.value">
+                      {{ size.label }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="doc-list" v-if="actionCommand !== 'save chat' && actionCommand !=='image generation'" @keydown="(e) => handleListKeydown(e, documents)" tabindex="0">
               <ul>
                 <li v-for="(doc, index) in documents" :key="doc.key" :data-index="index"
                   :tabindex="docListIndex === index ? 0 : -1" :class="{
@@ -1437,7 +1559,7 @@ h2 {
 .textarea {
   width: 100%;
   min-height: 40px;
-  padding: 8px;
+  padding:1rem 0.5rem;
   border: none;
   resize: none;
   outline: none;
@@ -1599,7 +1721,7 @@ h2 {
 }
 
 .hint-example:hover {
-  background: var(--b3-theme-on-surface);
+  color: #000;
 }
 
 .cmd-matches {
@@ -1910,6 +2032,48 @@ h2 {
   transform: translateY(-50%);
 }
 /** getting started */
+
+/** image generation */
+.image-generation-options {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0rem 1.5rem 0rem 0rem;
+}
+
+.image-prompt {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--b3-border-color);
+  border-radius: 4px;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.image-settings {
+  display: flex;
+  gap: 16px;
+}
+
+.setting-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+
+.setting-group label {
+  font-size: 14px;
+  color: var(--b3-theme-on-background);
+}
+
+.setting-group select {
+  padding: 8px;
+  border: 1px solid var(--b3-border-color);
+  border-radius: 4px;
+  background: var(--b3-theme-background);
+  color: var(--b3-theme-on-background);
+}
 
 /* Mobile-specific styles */
 @media (max-width: 480px) {

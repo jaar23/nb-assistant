@@ -11,7 +11,7 @@ import MarkdownItStyle from "markdown-it-style";
 import { computed, onMounted, ref, watch } from "vue";
 import { FilePenLine, Copy, X, CircleCheckBig, Trash, RefreshCcw, ChevronLeft, ChevronRight, BetweenHorizontalStart, Save } from 'lucide-vue-next';
 import { getCurrentTabs } from "@/utils";
-import { appendBlock, request, pushMsg, setBlockAttrs } from "@/api";
+import { appendBlock, request, pushMsg, setBlockAttrs, upload } from "@/api";
 
 const markdown = new MarkdownIt()
   .use(MarkdownItAbbr)
@@ -81,6 +81,7 @@ const emit = defineEmits(["updateMessage", "removeMessage", "regenMessage", "sli
 const messageKey = computed(() => `${props.slideKey}-${props.fullMessage}`);
 const thoughts = ref("");
 const isThoughtCollapsed = ref(false);
+const assetId = ref("");
 
 function copy() {
   const textToCopy = `${props.question}\n${props.fullMessage || props.streamMessage}`;
@@ -110,18 +111,24 @@ function removeMessage(whoseMessage: string) {
 
 function regenMessage() {
   const rewriteMessage = `Regenerate response with following context\n${props.question}\n${props.fullMessage}`;
-  if (props.blockId && props.actionType) {
-    emit("regenMessage", props.id, rewriteMessage, props.blockId, props.actionType);
+  // generation tasks
+  if (props.actionType === "generate_image") {
+    emit("regenMessage", props.id, props.question, "N/A", props.actionType);    
   } else {
-    emit("regenMessage", props.id, rewriteMessage);
+    if (props.blockId && props.actionType) {
+      emit("regenMessage", props.id, rewriteMessage, props.blockId, props.actionType);
+    } else {
+      emit("regenMessage", props.id, rewriteMessage);
+    }
   }
 }
 
 function slideMessage(which: string, direction: string) {
   emit("slideMessage", props.id, which, direction);
+  assetId.value = "";
 }
 
-async function appendToDoc(message: string) {
+async function appendToDoc(message: string, actionType?: string) {
   try {
     const systemConf = await request("/api/system/getConf", {});
     const openTabs = getCurrentTabs(systemConf.conf.uiLayout.layout)
@@ -134,7 +141,14 @@ async function appendToDoc(message: string) {
   const children = currentDoc.value?.children ?? null;
   if (children) {
     const blockId = children.blockId;
-    await appendBlock("markdown", message, blockId);
+    if (actionType === "generate_image") {
+      if ((assetId.value === "")) {
+        await save(props.id, actionType);
+      }
+      await appendBlock("markdown", `![${props.question}](${assetId.value})`, blockId);
+    } else {
+      await appendBlock("markdown", message, blockId);
+    }
     console.log("appened to last part of the doc");
   }
 }
@@ -155,8 +169,61 @@ async function save(id: string, action: string) {
     } else {
       await pushMsg(props.plugin.i18n.noTagsSelected);
     }
+  } else if (action === "generate_image") {
+    const base64Data = extractBase64FromMarkdown(message.value);
+    const title = props.question.replace("Generate image: ", "");
+    await saveGeneratedImage(title, base64Data);
   }
 }
+
+function extractBase64FromMarkdown(markdownStr: string): string {
+  const base64Regex = /data:image\/png;base64,([^)]+)/;
+  const match = markdownStr.match(base64Regex);
+  
+  if (match && match[1]) {
+    return match[1];
+  }
+  
+  return '';
+}
+
+function base64ToBlob(base64Data: string): Blob {
+  // Decode base64
+  const byteString = atob(base64Data);
+  
+  // Create byte array
+  const byteArray = new Uint8Array(byteString.length);
+  for (let i = 0; i < byteString.length; i++) {
+    byteArray[i] = byteString.charCodeAt(i);
+  }
+  
+  // Create blob
+  return new Blob([byteArray], { type: 'image/png' });
+}
+
+async function saveGeneratedImage(title: string, base64Data: string) {
+  try {
+    // Convert base64 to blob
+    const blob = base64ToBlob(base64Data);
+
+    // Create File object from blob
+    const file = new File([blob], `${title}.png`, { type: 'image/png' });
+    
+    // Upload using the provided upload function
+    const uploadResponse = await upload("assets/", [file]);
+    console.log(uploadResponse)
+    if (uploadResponse) {
+      assetId.value = uploadResponse.succMap[`${title}.png`];
+    } else {
+      assetId.value = "";
+    }
+    return uploadResponse;
+  } catch (error) {
+    console.error('Error saving image:', error);
+    throw error;
+  }
+}
+
 
 function confirmActionHandler() {
   if (confirmAction.value?.type === 'remove') {
@@ -214,12 +281,6 @@ function extractThought(text: string): string | null {
   return null;
 }
 
-// function renderThought() {
-//   if (!props.fullMessage && !props.streamMessage) return;
-//   const msg = props.fullMessage ? props.fullMessage : props.streamMessage;
-//   thoughts.value = extractThought(msg);
-// }
-
 function toggleThoughts() {
   isThoughtCollapsed.value = !isThoughtCollapsed.value;
 }
@@ -254,6 +315,7 @@ watch(() => props.fullMessage, (newVal) => {
     if (props.actionType === 'save_tags') {
       msgToList();
     }
+    assetId.value = "";
   }
 });
 
@@ -302,8 +364,8 @@ onMounted(async () => {
         <ChevronRight :size="20" :stroke-width="1" />
       </button>
     </div>
-    <div v-if="isEditing" class="question">
-      <textarea class="inline-edit-textarea" v-model="editedMessage"></textarea>
+    <div v-if="isEditing" class="question" :class="{'editing': isEditing}">
+      <textarea class="inline-edit-textarea" v-model="editedMessage" :class="{'editing': isEditing}"></textarea>
       <div class="ques-button-area">
         <button @click="saveEdit" class="msg-button" :disabled="editedMessage.trim() === ''">
           <CircleCheckBig :size="20" :stroke-width="1" />
@@ -350,7 +412,7 @@ onMounted(async () => {
       <button @click="regenMessage" class="msg-button">
         <RefreshCcw :size="20" :stroke-width="1" />
       </button>
-      <button @click="appendToDoc(props.fullMessage)" class="msg-button">
+      <button @click="appendToDoc(props.fullMessage, props.actionType)" class="msg-button">
         <BetweenHorizontalStart :size="20" :stroke-width="1" />
       </button>
       <button @click="removeMessage('answer')" class="msg-button">
@@ -604,5 +666,9 @@ ul {
   padding: 0.5rem;
   margin-top: 0.5rem;
   border-top: 1px solid var(--b3-border-color);
+}
+
+.editing {
+  width: 96% !important;
 }
 </style>

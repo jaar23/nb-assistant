@@ -1,6 +1,6 @@
 import { OpenAI } from 'openai';
 import { BaseAIModel } from './base-model';
-import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse, ListModelResponse, CompletionJSONResponse } from './types';
+import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse, ListModelResponse, CompletionJSONResponse, ImageGenerationRequest, ImageGenerationResponse } from './types';
 import { Stream } from 'openai/streaming';
 import { ChatCompletionChunk } from 'openai/resources';
 
@@ -46,22 +46,34 @@ export class OpenAIModel extends BaseAIModel {
             }
         }
         messages.push({ role: "user", content: request.prompt });
-        let request_body = {
-            model: request.model,
-            messages: messages,
-            max_tokens: request.max_tokens ? request.max_tokens : 2048,
-            temperature: request.temperature ? request.temperature : 0,
-        };
-        if (request.top_p) {
-            request_body["top_p"] = request.top_p;
-        }
-        if (request.presence_penalty) {
-            request_body["presence_penalty"] = request.presence_penalty;
-        }
-        if (request.stop) {
-            request_body["stop"] = request.stop;
+        let request_body = {};
+        if (request.model.startsWith("o1") || request.model.startsWith("o3")) {
+            request_body = {
+                model: request.model,
+                messages: messages,
+                stream: false,
+                store: true,
+            };
+        } else {
+            request_body = {
+                model: request.model,
+                messages: messages,
+                max_tokens: request.max_tokens ? request.max_tokens : 2048,
+                temperature: request.temperature ? request.temperature : 0,
+                stream: false
+            };
+            if (request.top_p) {
+                request_body["top_p"] = request.top_p;
+            }
+            if (request.presence_penalty) {
+                request_body["presence_penalty"] = request.presence_penalty;
+            }
+            if (request.stop) {
+                request_body["stop"] = request.stop;
+            }
         }
         try {
+            //@ts-ignore
             const response = await this.client.chat.completions.create(request_body, { signal: this.abortController.signal });
 
             return {
@@ -96,25 +108,36 @@ export class OpenAIModel extends BaseAIModel {
             }
         }
         messages.push({ role: "user", content: request.prompt });
-        let request_body = {
-            model: request.model,
-            messages: messages,
-            max_tokens: request.max_tokens ? request.max_tokens : 2048,
-            temperature: request.temperature ? request.temperature : 0,
-            stream: true
-        };
-
-        if (request.top_p) {
-            request_body["top_p"] = request.top_p;
+        let request_body = {};
+        if (request.model.startsWith("o1") || request.model.startsWith("o3") || request.model.includes("search")) {
+            request_body = {
+                model: request.model,
+                messages: messages,
+                stream: true,
+                store: true,
+            };
+        } else {
+            request_body = {
+                model: request.model,
+                messages: messages,
+                max_tokens: request.max_tokens ? request.max_tokens : 2048,
+                temperature: request.temperature ? request.temperature : 0,
+                stream: true
+            };
+            if (request.top_p) {
+                request_body["top_p"] = request.top_p;
+            }
+            if (request.presence_penalty) {
+                request_body["presence_penalty"] = request.presence_penalty;
+            }
+            if (request.stop) {
+                request_body["stop"] = request.stop;
+            }
         }
-        if (request.presence_penalty) {
-            request_body["presence_penalty"] = request.presence_penalty;
-        }
-        if (request.stop) {
-            request_body["stop"] = request.stop;
-        }
+        
         let response = "";
         try {
+            //@ts-ignore
             const stream = await this.client.chat.completions.create(request_body, { signal: this.abortController.signal });
             const isStream = (response: any): response is Stream<ChatCompletionChunk> => {
                 return typeof response[Symbol.asyncIterator] === 'function';
@@ -167,6 +190,10 @@ export class OpenAIModel extends BaseAIModel {
             const list = await this.client.models.list();
             let models = { models: [] }
             for (const d of list.data) {
+                // not supported currently
+                if (d.id.includes("tts") || d.id.includes("whisper") || d.id.includes("realtime") 
+                    || d.id.includes("transcribe") || d.id.includes("audio") || d.id.includes("babbage")
+                    || d.id.includes("moderation") || d.id.includes("davinci") || d.id === "dall-e-2") continue
                 models.models.push({
                     type: "model",
                     id: d.id,
@@ -233,6 +260,33 @@ export class OpenAIModel extends BaseAIModel {
             };
         } catch (error) {
             throw new Error(error);
+        }
+    }
+
+    async imageGeneration(request: ImageGenerationRequest): Promise<ImageGenerationResponse> {
+        try {
+            const response = await this.client.images.generate({
+                model: request.model,
+                prompt: request.prompt,
+                n: 1,
+                quality: request.quality || "standard",
+                response_format: "b64_json",
+                style: request.style || "vivid",
+                size: request.size || "1024x1024",
+            });
+    
+            if (response.data && response.data[0]?.b64_json) {
+                return {
+                    data: response.data[0].b64_json,
+                };
+            } else {
+                throw new Error("No image data received from OpenAI");
+            }
+        } catch (error) {
+            console.error("Image generation error:", error);
+            return {
+                data: ""
+            };
         }
     }
 }

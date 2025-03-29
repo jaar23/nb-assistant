@@ -48,6 +48,23 @@ export interface EmbeddingResponse {
     text?: string;
 }
 
+export type ImageQuality = "standard" | "hd"
+export type ImageSize2 = "256x256" | "512x512" | "1024x1024"
+export type ImageSize3 = "1024x1024" | "1792x1024" | "1024x1792"
+export type ImageStyle = "vivid" | "natural"
+
+export interface ImageGenerationRequest {
+    model: string;
+    prompt: string;
+    quality: ImageQuality;
+    size: ImageSize2 | ImageSize3;
+    style: ImageStyle
+}
+
+export interface ImageGenerationResponse {
+    data: string
+}
+
 export interface ListModelResponse {
     models: {
         type: string,
@@ -69,5 +86,6 @@ export interface AIModelInterface {
     listModels(request: any): Promise<ListModelResponse>;
     locallyInstalled(request: any): Promise<boolean>;
     jsonCompletions(request: CompletionRequest, jsonSchema: any): Promise<CompletionJSONResponse>;
+    imageGeneration(request: ImageGenerationRequest): Promise<ImageGenerationResponse>;
     cancelRequest(): void;
 }

@@ -1,5 +1,5 @@
 import { BaseAIModel } from './base-model';
-import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse, ListModelResponse, CompletionJSONResponse } from './types';
+import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse, ListModelResponse, CompletionJSONResponse, ImageGenerationResponse, ImageGenerationRequest } from './types';
 
 export class OllamaModel extends BaseAIModel {
     private client: { baseURL: string, headers: {} };
@@ -303,5 +303,9 @@ export class OllamaModel extends BaseAIModel {
             }
             throw error;
         }
+    }
+
+    async imageGeneration(request: ImageGenerationRequest): Promise<ImageGenerationResponse> {
+        throw new Error("This provider does not support image generation currently");
     }
 }

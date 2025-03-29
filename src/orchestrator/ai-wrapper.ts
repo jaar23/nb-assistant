@@ -1,4 +1,4 @@
-import { AIModelInterface, CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse, ListModelResponse, AIModelConfig, CompletionJSONResponse } from './types';
+import { AIModelInterface, CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse, ListModelResponse, AIModelConfig, CompletionJSONResponse, ImageGenerationRequest, ImageGenerationResponse } from './types';
 import { OpenAIModel } from './openai-model';
 import { ClaudeModel } from './claude-model';
 import { DeepseekModel } from './deepseek-model';
@@ -48,6 +48,10 @@ export class AIWrapper {
 
     async jsonCompletions(request: any, jsonSchema: any): Promise<CompletionJSONResponse> {
         return this.model.jsonCompletions(request, jsonSchema);
+    }
+
+    async imageGeneration(request: ImageGenerationRequest): Promise<ImageGenerationResponse> {
+        return this.model.imageGeneration(request);
     }
 
     cancelRequest(): void {

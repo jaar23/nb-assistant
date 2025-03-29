@@ -91,8 +91,11 @@ function handleSlideMessage(id: string, which: string, direction: string) {
         msg.questionIndex = direction === "left" ? Math.max(0, msg.questionIndex - 1): Math.min(msg.questionIndex + 1, msg.question.length - 1);
         slideMsgKey.value += 1;
       } else if (which === "answer") {
-        msg.answerIndex = direction === "left" ? Math.max(0, msg.answerIndex - 1): Math.min(msg.answerIndex + 1, msg.answer.length - 1);
-        slideMsgKey.value += 1;
+        const answerIndex = direction === "left" ? Math.max(0, msg.answerIndex - 1): Math.min(msg.answerIndex + 1, msg.answer.length - 1);
+        if (msg.answer[answerIndex]) {
+          msg.answerIndex = answerIndex;
+          slideMsgKey.value += 1;
+        }
       }
     }
   }
@@ -121,7 +124,8 @@ defineExpose({
 <template>
   <ul>
     <li v-for="(msg, index) in messages" :key="index">
-      <message :question="msg.question.length > 0 ? msg.question[msg.questionIndex]:''" 
+      <message
+        :question="msg.question.length > 0 ? msg.question[msg.questionIndex]:''" 
         :fullMessage="msg.answer.length > 0 ?msg.answer[msg.answerIndex] : ''" :isStreaming="false" :id="msg.id"
         @updateMessage="handleUpdateMessage" @removeMessage="handleRemoveMessage" 
         @regenMessage="handleRegenMessage" @slideMessage="handleSlideMessage" :plugin="plugin"

@@ -1,5 +1,5 @@
 import { BaseAIModel } from './base-model';
-import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse, ListModelResponse, CompletionJSONResponse } from './types';
+import { CompletionRequest, CompletionResponse, CompletionCallback, EmbeddingRequest, EmbeddingResponse, ListModelResponse, CompletionJSONResponse, ImageGenerationRequest, ImageGenerationResponse } from './types';
 import Anthropic from '@anthropic-ai/sdk';
 
 type ClaudeRole = "assistant" | "user" | "system" | "developer" | any;
@@ -263,4 +263,7 @@ export class ClaudeModel extends BaseAIModel {
         // return message.content[0].text;
     }
 
+    async imageGeneration(request: ImageGenerationRequest): Promise<ImageGenerationResponse> {
+        throw new Error("This provider does not support image generation currently");
+    }
 }
