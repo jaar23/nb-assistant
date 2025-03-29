@@ -41,6 +41,7 @@ import savedchat from "./savedchat.vue";
 import vectordb from "./vectordb.vue";
 import search from "./search.vue";
 import { transformModelNamePathSafeStr } from "@/embedding";
+import { createModel } from "@/model";
 
 const chatInput = defineModel<string>("chatInput");
 const plugin: any = defineModel<any>("plugin");
@@ -97,7 +98,7 @@ const imagePrompt = ref("");
 const imageStyle = ref("vivid");
 const imageSize = ref("1024x1024");
 const showImageOptions = ref(false);
-
+let passingScore = 0.5;
 const imageStyles = [
   { label: "Vivid", value: "vivid" },
   { label: "Natural", value: "natural" }
@@ -305,6 +306,7 @@ async function prompt(stream = true, withHistory = true) {
                 actionable: false,
                 actionType: "",
                 blockId: "",
+                context: extraContext.value
               });
               console.log('Updated messages:', messages.value);
               await saveChatHistory();
@@ -333,8 +335,11 @@ async function prompt(stream = true, withHistory = true) {
   }
 }
 
-async function handleUpdateMessage(id: string, updatedMessage: string) {
+async function handleUpdateMessage(id: string, updatedMessage: string, context?: string) {
   chatInput.value = updatedMessage;
+  if (context) {
+    extraContext.value = context;
+  }
   const message = await prompt(false);
   historyRef.value.resetMessage(id, message);
   await saveChatHistory();
@@ -523,6 +528,7 @@ async function summarizeOpenDoc(msgId?: string, id?: string) {
             actionable: true,
             actionType: "save_summary",
             blockId: blockId,
+            context: extraContext.value || ""
           });
           await saveChatHistory();
         } else {
@@ -592,6 +598,7 @@ async function autoTagDoc(msgId?: string, id?: string) {
         actionable: true,
         actionType: "save_tags",
         blockId: blockId,
+        context: extraContext.value || ""
       });
       nextTick(() => scrollToBottom());
       await saveChatHistory();
@@ -683,6 +690,7 @@ async function generateImage(msgId?: string) {
           actionable: true,
           actionType: "generate_image",
           blockId: "",
+          context: extraContext.value || ""
         });
         nextTick(() => scrollToBottom());
       } else {
@@ -912,18 +920,24 @@ async function handleActionCommand() {
     isProcessing.value = true;
 
     if (actionCommand.value) {
+      let embeddingModel = null;
+      const used_in = plugin.value.settingUtils.settings.get("embedding.used_in");
+      if (used_in === "local") {
+        const embeddingModelName = plugin.value.settingUtils.settings.get("embedding.model");
+        embeddingModel = await createModel(embeddingModelName);
+      }
       if (actionCommand.value === "save chat") {
         if (!notebooks.value.some(nb => nb.embedding.length > 0)) {
           await pushMsg("Quick Action: Generating index for search");
           for (let nb of notebooks.value) {
-            nb.embedding = await pluginCreateEmbedding(plugin.value, nb.name);
+            nb.embedding = await pluginCreateEmbedding(plugin.value, nb.name, embeddingModel);
           }
         }
       } else {
         if (!documents.value.some(doc => doc.embedding.length > 0)) {
           await pushMsg("Quick Action: Generating index for search");
           for (let doc of documents.value) {
-            doc.embedding = await pluginCreateEmbedding(plugin.value, doc.name);
+            doc.embedding = await pluginCreateEmbedding(plugin.value, doc.name, embeddingModel);
           }
         }
       }
@@ -957,6 +971,7 @@ async function handleActionTarget(ev?: KeyboardEvent) {
             });
           }
           // showChatAction.value = false;
+          // console.log("documents", documents.value)
         }
       }, 500);
       return;
@@ -978,8 +993,13 @@ async function handleActionTarget(ev?: KeyboardEvent) {
         // console.log(tempquery + '===' + actionTarget.value);
         if (actionCommand.value && (tempquery === actionTarget.value)) {
           const items = matchedAction.cmd === "save chat" ? notebooks.value : documents.value;
-
-          const cmdEmbedding = await pluginCreateEmbedding(plugin.value, actionTarget.value);
+          let embeddingModel = null;
+          const used_in = plugin.value.settingUtils.settings.get("embedding.used_in");
+          if (used_in === "local") {
+            const embeddingModelName = plugin.value.settingUtils.settings.get("embedding.model");
+            embeddingModel = await createModel(embeddingModelName);
+          }
+          const cmdEmbedding = await pluginCreateEmbedding(plugin.value, actionTarget.value, embeddingModel);
           const matches = await Promise.all(
             items.map(async item => {
               if (item.name.toLowerCase().includes(actionTarget.value)) {
@@ -995,23 +1015,29 @@ async function handleActionTarget(ev?: KeyboardEvent) {
               }
             })
           );
-          // console.log("item filtered", matches);
-
-          // Update the relevant list with similarity scores
+          if (used_in === "local") passingScore = 0.25
           const filteredMatches = matches
-            .filter(m => m.score > 0.5)
+            .filter(m => m.score > passingScore)
             .sort((a, b) => b.score - a.score);
 
           if (actionCommand.value.includes("save chat") || actionCommand.value.startsWith("sc")) {
-            notebooks.value = filteredMatches.map(m => ({
-              ...m.item,
-              matchScore: m.score
-            }));
+            // Create a map of matched items with their scores
+            const matchScores = new Map(filteredMatches.map(m => [m.item.id, m.score]));
+
+            // Update all notebooks, using matched scores where available, defaulting to 0
+            notebooks.value = notebooks.value.map(notebook => ({
+              ...notebook,
+              matchScore: matchScores.get(notebook.id) || 0
+            })).sort((a, b) => a.matchScore > b.matchScore ? -1 : 1);
           } else {
-            documents.value = filteredMatches.map(m => ({
-              ...m.item,
-              matchScore: m.score
-            }));
+            // Create a map of matched items with their scores
+            const matchScores = new Map(filteredMatches.map(m => [m.item.id, m.score]));
+
+            // Update all documents, using matched scores where available, defaulting to 0
+            documents.value = documents.value.map(document => ({
+              ...document,
+              matchScore: matchScores.get(document.id) || 0
+            })).sort((a, b) => a.matchScore > b.matchScore ? -1 : 1);
           }
         }
       }, 1500);
@@ -1280,7 +1306,7 @@ onMounted(async () => {
                 <li v-for="(nb, index) in notebooks" :key="nb.key" :data-index="index"
                   :tabindex="docListIndex === index ? 0 : -1" :class="{
                     'high-match': nb.matchScore > 0.8,
-                    'medium-match': nb.matchScore > 0.6,
+                    'medium-match': nb.matchScore > passingScore,
                     'selected': selectedTarget.has(nb.id),
                     'cursor': docListIndex === index
                   }" @click="toggleSelection(nb.id)" @focus="docListIndex = index">
@@ -1334,7 +1360,7 @@ onMounted(async () => {
                 <li v-for="(doc, index) in documents" :key="doc.key" :data-index="index"
                   :tabindex="docListIndex === index ? 0 : -1" :class="{
                     'high-match': doc.matchScore > 0.8,
-                    'medium-match': doc.matchScore > 0.6,
+                    'medium-match': doc.matchScore > passingScore,
                     'selected': selectedTarget.has(doc.id),
                     'cursor': docListIndex === index
                   }" @click="toggleSelection(doc.id)" @focus="docListIndex = index">
@@ -1462,6 +1488,7 @@ h2 {
   flex-grow: 1;
   overflow: hidden;
   position: relative;
+  background: var(--b3-theme-background);
 }
 
 .chat-container {
@@ -1469,6 +1496,7 @@ h2 {
   overflow-y: auto;
   padding: 0.25em 0.5em;
   scroll-behavior: smooth;
+  background: var(--b3-menu-background);
 }
 
 .control-container {

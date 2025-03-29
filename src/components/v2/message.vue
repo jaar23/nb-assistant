@@ -24,7 +24,14 @@ const markdown = new MarkdownIt()
   .use(MarkdownItStyle, {
     'p': 'line-height: 1.75;',
     'ul': 'line-height: 1.75; padding: 0rem 1rem;',
-    'ol': 'line-height: 1.75; padding: 0rem 1rem;'
+    'ol': 'line-height: 1.75; padding: 0rem 1rem;',
+    'img': 'border-radius: var(--b3-border-radius);',
+    'h1': 'line-height: 2;',
+    'h2': 'line-height: 2;',
+    'h3': 'line-height: 2;',
+    'h4': 'line-height: 2;',
+    'h5': 'line-height: 2;',
+    'h6': 'line-height: 2;',
   });
 const props = defineProps({
   id: {

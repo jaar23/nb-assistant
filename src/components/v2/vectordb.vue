@@ -115,7 +115,8 @@ async function initVectorDb() {
       await pushMsg(`${plugin.value.i18n.embeddedAndChunk} [${nb.name}]`);
       if (embeddingUsedIn.value === "local") {
         // create model, storing embeddings
-        const model = await createModel();
+        const embeddingModelName = plugin.value.settingUtils.settings.get("embedding.model");
+        const model = await createModel(embeddingModelName);
         await initDb(nb.id, nb.name, nb.docs, model, plugin.value);
       } else if (embeddingUsedIn.value === "ai-provider") {
         console.log("using v2 embedding", embeddingModel.value);
@@ -156,58 +157,74 @@ onMounted(async () => {
   embeddingProvider.value = plugin.value.settingUtils.settings.get("embedding.provider") ?? "";
 });
 </script>
+
 <template>
   <div class="vectordb-container">
-    <loading v-model:active="isLoading" :can-cancel="false" :on-cancel="loadingCancel" loader="bars"
-      background-color="#eee" :opacity="0.25" :is-full-page="false" />
+    <loading 
+      v-model:active="isLoading" 
+      :can-cancel="false" 
+      :on-cancel="loadingCancel" 
+      loader="bars"
+      background-color="var(--b3-theme-background)" 
+      :opacity="0.25" 
+      :is-full-page="false" 
+    />
 
-    <br />
-    <div v-if="embeddingUsedIn === 'local'">
-      <label style="display: inline-flex; width: 100%">
-        <div class="switch">{{ plugin.i18n.cacheModel}}</div>
-        <input type="checkbox" class="b3-switch" @change="setupVectorDb" v-model="localEmbeddingEnable" />
-      </label>
-      <small>
-        {{ plugin.i18n.cacheModelDesc}}
-      </small>
-    </div>
-    <br />
-    <small v-if="embeddingUsedIn === 'local'">
-        Currently using local embedding model <b>{{ embeddingModel }}</b>, provided by Transformer.js and Huggingface.
-        <i>If the model failed to pull from Huggingface, recommended to use other embedding model provided by OpenAI or Ollama.</i>
-    </small>
-    <small v-if="embeddingUsedIn === 'ai-provider'">
-        Currently using embedding model <b>{{ embeddingModel }}</b>, provided by {{ embeddingProvider }}.
-        <i>Only for Ollama, ensure it is up and running when you are creating embeddings.</i>
-    </small>
-    <br/>
-    <div>
-      <label> {{ plugin.i18n.selectNotebook }} </label>
-      <select class="b3-select" v-model="selectedNotebook">
-        <option value="" disabled>{{ plugin.i18n.pleaseSelect }}</option>
-        <option value="*">{{ plugin.i18n.allNotebook }}</option>
-        <option v-for="nb in notebooks" :value="nb.id">
-          {{ nb.name }}
-        </option>
-      </select>
-      <br />
-      <span class="tag" v-for="vdb of vectorizedDb">{{ vdb }}</span>
-      <small>{{ plugin.i18n.createdEmbeddings }}</small>
-      <br />
-      <small>{{ plugin.i18n.createEmbeddingsNote1 }}</small>
-      <small>{{ plugin.i18n.createEmbeddingsNote2 }}</small>
-      <small>{{ plugin.i18n.embeddingHint }}</small>
-      <small v-if="selectedNotebook === '*'">
-        {{ plugin.i18n.createEmbeddingsNote3 }}
-      </small>
-      <div>
-        <p v-if="selectedNotebook !==''">{{ plugin.i18n.embeddingAlert }}</p>
-        <button v-if="selectedNotebook !== ''" @click="selectedNotebook = ''" class="b3-button button-cancel">
-          {{ plugin.i18n.cancel }}
-        </button>
-        <button v-if="selectedNotebook !== ''" @click="initVectorDb" class="b3-button button-confirm">
-          {{ plugin.i18n.confirm }}
-        </button>
+    <div class="vectordb-header">
+      <div v-if="embeddingUsedIn === 'local'" class="model-section">
+        <label class="model-toggle">
+          <span class="toggle-label">{{ plugin.i18n.cacheModel }}</span>
+          <input type="checkbox" class="b3-switch" @change="setupVectorDb" v-model="localEmbeddingEnable" />
+        </label>
+        <small class="hint-text">{{ plugin.i18n.cacheModelDesc }}</small>
+      </div>
+
+      <div class="model-info">
+        <small class="model-description" v-if="embeddingUsedIn === 'local'">
+          Currently using local embedding model <b>{{ embeddingModel }}</b>, provided by Transformer.js and Huggingface.
+          <i>If the model failed to pull from Huggingface, recommended to use other embedding model provided by OpenAI or Ollama.</i>
+        </small>
+        <small class="model-description" v-if="embeddingUsedIn === 'ai-provider'">
+          Currently using embedding model <b>{{ embeddingModel }}</b>, provided by {{ embeddingProvider }}.
+          <i>Only for Ollama, ensure it is up and running when you are creating embeddings.</i>
+        </small>
+      </div>
+
+      <div class="notebook-section">
+        <label class="search-label">{{ plugin.i18n.selectNotebook }}</label>
+        <select class="b3-select modern-select" v-model="selectedNotebook">
+          <option value="" disabled>{{ plugin.i18n.pleaseSelect }}</option>
+          <option value="*">{{ plugin.i18n.allNotebook }}</option>
+          <option v-for="nb in notebooks" :value="nb.id">{{ nb.name }}</option>
+        </select>
+
+        <div class="db-info">
+          <div class="tags-wrapper">
+            <span v-for="vdb of vectorizedDb" class="tag">{{ vdb }}</span>
+          </div>
+          <small class="hint-text">{{ plugin.i18n.createdEmbeddings }}</small>
+        </div>
+
+        <div class="notes-section">
+          <small class="hint-text">{{ plugin.i18n.createEmbeddingsNote1 }}</small>
+          <small class="hint-text">{{ plugin.i18n.createEmbeddingsNote2 }}</small>
+          <small class="hint-text">{{ plugin.i18n.embeddingHint }}</small>
+          <small v-if="selectedNotebook === '*'" class="hint-text">
+            {{ plugin.i18n.createEmbeddingsNote3 }}
+          </small>
+        </div>
+
+        <div v-if="selectedNotebook !== ''" class="action-section">
+          <p class="alert-text">{{ plugin.i18n.embeddingAlert }}</p>
+          <div class="button-group">
+            <button @click="selectedNotebook = ''" class="b3-button button-cancel">
+              {{ plugin.i18n.cancel }}
+            </button>
+            <button @click="initVectorDb" class="b3-button button-confirm">
+              {{ plugin.i18n.confirm }}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -215,60 +232,164 @@ onMounted(async () => {
 
 <style scoped>
 .vectordb-container {
+  height: 100%;
+  padding: 0 1rem;
+  background: var(--b3-theme-background);
+}
+
+.vectordb-header {
+  padding: 1rem 0;
+}
+
+.model-section {
+  margin-bottom: 1rem;
+}
+
+.model-toggle {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.toggle-label {
+  color: var(--b3-theme-on-background);
+  font-size: 0.9em;
+}
+
+.model-info {
+  margin: 1rem 0;
+}
+
+.model-description {
+  color: var(--b3-empty-color);
+  font-size: 0.85em;
+  line-height: 1.6;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.notebook-section {
+  margin: 1.5rem 0;
+}
+
+.search-label {
+  display: block;
+  color: var(--b3-theme-on-background);
+  font-size: 0.9em;
+  margin-bottom: 0.5rem;
+}
+
+.modern-select {
   width: 100%;
-  padding: 1em;
+  padding: 0rem 1rem;
+  border: 1px solid var(--b3-border-color);
+  border-radius: 8px;
+  background: var(--b3-theme-background);
+  color: var(--b3-theme-on-background);
+  transition: all 0.2s ease;
+  margin-bottom: 12px;
+}
+.modern-select:hover {
+  box-shadow: 0 1px 3px rgba(122, 122, 122, 0.1);
 }
 
-.vectordb-container select {
-  width: 95%;
-  margin: 5px;
+.modern-select:focus {
+  border-color: var(--b3-theme-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  outline: none;
 }
 
-.vectordb-container .switch {
-  width: 85%;
+.db-info {
+  margin: 1rem 0;
 }
 
-.vectordb-container p {
-  margin: 10px 0px;
+.tags-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
 }
 
 .tag {
-  background-color: var(--b3-theme-success);
-  padding: 0.25em;
-  color: #fefefe;
-  margin: 2px;
-  display: inline;
-  border-radius: 8px;
-  line-height: 2.5;
+  background-color: var(--b3-theme-primary);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.85em;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.2s ease;
 }
 
-/* .vectordb-container input { */
-/*     width: 95%; */
-/*     margin: 5px; */
-/* } */
-
-small {
-  color: #b9b9b9;
+.hint-text {
+  color: var(--b3-empty-color);
+  font-size: 0.85em;
   display: block;
+  margin-bottom: 0.5rem;
+}
+
+.notes-section {
+  margin: 1rem 0;
+}
+
+.action-section {
+  margin-top: 1.5rem;
+}
+
+.alert-text {
+  color: var(--b3-theme-on-background);
+  margin-bottom: 1rem;
+}
+
+.button-group {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.button-confirm, .button-cancel {
+  font-size: 0.9em;
+  transition: all 0.2s ease;
 }
 
 .button-confirm {
-  height: 26px;
-  margin: 0.4em 0.5em;
-  width: 90px;
-}
-
-.button-warning {
-  height: 26px;
-  margin: 0.4em 0.5em;
-  background-color: var(--b3-theme-surface);
-  border: 1px solid var(--b3-theme-secondary);
+  background-color: var(--b3-theme-primary);
+  color: white;
 }
 
 .button-cancel {
-  background-color: var(--b3-theme-secondary);
-  margin: 0.4em 0.5em;
-  height: 26px;
-  width: 90px;
+  background-color: var(--b3-theme-surface);
+  color: var(--b3-theme-on-surface);
+  border: 1px solid var(--b3-border-color);
+}
+
+.button-confirm:hover, .button-cancel:hover {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  .modern-select {
+    background: var(--b3-theme-surface);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .modern-select:hover {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  }
+
+  .modern-select:focus {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  .button-cancel {
+    background-color: var(--b3-theme-surface);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .button-confirm:hover, .button-cancel:hover {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
 }
 </style>

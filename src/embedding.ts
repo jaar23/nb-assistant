@@ -208,7 +208,7 @@ export async function initDb(
       `${plugin.i18n.processTakeX} ${Math.round((flatlist.length * 3) / 60)} ${plugin.i18n.minutes}`,
     );
     // console.log("init db list", flatlist);
-    const dimension = await modelDimension(plugin);
+    const dimension = await modelDimension(plugin, model);
     const vectors = await embedDocList(model, flatlist, plugin);
     console.log("end embedding at ", new Date());
     //console.log("init db vectors", vectors);
@@ -391,13 +391,14 @@ export async function queryMdChunk(
   queryText: string,
   minScore = 0.25,
   resultLimit = 50,
+  modelName = "Xenova/all-MiniLM-L6-v2"
 ) {
-  const model = await createModel();
+  const model = await createModel(modelName);
   const embedding = await createEmbedding(model, queryText);
   const vectordb = await getMemVectorDb(notebookId);
   // console.log(vectordb.toJSON());
   const embeddingResult = queryMemVector(vectordb, embedding, resultLimit);
-  console.log("embedding result", embeddingResult);
+  // console.log("embedding result", embeddingResult);
   const closestResult = embeddingResult
     .filter((embd) => embd.score > minScore)
     .map((embd) => embd.id);
@@ -407,7 +408,7 @@ export async function queryMdChunk(
   for (let chunk of chunkResult) {
     // always return one since id is unique index
     const embd = embeddingResult.filter((e) => e.id == chunk.id);
-    // console.log("embd", embd);
+    console.log("embd", embd);
     if (embd.length > 0) {
       chunk["score"] = embd[0].score;
     } else {
@@ -655,29 +656,35 @@ export async function embedDocListV2(docList: any[], plugin: any) {
   return vectors;
 }
 
-export async function modelDimension(plugin) {
+export async function modelDimension(plugin, local_model?: any) {
   const provider = plugin.settingUtils.settings.get("embedding.provider");
+  const used_in = plugin.settingUtils.settings.get("embedding.used_in");
   let model = plugin.settingUtils.settings.get("embedding.model");
-  let apiKey = "";
-  let apiURL = "";
-  if (provider === "openai") {
-    apiKey = plugin.settingUtils.settings.get("openai.apiKey");
-    if (!apiKey) {
-      throw new Error("Missing OpenAI API key");
+  if (used_in === "local" && local_model) {
+    const embedding = await createEmbedding(local_model, "test embedding");
+    return embedding.length;
+  } else {
+    let apiKey = "";
+    let apiURL = "";
+    if (provider === "openai") {
+      apiKey = plugin.settingUtils.settings.get("openai.apiKey");
+      if (!apiKey) {
+        throw new Error("Missing OpenAI API key");
+      }
+    } else if (provider === "ollama") {
+      apiURL = plugin.settingUtils.settings.get("ollama.url") || "http://localhost:11434";
     }
-  } else if (provider === "ollama") {
-    apiURL = plugin.settingUtils.settings.get("ollama.url") || "http://localhost:11434";
+    const aiwrapper = new AIWrapper(provider, { apiKey: apiKey, baseUrl: apiURL });
+    const embeddingRequest = {
+      model: model,
+      chunk: "test embedding"
+    }
+    const embedding = await aiwrapper.createEmbedding(embeddingRequest);
+    if (!(embedding.embeddings ?? false)) {
+      throw new Error("Embedding model is not available, unable to check for dimension");
+    }
+    return embedding.embeddings[0].length;
   }
-  const aiwrapper = new AIWrapper(provider, { apiKey: apiKey, baseUrl: apiURL });
-  const embeddingRequest = {
-    model: model,
-    chunk: "test embedding"
-  }
-  const embedding = await aiwrapper.createEmbedding(embeddingRequest);
-  if (!(embedding.embeddings ?? false)) {
-    throw new Error("Embedding model is not available, unable to check for dimension");
-  }
-  return embedding.embeddings[0].length;
 }
 
 // export function transformDocToList(
@@ -772,17 +779,6 @@ export async function searchNotebook(notebookId: string, query: string, plugin: 
       const provider = plugin.settingUtils.settings.get("embedding.provider");
       const used_in = plugin.settingUtils.settings.get("embedding.used_in");
       let model = plugin.settingUtils.settings.get("embedding.model");
-      let apiKey = "";
-      let apiURL = "";
-      if (provider === "openai") {
-        apiKey = plugin.settingUtils.settings.get("openai.apiKey");
-        if (!apiKey) {
-          throw new Error("Missing OpenAI API key");
-        }
-      } else if (provider === "ollama") {
-        apiURL = plugin.settingUtils.settings.get("ollama.url") || "http://localhost:11434";
-      }
-      const aiwrapper = new AIWrapper(provider, { apiKey: apiKey, baseUrl: apiURL });
       let searchResult = [];
       
       const words = nlpPipe(query) === "" ? query : nlpPipe(query);      
@@ -790,8 +786,19 @@ export async function searchNotebook(notebookId: string, query: string, plugin: 
       
       let chunkResult = [];
       if (used_in === "local") {
-        chunkResult = await queryMdChunk(notebookId, words, minScore, resultLimit);
+        chunkResult = await queryMdChunk(notebookId, words, minScore, resultLimit, model);
       } else {
+        let apiKey = "";
+        let apiURL = "";
+        if (provider === "openai") {
+          apiKey = plugin.settingUtils.settings.get("openai.apiKey");
+          if (!apiKey) {
+            throw new Error("Missing OpenAI API key");
+          }
+        } else if (provider === "ollama") {
+          apiURL = plugin.settingUtils.settings.get("ollama.url") || "http://localhost:11434";
+        }
+        const aiwrapper = new AIWrapper(provider, { apiKey: apiKey, baseUrl: apiURL });
         chunkResult = await queryMdChunkV2(aiwrapper, model, notebookId, words, minScore, resultLimit);
       }
       const ftsResult = await fullTextSearchBlock(

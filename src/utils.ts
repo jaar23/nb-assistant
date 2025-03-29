@@ -492,6 +492,7 @@ export function mergeSearchResult(ftsResult: any, chunkResult: any[]) {
         result["fts"] = false;
     }
     mergeResult.push(...chunkResult);
+    console.log("merge result", mergeResult);
     return mergeResult;
 }
 
@@ -571,12 +572,11 @@ export function cosineSimilarity(a: number[], b: number[]): number {
     return dotProduct / (magnitudeA * magnitudeB);
 }
 
-export async function pluginCreateEmbedding(plugin, text) {
+export async function pluginCreateEmbedding(plugin, text, model?: any) {
     try {
-        const provider = plugin.settingUtils.settings.get("embedding.provider");
         const used_in = plugin.settingUtils.settings.get("embedding.used_in");
+        const provider = plugin.settingUtils.settings.get("embedding.provider");
         if (used_in === 'local') {
-            const model = await createModel();
             return await createEmbedding(model, text);
         } else if (used_in === 'ai-provider') {
             let model = plugin.settingUtils.settings.get("embedding.model");

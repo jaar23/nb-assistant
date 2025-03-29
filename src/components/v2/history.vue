@@ -13,6 +13,7 @@ export type Message = {
   actionable: boolean,
   actionType: string,
   blockId: string,
+  context?: string
 };
 
 const messages = defineModel<Message[]>("messages");
@@ -36,14 +37,20 @@ const props = defineProps({
 });
 
 function handleUpdateMessage(id: string, updatedMessage: string) {
+  let extraContext = null;
   for (let msg of messages.value) {
     if (msg.id === id) {
       msg.question.push(updatedMessage);
       msg.questionIndex = msg.question.length - 1;
+      extraContext = msg.context;
       break;
     }
   }
-  emit("updateMessage", id, updatedMessage);
+  if (extraContext) {
+    emit("updateMessage", id, updatedMessage, extraContext);
+  } else {
+    emit("updateMessage", id, updatedMessage);
+  }
 }
 
 

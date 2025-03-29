@@ -94,10 +94,10 @@ onMounted(async () => {
           {{ formatDateTime(hist.date) }}
           <div>
             <button class="action-button" @click="openChatHistory(hist.id)">
-              <ArrowRight :size="20" color="#fafafa" :stroke-width="1" />
+              <ArrowRight :size="20" :stroke-width="1" />
             </button>
             <button @click="deleteSavedChat(hist.id)" class="action-button">
-              <Trash :size="20" color="#fafafa" :stroke-width="1" />
+              <Trash :size="20" :stroke-width="1" />
             </button>
           </div>
         </div>
@@ -107,11 +107,29 @@ onMounted(async () => {
 </template>
 
 <style lang="css" scoped>
+svg {
+  fill: transparent;
+  display: inline-block;
+  background: transparent;
+  color: currentColor;
+  stroke: var(--b3-theme-on-background);
+  padding: 2px;
+  border: 1px solid var(--b3-border-color);
+  border-radius: var(--b3-border-radius);
+}
+
+
+svg:hover {
+  stroke: var(--b3-theme-primary);
+}
+
 li {
   border: 1px solid var(--b3-border-color);
   padding: 0.5em;
   margin: 0.5em;
   cursor: pointer;
+  background: var(--b3-theme-background-light);
+  border-radius: var(--b3-border-radius);
 }
 
 .message-section {
