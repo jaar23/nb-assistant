@@ -10,7 +10,6 @@ import {
   fullTextSearchBlock,
   getBlocksByIds,
 } from "@/api";
-import { MarkdownTextSplitter } from "@langchain/textsplitters";
 import { createEmbedding, createModel } from "@/model";
 import { openDB, deleteDB } from "idb";
 import {
