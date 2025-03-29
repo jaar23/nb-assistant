@@ -90,10 +90,14 @@ const thoughts = ref("");
 const isThoughtCollapsed = ref(false);
 const assetId = ref("");
 
-function copy() {
-  const textToCopy = `${props.question}\n${props.fullMessage || props.streamMessage}`;
-  console.log('Copying text:', textToCopy);
-  window.navigator.clipboard.writeText(textToCopy);
+function copy(role) {
+  if (role === "user") {
+    const textToCopy = props.question || "";
+    window.navigator.clipboard.writeText(textToCopy);
+  } else if (role === "assistant") {
+    const textToCopy = (props.fullMessage || props.streamMessage) || "";
+    window.navigator.clipboard.writeText(textToCopy);
+  }
 }
 
 function startEditing() {
@@ -355,7 +359,7 @@ onMounted(async () => {
       v-html="markdown.render(props.question)"></div>
     </div>
     <div class="ques-button-area" v-if="props.question && !isEditing">
-      <button @click="copy" class="msg-button">
+      <button @click="copy('user')" class="msg-button">
         <Copy :size="20" :stroke-width="1" />
       </button>
       <button @click="startEditing" class="msg-button">
@@ -395,7 +399,7 @@ onMounted(async () => {
     <div v-else>
       <div v-if="thoughts" class="thought">
         <div class="thought-header" @click="toggleThoughts">
-          <span>Thought Process</span>
+          <span>{{ plugin.i18n.thoughtProcess }}</span>
           <ChevronRight v-if="isThoughtCollapsed" :size="20" :stroke-width="1" class="collapse-icon" />
           <ChevronDown v-else :size="20" :stroke-width="1" class="collapse-icon" />
         </div>
@@ -413,7 +417,7 @@ onMounted(async () => {
       <button v-if="props.actionable" @click="save(props.blockId, props.actionType)" class="msg-button">
         <Save :size="20" :stroke-width="1" />
       </button>
-      <button @click="copy" class="msg-button">
+      <button @click="copy('assistant')" class="msg-button">
         <Copy :size="20" :stroke-width="1" />
       </button>
       <button @click="regenMessage" class="msg-button">
@@ -436,10 +440,10 @@ onMounted(async () => {
     <!-- Confirmation Dialog -->
     <div v-if="showConfirmDialog" class="confirmation-dialog">
       <div class="confirmation-content">
-        <p>Are you sure you want to remove this message?</p>
+        <p>{{ plugin.i18n.removeMessage }}</p>
         <div class="confirmation-buttons">
-          <button @click="confirmActionHandler" class="confirm-button">Yes</button>
-          <button @click="cancelActionHandler" class="cancel-button">No</button>
+          <button @click="confirmActionHandler" class="confirm-button">{{ plugin.i18n.yes }}</button>
+          <button @click="cancelActionHandler" class="cancel-button">{{ plugin.i18n.no }}</button>
         </div>
       </div>
     </div>
@@ -558,6 +562,7 @@ ul {
   padding: 1rem;
   background: var(--b3-theme-background-light);
   width: fit-content;
+  max-width: 92%;
 }
 
 .msg-container {

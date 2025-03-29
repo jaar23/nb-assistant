@@ -17,7 +17,7 @@ export type Message = {
 };
 
 const messages = defineModel<Message[]>("messages");
-const plugin = defineModel("plugin");
+const plugin: any = defineModel("plugin");
 const streamingMessage = ref("");
 const emit = defineEmits(["updateMessage", "regenMessage", "removeMessage"]);;
 const slideMsgKey = ref(0);

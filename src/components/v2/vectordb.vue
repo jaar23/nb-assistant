@@ -181,12 +181,13 @@ onMounted(async () => {
 
       <div class="model-info">
         <small class="model-description" v-if="embeddingUsedIn === 'local'">
-          Currently using local embedding model <b>{{ embeddingModel }}</b>, provided by Transformer.js and Huggingface.
-          <i>If the model failed to pull from Huggingface, recommended to use other embedding model provided by OpenAI or Ollama.</i>
+          {{ plugin.i18n.localEmbeddingSuppDesc1 }} <b>{{ embeddingModel }}</b>{{ plugin.i18n.localEmbeddingSuppDesc2 }}
+          <i>{{ plugin.i18n.localEmbeddingSuppDesc3 }}</i>
         </small>
         <small class="model-description" v-if="embeddingUsedIn === 'ai-provider'">
-          Currently using embedding model <b>{{ embeddingModel }}</b>, provided by {{ embeddingProvider }}.
-          <i>Only for Ollama, ensure it is up and running when you are creating embeddings.</i>
+          {{ plugin.i18n.providerEmbeddingSuppDesc1 }} <b>{{ embeddingProvider }}/{{ embeddingModel }}</b>
+          <br/>
+          <i>{{ plugin.i18n.providerEmbeddingSuppDesc3 }}</i>
         </small>
       </div>
 

@@ -5,6 +5,7 @@ import Loading from "vue-loading-overlay";
 import { ArrowRight, Trash } from "lucide-vue-next";
 import { strToFile } from "@/utils";
 
+const plugin: any = defineModel("plugin");
 const chatHistories = ref<{ id: string, date: string, length: number, name: string }[]>([]);
 const isLoading = defineModel("inferencing");
 const dataPath = "temp/nb-assistant";
@@ -83,6 +84,7 @@ onMounted(async () => {
 
 <template>
   <div>
+    <h3>{{ plugin.i18n.chatHistory }}</h3>
     <loading v-model:active="isLoading" :can-cancel="false" :on-cancel="loadingCancel" loader="bars"
       background-color="#eee" :opacity="0.25" :is-full-page="false" />
     <ul>
@@ -107,6 +109,15 @@ onMounted(async () => {
 </template>
 
 <style lang="css" scoped>
+h3 {
+  padding: 1rem;
+}
+
+ul {
+  height: calc(85vh - env(safe-area-inset-bottom));
+  overflow-y: scroll;
+}
+
 svg {
   fill: transparent;
   display: inline-block;

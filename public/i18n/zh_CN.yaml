@@ -7,9 +7,9 @@ helloPlugin: 你好，插件！
 byePlugin: 再见，插件！
 summarize: "总结"
 autoTag: 生成标记
-saveChat: 保存
+saveChat: 保存聊天记录
 clear: 清除
-chatPlaceHolder: 您好，我是您的笔记小助手! 尝试使用 @ 已开启更多功能。
+chatPlaceHolder: 您好，我是您的笔记小助手! 尝试使用 @ 开启更多功能。
 send: 发送
 saveChatTitle: 保存到
 saveChatDesc: 插件会使用当前选择的笔记本来保存聊天记录
@@ -99,8 +99,10 @@ aiFrequencyPenalty: 范围-2.0到2.0。调整令牌重复的可能性。正值�
 aiStopWords: 指示AI停止生成进一步内容的字符串数组。用于控制响应格式和防止不需要的延续。例如：###,Human,Assistant
 aiChooseEmbedding: 本地模型直接在您的设备上运行，提供隐私保护，且不依赖互联网。可是，本地模型可能没有互联网的AI服务来的精准。
 aiEmbeddingModelDesc: 用于创建RAG过程和相似搜索的嵌入模型。
-aiEmbeddingModel: 嵌入模型
+aiEmbeddingModel: 本地嵌入模型
+aiLocalEmbedding: 本地嵌入模型 (Transformer.js)
 aiEmbeddingModelProvider: 嵌入模型供应商
+aiAiproviderEmbedding: 模型供应商 (Ollama/OpenAI)
 aiTitleApiKey: API Key
 aiTitleApiUrl: API URL
 aiTitleModel: 模型
@@ -115,5 +117,45 @@ aiTitleFrequencyPenalty: 频率率惩罚
 aiTitleStopWords: 停止词
 truncateHistory: 保留对话上下文
 truncateHistoryDesc: 在聊天历史中排除较早的消息，仅保留最近的 X 条消息以维持对话上下文
-
-
+notWorkingInO1: OpenAI o1系列模型不适用此设置
+localEmbeddingSuppDesc1: 当前使用本地嵌入模型
+localEmbeddingSuppDesc2: "，由Transformer.js和Huggingface提供"
+localEmbeddingSuppDesc3: "如果从Huggingface拉取模型失败，建议使用OpenAI或Ollama提供的其他嵌入模型"
+providerEmbeddingSuppDesc1: 当前使用嵌入模型
+providerEmbeddingSuppDesc2: "，由"
+providerEmbeddingSuppDesc3: "对于Ollama，请确保在创建嵌入时其已启动并运行"
+aliasForMore: "@ 更多操作"
+matching: "匹配"
+style: "风格"
+size: "尺寸"
+imageFnSupport1: "此功能仅支持OpenAI Dall-E 3模型。"
+searchForNbOrDoc: "搜索笔记本或文档"
+intro1: "你好，我是你的笔记本助手。"
+intro2: "今天有什么可以帮你的吗？"
+gettingStarted: "入门指南"
+model: "模型"
+removeMessage: 你真的要删除此信息吗？
+yes: 是的,
+no: 不,
+thoughtProcess: 思考过程
+chatHistory: 聊天记录
+gettingStarted1: "这些按钮可帮助你在不同视图间切换：搜索、向量数据库、开启新聊天、聊天记录和聊天界面。"
+gettingStarted2: "选择用于对话的AI模型。"
+gettingStarted3: "使用@命令快速执行操作，例如保存聊天、总结文档、自动标记和添加上下文。"
+gettingStarted4: "在此输入消息。按Enter键发送（可在设置中配置）。"
+gettingStarted5: "配置你的偏好设置、API密钥和其他选项。"
+gettingStartedTitle1: "插件目录"
+gettingStartedTitle2: "AI模型"
+gettingStartedTitle3: "快捷操作"
+gettingStartedTitle4: "聊天输入"
+gettingStartedTitle5: "插件设置"
+nbNameOrDocName: 笔记本名字 / 文档名称
+imageGenDesc: 描述你想要生成的图片， 越仔细越好
+summarizeDoc: 总结文档
+addContext: 上下文
+imageGeneration: 生成图片
+vivid: 生动逼真
+natural: 自然
+documentName: 文档名
+noteSaved: 聊天记录已保存至文档
+quckAct1: 快速执行操作： 生成向量嵌入

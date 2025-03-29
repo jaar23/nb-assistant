@@ -80,11 +80,11 @@ const chatControl = ref("");
 const showChatAction = ref(false);
 const actionCommand = ref("add context");
 const chatActions = [
-  { label: "Save Chat", cmd: "save chat", action: saveChatToNote, shortcut: "sc" },
-  { label: "Summarize Doc", cmd: "summarize doc", action: summarizeOpenDoc, shortcut: "sd" },
-  { label: "Auto Tag Doc", cmd: "tag doc", action: autoTagDoc, shortcut: "atd" },
-  { label: "Add Context", cmd: "add context", action: getChatContext, shortcut: "ac" },
-  { label: "Image Generation", cmd: "image generation", action: generateImage, shortcut: "ig" }
+  { label: plugin.value.i18n.saveChat, cmd: "save chat", action: saveChatToNote, shortcut: "sc" },
+  { label: plugin.value.i18n.summarizeDoc, cmd: "summarize doc", action: summarizeOpenDoc, shortcut: "sd" },
+  { label: plugin.value.i18n.autoTag, cmd: "tag doc", action: autoTagDoc, shortcut: "atd" },
+  { label: plugin.value.i18n.addContext, cmd: "add context", action: getChatContext, shortcut: "ac" },
+  { label: plugin.value.i18n.imageGeneration, cmd: "image generation", action: generateImage, shortcut: "ig" }
 ];
 const actionTarget = ref("");
 const actionInputRef = ref(null);
@@ -100,8 +100,8 @@ const imageSize = ref("1024x1024");
 const showImageOptions = ref(false);
 let passingScore = 0.5;
 const imageStyles = [
-  { label: "Vivid", value: "vivid" },
-  { label: "Natural", value: "natural" }
+  { label: plugin.value.i18n.vivid, value: "vivid" },
+  { label: plugin.value.i18n.natural, value: "natural" }
 ];
 
 const imageSizes = [
@@ -163,32 +163,32 @@ const currentStep = ref(null);
 const tutorialSteps = [
   {
     target: '.toolbar-right',
-    title: 'Navigation',
-    content: 'These buttons help you navigate between different views: Search, Vector Database, New Chat, History, and Chat.',
+    title: plugin.value.i18n.gettingStartedTitle1,
+    content: plugin.value.i18n.gettingStarted1,
     position: 'bottom'
   },
   {
     target: '.model-select',
-    title: 'AI Model Selection',
-    content: 'Choose which AI model to use for your conversations.',
+    title: plugin.value.i18n.gettingStartedTitle2,
+    content: plugin.value.i18n.gettingStarted2,
     position: 'top'
   },
   {
     target: '.quick-action',
-    title: 'Quick Actions',
-    content: 'Use @ commands for quick actions like saving chats, summarizing documents, auto-tagging, and adding context.',
+    title: plugin.value.i18n.gettingStartedTitle3,
+    content: plugin.value.i18n.gettingStarted3,
     position: 'top'
   },
   {
     target: '.input-area',
-    title: 'Chat Input',
-    content: 'Type your messages here. Press Enter to send (can be configured in settings).',
+    title: plugin.value.i18n.gettingStartedTitle4,
+    content: plugin.value.i18n.gettingStarted4,
     position: 'top'
   },
   {
     target: '.settings',
-    title: 'Settings',
-    content: 'Configure your preferences, API keys, and other options.',
+    title: plugin.value.i18n.gettingStartedTitle5,
+    content: plugin.value.i18n.gettingStarted5,
     position: 'right'
   }
 ];
@@ -649,7 +649,7 @@ async function saveChatToNote() {
     console.log("save chat", content);
     showChatAction.value = false;
     if (response) {
-      await pushMsg(`Chat saved to note`);
+      await pushMsg(plugin.value.i18n.noteSaved);
       await openBlock(response);
     }
   } catch (error) {
@@ -928,14 +928,14 @@ async function handleActionCommand() {
       }
       if (actionCommand.value === "save chat") {
         if (!notebooks.value.some(nb => nb.embedding.length > 0)) {
-          await pushMsg("Quick Action: Generating index for search");
+          await pushMsg(plugin.value.i18n.quckAct1);
           for (let nb of notebooks.value) {
             nb.embedding = await pluginCreateEmbedding(plugin.value, nb.name, embeddingModel);
           }
         }
       } else {
         if (!documents.value.some(doc => doc.embedding.length > 0)) {
-          await pushMsg("Quick Action: Generating index for search");
+          await pushMsg(plugin.value.i18n.quckAct1);
           for (let doc of documents.value) {
             doc.embedding = await pluginCreateEmbedding(plugin.value, doc.name, embeddingModel);
           }
@@ -1264,11 +1264,11 @@ onMounted(async () => {
       <div class="chat-overlay" v-if="(view == 'chat' && (messages || []).length === 0) && !isStreaming">
         <h2>nb</h2>
         <br />
-        <p>Hi, I'm your notebook assistant. </p>
+        <p>{{ plugin.i18n.intro1 }}</p>
         <br />
-        <p>How can I help you today?</p>
+        <p>{{ plugin.i18n.intro2 }}</p>
         <br />
-        <span class="get-started" @click="handleGetStarted">Getting started</span>
+        <span class="get-started" @click="handleGetStarted">{{ plugin.i18n.gettingStarted }}</span>
       </div>
       <div v-if="view == 'chat'" class="chat-container" ref="messageWindowRef" @scroll="handleScroll">
         <history class="history" ref="historyRef" v-model:messages="messages" v-model:plugin="plugin"
@@ -1294,10 +1294,10 @@ onMounted(async () => {
             </div>
             <input ref="actionInputRef" type="text" class="b3-text-field" v-model="actionTarget" 
               v-show="actionCommand !== 'image generation'"
-              placeholder="Notebook name / Document name" @keypress="handleActionTarget" @keyup="handleActionTarget"
+              :placeholder="plugin.i18n.nbNameOrDocName" @keypress="handleActionTarget" @keyup="handleActionTarget"
               :disabled="isProcessing || actionCommand === ''" :class="{ 'processing': isProcessing }" />
             <small v-show="actionCommand !== 'image generation'">
-              Search for notebook or document
+              {{ plugin.i18n.searchForNbOrDoc }}
             </small>
             <div class="doc-list"
               v-if="actionCommand.toLowerCase().includes('save chat') || actionCommand.toLowerCase().startsWith('sc')"
@@ -1315,7 +1315,7 @@ onMounted(async () => {
                     <div class="item-indicators">
                       <span v-if="selectedTarget.has(nb.id)" class="tick-icon">✓</span>
                       <span class="match-score" v-if="nb.matchScore">
-                        {{ Math.round(nb.matchScore * 100) }}% match
+                        {{ Math.round(nb.matchScore * 100) }}% {{ plugin.i18n.matching }}
                       </span>
                     </div>
                   </div>
@@ -1324,16 +1324,17 @@ onMounted(async () => {
             </div>
             <!-- Image Generation Options -->
             <div v-if="actionCommand === 'image generation'" class="image-generation-options">
+              <small>{{ plugin.i18n.imageFnSupport1 }}</small>
               <textarea
                 v-model="imagePrompt"
                 class="image-prompt textarea"
-                placeholder="Describe the image you want to generate..."
+                :placeholder="plugin.i18n.imageGenDesc"
                 rows="3"
               ></textarea>
               
               <div class="image-settings">
                 <div class="setting-group">
-                  <label>Style:</label>
+                  <label>{{ plugin.i18n.style }}</label>
                   <select v-model="imageStyle">
                     <option v-for="style in imageStyles" 
                             :key="style.value" 
@@ -1344,7 +1345,7 @@ onMounted(async () => {
                 </div>
                 
                 <div class="setting-group">
-                  <label>Size:</label>
+                  <label>{{ plugin.i18n.size }}</label>
                   <select v-model="imageSize">
                     <option v-for="size in imageSizes" 
                             :key="size.value" 
@@ -1369,7 +1370,7 @@ onMounted(async () => {
                     <div class="item-indicators">
                       <span v-if="selectedTarget.has(doc.id)" class="tick-icon">✓</span>
                       <span class="match-score" v-if="doc.matchScore">
-                        {{ Math.round(doc.matchScore * 100) }}% match
+                        {{ Math.round(doc.matchScore * 100) }}% {{ plugin.i18n.matching }}
                       </span>
                     </div>
                   </div>
@@ -1378,9 +1379,9 @@ onMounted(async () => {
             </div>
           </div>
           <div>
-            <input class="b3-text-field doc-name-input" type="text" v-model="newDocName" placeholder="Document Name"
+            <input class="b3-text-field doc-name-input" type="text" v-model="newDocName" :placeholder="plugin.i18n.documentName"
               v-if="actionCommand.toLowerCase().includes('save chat') || actionCommand.toLowerCase().startsWith('sc')" />
-            <button class="b3-button action-confirm" @click="confirmQuickAction">Confirm</button>
+            <button class="b3-button action-confirm" @click="confirmQuickAction">{{ plugin.i18n.confirm }}</button>
           </div>
         </div>
       </div>
@@ -1403,7 +1404,7 @@ onMounted(async () => {
           <span @click="openSetting" class="btn-a">
             <Settings2 class="settings" :size="20" color="#fafafa" :stroke-width="1" />
           </span>
-          <span class="model-label">model</span>
+          <span class="model-label">{{ plugin.i18n.model }}</span>
           <div class="model-dropdown">
             <select class="model-select" v-model="selectedModel" @change="handleModelChange">
               <option v-for="model in models" :key="model.value" :value="model.value">
@@ -1412,7 +1413,7 @@ onMounted(async () => {
             </select>
           </div>
           <span class="btn-a quick-action" @click="showChatAction = !showChatAction; handleActionCommand()">
-            @ more action
+            {{ plugin.i18n.aliasForMore }}
           </span>
           <button @click="cancelPrompt" class="cancel-prompt" v-if="isLoading">
             <CircleStop :size="20" color="#fafafa" :stroke-width="1" />
@@ -1421,11 +1422,11 @@ onMounted(async () => {
         <div class="input-area">
           <textarea ref="chatInputRef" class="textarea" v-model="chatInput" :placeholder="plugin.i18n.chatPlaceHolder"
             @keypress="typing" @keyup="typing" @focus="handleFocus" @blur="handleBlur"></textarea>
-          <div class="enter-indicator">[ Enter ] to Send</div>
+          <div class="enter-indicator">[ Enter ] {{ plugin.i18n.send }}</div>
         </div>
       </div>
       <div v-if="view == 'saved_chat'">
-        <savedchat @openChatHistory="handleOpenChatHistory"/>
+        <savedchat @openChatHistory="handleOpenChatHistory" :plugin="plugin" />
       </div>
       <div v-if="view == 'vectordb'">
         <vectordb v-model:plugin="plugin" />
@@ -1666,7 +1667,6 @@ h2 {
   max-width: 90%;
   width: 90%;
   text-align: center;
-  min-height: 50%;
 }
 
 /* Close Button */
