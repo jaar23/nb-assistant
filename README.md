@@ -5,7 +5,31 @@
 
 Notebook Assistant (nb-assistant /  思源 笔记本助手) is an plugin that build for SiYuan to enhance its AI capability. 
 
-0.1.3 is in release stage now! 
+0.1.4 rc is release now!
+
+Refactor the extension to support:
+
+✅ Friendly UI
+
+✅ Multiple ai model switch, OpenAI, DeepSeek, Claude, Ollama
+
+✅ Create Embedding by Ollama, OpenAI and Transformer.js
+
+✅ Save, regenerate, copy and delete chat messages
+
+✅ Save chat history and find it back easily
+
+✅ Generate images under experimental feature (only supported for OpenAI Dall-E 3)
+
+✅ Reasoning model supported
+
+✅ Quick action by typing `@` in chatbox
+
+✅ Persist context in chat, remember context in chat history
+
+✅ Hybrid search strategy by combining similarity result and full text search.
+
+---
 
 ![preview](./preview.png)
 
