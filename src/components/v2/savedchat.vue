@@ -114,7 +114,7 @@ h3 {
 }
 
 ul {
-  height: calc(85vh - env(safe-area-inset-bottom));
+  height: 90vh;
   overflow-y: scroll;
 }
 
@@ -170,5 +170,42 @@ li {
   background-color: transparent;
   margin: 0rem 1rem;
 }
+
+/* Mobile-specific styles */
+@media (max-width: 480px) {
+  ul {
+    height: 70vh;
+    overflow-y: scroll;
+  }
+
+  .message-section {
+    display: block;
+    padding: 0.5em;
+    font-size: larger;
+    font-size: 0.9rem;
+  }
+
+  .action-section {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.25em 1em;
+    color: var(--b3-empty-color);
+    font-size: 0.7rem;
+  }
+
+  h3 {
+    font-size: 1.0rem;
+  }
+}
+
+/* Tablet-specific styles */
+@media (min-width: 481px) and (max-width: 1024px) {
+  ul {
+    height: 75vh;
+    overflow-y: scroll;
+  }
+
+}
+
 
 </style>

@@ -3,6 +3,7 @@ import { lsNotebooks } from '@/api';
 import { onMounted, onUnmounted, ref } from 'vue';
 import { AIWrapper } from '@/orchestrator/ai-wrapper';
 import Loading from "vue-loading-overlay";
+import { getFrontend } from 'siyuan';
 
 const plugin: any = defineModel<any>("plugin");
 
@@ -393,6 +394,17 @@ onMounted(async () => {
         embeddingSettings.value.model = `${embeddingSettings.value.used_in}|${embeddingSettings.value.provider}|${embeddingSettings.value.provider}/${plugin.value.settingUtils.settings.get("embedding.model")}` || "";
     }
     isLoading.value = false;
+
+    const frontEnd = getFrontend();
+    const isMobile = frontEnd === "mobile" || frontEnd === "browser-mobile";
+    if (isMobile) {
+        sections.value = sections.value.map(s => {
+            if (s.id === 'ollama') {
+                s.visible = false;
+            }
+            return s;
+        });
+    }
 })
 
 onUnmounted(async () => {
@@ -1016,10 +1028,12 @@ onUnmounted(async () => {
 .settings-container {
     display: flex;
     height: 100%;
+    max-height: 450px;
+    padding: 1rem 1rem 1rem 0rem;
 }
 
 .settings-sidebar {
-    width: 150px;
+    width: 80px;
     border-right: 1px solid var(--b3-border-color);
     padding: 20px;
 }
@@ -1032,7 +1046,7 @@ onUnmounted(async () => {
 .sidebar-nav ul {
     list-style: none;
     padding: 0;
-    min-width: 150px;
+    min-width: 80px;
 }
 
 .sidebar-nav li {
@@ -1059,6 +1073,10 @@ onUnmounted(async () => {
 .setting-header h3 {
     font-size: 14px;
     margin: 0;
+}
+
+.setting-header span {
+    width: 25%;
 }
 
 .setting-description {
@@ -1150,8 +1168,8 @@ onUnmounted(async () => {
 }
 
 .radio-option {
-    min-width: 150px;
-    width: 50%;
+    min-width: 120px;
+    width: 40%;
     margin: 1em 0em;
 }
 

@@ -114,6 +114,7 @@ async function openBlock(blockId) {
   cursor: pointer;
   color: var(--b3-theme-on-background);
   padding: 0rem 1rem;
+  overflow-x: scroll;
 }
 
 .result-meta {
@@ -175,4 +176,5 @@ async function openBlock(blockId) {
     background: rgba(255, 255, 255, 0.1);
   }
 }
+
 </style>

@@ -236,6 +236,7 @@ onMounted(async () => {
   height: 100%;
   padding: 0 1rem;
   background: var(--b3-theme-background);
+  overflow-y: scroll;
 }
 
 .vectordb-header {
@@ -392,5 +393,28 @@ onMounted(async () => {
   .button-confirm:hover, .button-cancel:hover {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   }
+}
+
+/* Mobile-specific styles */
+@media (max-width: 480px) {
+  .action-section {
+    margin-top: 1.5rem;
+    position: absolute;
+    bottom: 4%;
+    font-size: 0.9rem;
+  }
+
+  .vectordb-container {
+    height: 500px;
+    padding: 0 1rem;
+    background: var(--b3-theme-background);
+    overflow-y: scroll;
+    font-size: 0.85rem;
+  }
+}
+
+/* Tablet-specific styles */
+@media (min-width: 481px) and (max-width: 1024px) {
+
 }
 </style>

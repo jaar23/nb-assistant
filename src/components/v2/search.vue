@@ -122,16 +122,12 @@ onMounted(async () => {
         <label class="search-label">
           {{ plugin.i18n.searchNotebook }}
         </label>
-        <select 
-          class="b3-select modern-select" 
-          v-model="selectedNotebook" 
-        >
+        <select class="b3-select modern-select" v-model="selectedNotebook">
           <option value="" disabled>{{ plugin.i18n.pleaseSelect }}</option>
           <option 
             v-for="nb in notebooks" 
             :value="nb.id" 
-            :disabled="disableSelection(nb.name)"
-          >
+            :disabled="disableSelection(nb.name)">
             {{ nb.name }}
           </option>
         </select>
@@ -301,4 +297,5 @@ onMounted(async () => {
     background-color: var(--b3-theme-primary);
   }
 }
+
 </style>

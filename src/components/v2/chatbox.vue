@@ -33,7 +33,7 @@ import {
   parseTags
 } from "@/utils";
 import history from "./history.vue";
-import { CircleStop, Settings2, History, Plus, MessageCircle, Database, Search } from 'lucide-vue-next';
+import { CircleStop, Settings2, History, Plus, MessageCircle, Database, Search, SquareArrowUp } from 'lucide-vue-next';
 import { AIWrapper } from "@/orchestrator/ai-wrapper";
 import { CompletionRequest, ImageSize2, ImageStyle } from "@/orchestrator/types";
 import { Message } from "../history.vue";
@@ -42,6 +42,7 @@ import vectordb from "./vectordb.vue";
 import search from "./search.vue";
 import { transformModelNamePathSafeStr } from "@/embedding";
 import { createModel } from "@/model";
+import { getFrontend } from "siyuan";
 
 const chatInput = defineModel<string>("chatInput");
 const plugin: any = defineModel<any>("plugin");
@@ -55,6 +56,7 @@ const selectedDocument = ref([]);
 
 const rephrasedInput = ref("");
 // 0.1.4
+const isMobile = ref(false);
 const vectorizedDb = ref([]);
 const documents = ref([]);
 const notebooks = ref([]);
@@ -177,7 +179,7 @@ const tutorialSteps = [
     target: '.quick-action',
     title: plugin.value.i18n.gettingStartedTitle3,
     content: plugin.value.i18n.gettingStarted3,
-    position: 'top'
+    position: 'left'
   },
   {
     target: '.input-area',
@@ -398,6 +400,17 @@ async function typing(ev) {
         }
       }, 500)
     }
+  }
+}
+
+async function send() {
+  try {
+    if ((chatInput.value || "").trim() === '') return;
+    await prompt();
+  } catch (e) {
+    console.error(e);
+    isLoading.value = false;
+    pushErrMsg(e.stack);
   }
 }
 
@@ -889,7 +902,9 @@ async function loadModels() {
   const settings = plugin.value.settingUtils.settings;
   const ollamaApiURL = settings.get("ollama.url")?.trim();
   const ollamaModel = settings.get("ollama.model")?.trim();
-  if (ollamaApiURL && ollamaModel) {
+  const frontEnd = getFrontend();
+  isMobile.value = frontEnd === "mobile" || frontEnd === "browser-mobile";
+  if (ollamaApiURL && ollamaModel && !isMobile.value) {
     models.value.push({ label: ollamaModel, value: ollamaModel, apiKey: "", apiURL: ollamaApiURL, provider: "ollama" });
   }
 
@@ -1416,13 +1431,18 @@ onMounted(async () => {
             {{ plugin.i18n.aliasForMore }}
           </span>
           <button @click="cancelPrompt" class="cancel-prompt" v-if="isLoading">
-            <CircleStop :size="20" color="#fafafa" :stroke-width="1" />
+            <CircleStop :size="24" color="#fafafa" :stroke-width="1" />
           </button>
         </div>
         <div class="input-area">
           <textarea ref="chatInputRef" class="textarea" v-model="chatInput" :placeholder="plugin.i18n.chatPlaceHolder"
             @keypress="typing" @keyup="typing" @focus="handleFocus" @blur="handleBlur"></textarea>
-          <div class="enter-indicator">[ Enter ] {{ plugin.i18n.send }}</div>
+          <div class="enter-indicator" v-if="enterToSend">
+            [ Enter ] {{ plugin.i18n.send }}
+          </div>
+          <span class="toolbar-btn send-btn" @click="send" v-if="!isLoading">
+            <SquareArrowUp :size="24" :stroke-width="1" />
+          </span>
         </div>
       </div>
       <div v-if="view == 'saved_chat'">
@@ -1478,8 +1498,7 @@ h2 {
 .page-container {
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  height: calc(95vh - env(safe-area-inset-bottom));
+  height: calc(96.5vh - env(safe-area-inset-bottom));
   /* Adjust for safe area */
 }
 
@@ -1534,8 +1553,8 @@ h2 {
   z-index: 11;
   position: absolute;
   width: 100%;
-  height: calc(85vh - env(safe-area-inset-bottom));
-  top: 3%;
+  height: calc(15vh - env(safe-area-inset-bottom));
+  top: 20%;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -1586,7 +1605,7 @@ h2 {
 }
 
 .textarea {
-  width: 100%;
+  width: 89%;
   min-height: 40px;
   padding:1rem 0.5rem;
   border: none;
@@ -1600,7 +1619,7 @@ h2 {
 .enter-indicator {
   position: absolute;
   bottom: 8px;
-  right: 8px;
+  right: 38px;
   color: #999;
   font-size: 12px;
   pointer-events: none;
@@ -1612,6 +1631,7 @@ h2 {
   border: 0px;
   width: 50px;
   z-index: 10000;
+  margin-right: 10px;
 }
 
 
@@ -1624,6 +1644,7 @@ h2 {
   border-bottom: 1px solid var(--b3-border-color);
   position: relative;
   z-index: 10;
+  min-height: 2.7rem;
   /* Ensure toolbar is above chat container */
 }
 
@@ -1667,6 +1688,7 @@ h2 {
   max-width: 90%;
   width: 90%;
   text-align: center;
+  max-height: 600px;
 }
 
 /* Close Button */
@@ -1719,6 +1741,7 @@ h2 {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  max-height: 525px;
 }
 
 .action-input {
@@ -1734,6 +1757,7 @@ h2 {
   gap: 8px;
   align-items: center;
   color: var(--b3-theme-on-primary);
+  flex-wrap: wrap;
 }
 
 .hint {
@@ -1746,6 +1770,7 @@ h2 {
   background: var(--b3-theme-on-surface);
   border-radius: 4px;
   font-size: 12px;
+  min-width: 6.5rem;
 }
 
 .hint-example:hover {
@@ -1970,7 +1995,7 @@ h2 {
 
 .tutorial-tooltip.bottom {
   top: calc(100% + 12px);
-  left: 50%;
+  left: 30%;
   transform: translateX(-50%);
 }
 
@@ -2103,30 +2128,15 @@ h2 {
   color: var(--b3-theme-on-background);
 }
 
-/* Mobile-specific styles */
-@media (max-width: 480px) {
-  .page-container {
-    height: 100vh;
-    height: calc(95vh - env(safe-area-inset-bottom));
-  }
-
-  .input-wrapper {
-    padding-bottom: calc(12px + env(safe-area-inset-bottom));
-  }
-
-  .textarea:focus {
-    margin-bottom: 150px;
-    /* Adjust this value based on your keyboard height */
-  }
+.send-btn {
+  position: absolute;
+  bottom: 10px;
+  right: 0px;
+  font-size: 12px;
 }
 
-/* Tablet-specific styles */
-@media (min-width: 481px) and (max-width: 1024px) {
-  .page-container {
-    height: 100vh;
-    height: calc(95vh - env(safe-area-inset-bottom));
-  }
-
+/* Mobile-specific styles */
+@media (max-width: 480px) {
   .input-wrapper {
     padding-bottom: calc(12px + env(safe-area-inset-bottom));
   }
@@ -2134,6 +2144,132 @@ h2 {
   .textarea:focus {
     margin-bottom: 100px;
     /* Adjust this value based on your keyboard height */
+  }
+
+  .toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.7em 0em;
+    background: var(--b3-theme-background);
+    border-bottom: 1px solid var(--b3-border-color);
+    position: relative;
+    z-index: 10;
+    min-height: 0.5rem;
+    font-size: 0.9rem;
+  }
+
+    /* Popup Content */
+  .popup-content {
+    position: absolute;
+    top: 45%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    /* Center the popup */
+    background: var(--b3-theme-background);
+    padding: 1em;
+    border-radius: var(--b3-border-radius);
+    box-shadow: 0 10px 8px rgba(0, 0, 0, 0.2);
+    max-width: 90%;
+    width: 90%;
+    text-align: center;
+    max-height: 600px;
+    font-size: 0.8rem;
+  }
+
+  .page-container {
+    display: flex;
+    flex-direction: column;
+    height: calc(88vh - env(safe-area-inset-bottom));
+    /* Adjust for safe area */
+  }
+  .tutorial-tooltip {
+    position: absolute;
+    background: var(--b3-theme-background);
+    border: 1px solid var(--b3-border-color);
+    border-radius: 4px;
+    padding: 10px;
+    width: 210px;
+    pointer-events: all;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    font-size: 0.9rem;
+  }
+
+  .chat-control {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .cancel-prompt {
+    background: transparent;
+    color: var(--b3-theme-on-surface);
+    border: 0px;
+    width: 50px;
+    z-index: 10000;
+  }
+
+  .model-select {
+    width: 150px;
+    padding: 4px 8px;
+    border: 1px solid var(--b3-border-color);
+    border-radius: 4px;
+    background: var(--b3-select-background);
+    font-size: 14px;
+    cursor: pointer;
+    color: var(--b3-empty-color);
+    appearance: none;
+  }
+
+}
+
+/* Tablet-specific styles */
+@media (min-width: 481px) and (max-width: 1024px) {
+  .input-wrapper {
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .textarea:focus {
+    margin-bottom: 100px;
+    /* Adjust this value based on your keyboard height */
+  }
+
+  .toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25em 0em;
+    background: var(--b3-theme-background);
+    border-bottom: 1px solid var(--b3-border-color);
+    position: relative;
+    z-index: 10;
+    min-height: 0.5rem;
+    /* Ensure toolbar is above chat container */
+  }
+
+  /* Popup Content */
+  .popup-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    /* Center the popup */
+    background: var(--b3-theme-background);
+    padding: 1em;
+    border-radius: var(--b3-border-radius);
+    box-shadow: 0 10px 8px rgba(0, 0, 0, 0.2);
+    max-width: 90%;
+    width: 90%;
+    text-align: center;
+    max-height: 600px;
+    font-size: 0.8rem;
+  }
+
+  .page-container {
+    display: flex;
+    flex-direction: column;
+    height: calc(94.5vh - env(safe-area-inset-bottom));
+    /* Adjust for safe area */
   }
 }
 
