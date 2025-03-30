@@ -218,7 +218,7 @@ async function prompt(stream = true, withHistory = true) {
         return result;
       };
       const modelConfig = extractByKey(settings, `${model.provider}.`);
-      console.log("model config", modelConfig);
+      // console.log("model config", modelConfig);
       let request = {};
 
       if (modelConfig.get("customSystemPrompt")) {
@@ -374,6 +374,7 @@ async function typing(ev) {
     ev.preventDefault();
 
     try {
+      if ((chatInput.value || "").trim() === '') return;
       await prompt();
     } catch (e) {
       console.error(e);
@@ -1541,10 +1542,10 @@ h2 {
   background: var(--b3-theme-background);
   border: 1px solid var(--b3-border-color);
   color: var(--b3-empty-color);
-  border-radius: 4px;
+  border-radius: var(--b3-border-radius);
   margin-top: auto;
   /* Push the input area to the bottom */
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: 1rem;
   /* Adjust for safe area */
   position: relative;
   z-index: 6;
@@ -1627,7 +1628,7 @@ h2 {
 .enter-indicator {
   position: absolute;
   bottom: 8px;
-  right: 38px;
+  right: 8px;
   color: #999;
   font-size: 12px;
   pointer-events: none;
@@ -2141,6 +2142,7 @@ h2 {
   bottom: 10px;
   right: 0px;
   font-size: 12px;
+  margin-bottom: 1.5rem;
 }
 
 /* Mobile-specific styles */
@@ -2188,7 +2190,7 @@ h2 {
   .page-container {
     display: flex;
     flex-direction: column;
-    height: calc(88vh - env(safe-area-inset-bottom));
+    height: calc(91vh - env(safe-area-inset-bottom));
     /* Adjust for safe area */
   }
   .tutorial-tooltip {

@@ -66,10 +66,6 @@ const props = defineProps({
     type: String,
     required: false
   },
-  plugin: {
-    type: Object,
-    required: false
-  },
   slideKey: {
     type: Number,
     required: false,
@@ -89,6 +85,7 @@ const messageKey = computed(() => `${props.slideKey}-${props.fullMessage}`);
 const thoughts = ref("");
 const isThoughtCollapsed = ref(false);
 const assetId = ref("");
+const plugin: any = defineModel("plugin");
 
 function copy(role) {
   if (role === "user") {
@@ -166,9 +163,9 @@ async function appendToDoc(message: string, actionType?: string) {
 
 async function save(id: string, action: string) {
   if (action === 'save_summary') {
-    const data = `### ${props.plugin.i18n.summaryText}\n${props.fullMessage}`;
+    const data = `### ${plugin.value.i18n.summaryText}\n${props.fullMessage}`;
     await appendBlock("markdown", data, id);
-    await pushMsg(props.plugin.i18n.summarySaved);
+    await pushMsg(plugin.value.i18n.summarySaved);
   } else if (action === 'save_tags') {
     const tags = checklist.value.filter((x) => x.checked).map((x) => x.tag);
     if (tags.length > 0) {
@@ -176,14 +173,22 @@ async function save(id: string, action: string) {
         tags: tags.join(","),
       };
       await setBlockAttrs(id, attrs);
-      await pushMsg(props.plugin.i18n.tagsAdded);
+      await pushMsg(plugin.value.i18n.tagsAdded);
     } else {
-      await pushMsg(props.plugin.i18n.noTagsSelected);
+      await pushMsg(plugin.value.i18n.noTagsSelected);
     }
   } else if (action === "generate_image") {
+    function generateFileName(): string {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const randomString = Math.random().toString(36).substring(2, 8);
+      return `${year}${month}${day}-${randomString}`;
+    }
     const base64Data = extractBase64FromMarkdown(message.value);
-    const title = props.question.replace("Generate image: ", "");
-    await saveGeneratedImage(title, base64Data);
+    const fileName = generateFileName();
+    await saveGeneratedImage(fileName, base64Data);
   }
 }
 
@@ -242,6 +247,7 @@ function confirmActionHandler() {
     if (whoseMessage === "question") {
       emit("removeMessage", { question: props.question, answer: "", id: props.id });
     } else if (whoseMessage === "answer") {
+      thoughts.value = "";
       emit("removeMessage", { question: "", answer: props.fullMessage, id: props.id });
     }
   }

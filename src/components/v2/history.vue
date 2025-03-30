@@ -135,11 +135,11 @@ defineExpose({
         :question="msg.question.length > 0 ? msg.question[msg.questionIndex]:''" 
         :fullMessage="msg.answer.length > 0 ?msg.answer[msg.answerIndex] : ''" :isStreaming="false" :id="msg.id"
         @updateMessage="handleUpdateMessage" @removeMessage="handleRemoveMessage" 
-        @regenMessage="handleRegenMessage" @slideMessage="handleSlideMessage" :plugin="plugin"
+        @regenMessage="handleRegenMessage" @slideMessage="handleSlideMessage" v-model:plugin="plugin"
         :actionable="msg.actionable" :blockId="msg.blockId" :actionType="msg.actionType" :slideKey="slideMsgKey"/>
     </li>
     <message class="focus-msg" v-if="props.isStreaming && streamingMessage !== ''" :question="props.question" 
-      :streamMessage="streamingMessage" :isStreaming="props.isStreaming" :id="'temp'" />
+      :streamMessage="streamingMessage" :isStreaming="props.isStreaming" :id="'temp'" v-model:plugin="plugin"/>
   </ul>
 </template>
 
