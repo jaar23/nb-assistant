@@ -448,7 +448,11 @@ async function getChatHistories() {
   let latestIndex: { id: string, date: Date, length: number, name: string };
   if (indexResp !== null) {
     if (indexResp.code === 404) {
-      console.log("history updated to 0.1.4 onwards");
+      await pushMsg(plugin.value.i18n.newHistoryCreate);
+      const jsonStr2 = JSON.stringify([]);
+      const file2 = strToFile(jsonStr2, `${chatUUID.value}-history`, "application/json");
+      const historyIndexResp = await putFile(`${dataPath}/history-index.json`, false, file2);
+      console.log("history index", historyIndexResp);
     } else {
       chatHistories.value = indexResp;
       latestIndex = (indexResp ?? []).reduce((a, b) => {
@@ -824,7 +828,11 @@ async function openNewChat() {
   const indexResp = await getFile(`${dataPath}/history-index.json`);
   if (indexResp !== null) {
     if (indexResp.code === 404) {
-      console.log("history updated to 0.1.4 onwards");
+      await pushMsg(plugin.value.i18n.newHistoryCreate);
+      const jsonStr2 = JSON.stringify(historyIndex ?? []);
+      const file2 = strToFile(jsonStr2, `${chatUUID.value}-history`, "application/json");
+      const historyIndexResp = await putFile(`${dataPath}/history-index.json`, false, file2);
+      console.log("history index", historyIndexResp);
     } else {
       historyIndex = indexResp;
     }

@@ -159,5 +159,6 @@
     "natural": "natural",
     "documentName": "Document Name",
     "noteSaved": "Chat saved to note",
-    "quckAct1": "Quick Action: Generating index for search"
+    "quckAct1": "Quick Action: Generating index for search",
+    "newHistoryCreate": "Saved chat history not found, create new history index file"
 }

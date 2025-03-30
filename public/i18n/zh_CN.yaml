@@ -159,3 +159,4 @@ natural: 自然
 documentName: 文档名
 noteSaved: 聊天记录已保存至文档
 quckAct1: 快速执行操作： 生成向量嵌入
+newHistoryCreate: 聊天记录丢失，新的聊天记录档案重新写入
