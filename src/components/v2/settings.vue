@@ -13,6 +13,7 @@ const sections = ref([
     { id: 'deepseek', name: 'DeepSeek', visible: false },
     { id: 'ollama', name: 'Ollama', visible: false },
     { id: 'openai', name: 'OpenAI', visible: false },
+    { id: 'customai', name: 'Custom AI', visible: false },
     { id: 'embedding', name: 'Embedding', visible: false }
 ]);
 
@@ -109,6 +110,20 @@ const openaiSettings = ref({
     presence_penalty: 0.5,
     stop: ""
 });
+
+const customAiSettings = ref({
+    customSystemPrompt: '',
+    customUserPrompt: '',
+    model: '',
+    apiKey: '',
+    url: '',
+    max_tokens: 2048,
+    temperature: 0,
+    top_p: 1.0,
+    presence_penalty: 0.5,
+    stop: ""
+});
+
 
 const embeddingSettings = ref({
     used_in: '',
@@ -215,6 +230,13 @@ async function saveOpenAISetting(key: string, value: any) {
     plugin.value.settingUtils.settings.set(`openai.${key}`, value);
     await plugin.value.settingUtils.save();
 }
+
+async function saveCustomAISetting(key: string, value: any) {
+    plugin.value.settingUtils.settings.set(`customai.${key}`, value);
+    await plugin.value.settingUtils.save();
+    console.log(plugin.value.settingUtils.dump());
+}
+
 
 async function saveEmbeddingSetting(key: string, value: any) {
     if (value.includes("|")) {
@@ -385,6 +407,17 @@ onMounted(async () => {
     openaiSettings.value.top_p = plugin.value.settingUtils.settings.get("openai.top_p") || 0.5;
     openaiSettings.value.presence_penalty = plugin.value.settingUtils.settings.get("openai.presence_penalty") || 0.5;
     openaiSettings.value.stop = plugin.value.settingUtils.settings.get("openai.stop") || "";
+
+    customAiSettings.value.customSystemPrompt = plugin.value.settingUtils.settings.get("customai.customSystemPrompt") || '';
+    customAiSettings.value.customUserPrompt = plugin.value.settingUtils.settings.get("customai.customUserPrompt") || '';
+    customAiSettings.value.model = plugin.value.settingUtils.settings.get("customai.model") || '';
+    customAiSettings.value.apiKey = plugin.value.settingUtils.settings.get("customai.apiKey") || '';
+    customAiSettings.value.url = plugin.value.settingUtils.settings.get("customai.url") || '';
+    customAiSettings.value.max_tokens = plugin.value.settingUtils.settings.get("customai.max_tokens") || 2048;
+    customAiSettings.value.temperature = plugin.value.settingUtils.settings.get("customai.temperature") || 0;
+    customAiSettings.value.top_p = plugin.value.settingUtils.settings.get("customai.top_p") || 0.5;
+    customAiSettings.value.presence_penalty = plugin.value.settingUtils.settings.get("customai.presence_penalty") || 0.5;
+    customAiSettings.value.stop = plugin.value.settingUtils.settings.get("customai.stop") || "";
 
     embeddingSettings.value.used_in = plugin.value.settingUtils.settings.get("embedding.used_in") || "";
     embeddingSettings.value.provider = plugin.value.settingUtils.settings.get("embedding.provider") || "";
@@ -984,6 +1017,135 @@ onUnmounted(async () => {
                 </div>
             </div>
         </div>
+        <div v-if="sections.find(sec => sec.id === 'customai').visible" class="settings-content">
+            <div class="settings-group">
+                <div class="setting-item">
+                    <p class="setting-description"><b style="font-size:0.9rem;">{{ plugin.i18n.customAiDisclaimer }}</b></p>
+                </div>
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <span>{{ plugin.i18n.aiTitleApiUrl }}</span>
+                        <div class="form-item">
+                            <input type="text" v-model="customAiSettings.url"
+                                placeholder="Provide the AI's API endpoint"
+                                @change="saveCustomAISetting('url', customAiSettings.url)"
+                                @focusout="saveCustomAISetting('url', customAiSettings.url)"
+                                class="provider-input">
+                        </div>
+                    </div>
+                    <p class="setting-description">{{ plugin.i18n.customaiApiUrl }}</p>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <span>{{ plugin.i18n.aiTitleApiKey }}</span>
+                        <div class="form-item">
+                            <input type="password" v-model="customAiSettings.apiKey"
+                                @change="saveCustomAISetting('apiKey', customAiSettings.apiKey)"
+                                class="provider-input" placeholder="Enter your Custom AI provider's API key">
+                        </div>
+                    </div>
+                    <p class="setting-description">{{ plugin.i18n.aiApiKey }}</p>
+                </div>
+                <div class="setting-item" v-if="customAiSettings.apiKey !== ''">
+                    <div class="setting-header">
+                        <span>{{ plugin.i18n.aiTitleModel }}</span>
+                        <div class="form-item">
+                            <input type="text" v-model="customAiSettings.model"
+                                @change="saveCustomAISetting('model', customAiSettings.model)"
+                                class="provider-input" placeholder="Enter your model name">
+                        </div>
+                    </div>
+                    <p class="setting-description">{{ plugin.i18n.aiModel }}</p>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <span>{{ plugin.i18n.aiTitleCustomSystemPrompt }}</span>
+                        <div class="form-item">
+                            <textarea v-model="customAiSettings.customSystemPrompt"
+                                @change="saveCustomAISetting('customSystemPrompt', customAiSettings.customSystemPrompt)"
+                                class="provider-textarea" placeholder="Enter custom system prompt"></textarea>
+                        </div>
+                    </div>
+                    <p class="setting-description">{{ plugin.i18n.aiCustomSystemPrompt }}</p>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <span>{{ plugin.i18n.aiTitleCustomUserPrompt }}</span>
+                        <div class="form-item">
+                            <textarea v-model="customAiSettings.customUserPrompt"
+                                @change="saveCustomAISetting('customUserPrompt', customAiSettings.customUserPrompt)"
+                                class="provider-textarea" placeholder="Enter custom user prompt"></textarea>
+                        </div>
+                    </div>
+                    <p class="setting-description">{{ plugin.i18n.aiCustomUserPrompt }}</p>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <span>{{ plugin.i18n.aiTitleMaxTokens }}</span>
+                        <div class="form-item">
+                            <input type="number" v-model="customAiSettings.max_tokens"
+                                @change="saveCustomAISetting('max_tokens', customAiSettings.max_tokens)"
+                                class="provider-input" min="1" max="200000">
+                        </div>
+                    </div>
+                    <p class="setting-description">{{ plugin.i18n.aiMaxTokens }}</p>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <span>{{ plugin.i18n.aiTitleTemperature }}</span>
+                        <div class="form-item">
+                            <input type="number" v-model="customAiSettings.temperature"
+                                @change="saveCustomAISetting('temperature', customAiSettings.temperature)"
+                                class="provider-input" min="0" max="1" step="0.1">
+                        </div>
+                    </div>
+                    <p class="setting-description">{{ plugin.i18n.aiTemperature }}</p>
+                </div>
+
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <span>{{ plugin.i18n.aiTitleTopP }}</span>
+                        <div class="form-item">
+                            <input type="number" v-model="customAiSettings.top_p"
+                                @change="saveCustomAISetting('top_p', customAiSettings.top_p)"
+                                class="provider-input" min="0" max="1" step="0.1">
+                        </div>
+                    </div>
+                    <p class="setting-description">{{ plugin.i18n.aiTopP }}</p>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <span>{{ plugin.i18n.aiTitlePresencePenalty }}</span>
+                        <div class="form-item">
+                            <input type="number" v-model="customAiSettings.presence_penalty"
+                                @change="saveCustomAISetting('presence_penalty', customAiSettings.presence_penalty)"
+                                class="provider-input" min="-2" max="2" step="0.1">
+                        </div>
+                    </div>
+                    <p class="setting-description">{{ plugin.i18n.aiPresencePenalty }}</p>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <span>{{ plugin.i18n.aiTitleStopWords }}</span>
+                        <div class="form-item">
+                            <input type="text" v-model="customAiSettings.stop" 
+                                placeholder="delimited by ,"
+                                @change="saveCustomAISetting('stop', customAiSettings.stop)"
+                                class="provider-input">
+                        </div>
+                    </div>
+                    <p class="setting-description">{{ plugin.i18n.aiStopWords }}</p>
+                </div>
+            </div>
+        </div>
         <div v-if="sections.find(sec => sec.id === 'embedding').visible">
             <div class="settings-content">
                 <div class="settings-group">
@@ -1033,7 +1195,7 @@ onUnmounted(async () => {
 }
 
 .settings-sidebar {
-    width: 80px;
+    width: 100px;
     border-right: 1px solid var(--b3-border-color);
     padding: 20px;
 }
@@ -1046,7 +1208,7 @@ onUnmounted(async () => {
 .sidebar-nav ul {
     list-style: none;
     padding: 0;
-    min-width: 80px;
+    min-width: 100px;
 }
 
 .sidebar-nav li {

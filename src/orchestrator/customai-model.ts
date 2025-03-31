@@ -6,13 +6,13 @@ import { ChatCompletionChunk } from 'openai/resources';
 
 type OpenAIRole = "assistant" | "user" | "system" | "developer" | any;
 
-export class OpenAIModel extends BaseAIModel {
+export class CustomAIModel extends BaseAIModel {
     private client: OpenAI;
     private abortController: AbortController | null = null;
 
-    constructor(config: {apiKey: string}) {
+    constructor(config: { apiKey: string, baseUrl?: string }) {
         super(config);
-        this.client = new OpenAI({ apiKey: config.apiKey, dangerouslyAllowBrowser: true });
+        this.client = new OpenAI({ baseURL: config.baseUrl, apiKey: config.apiKey, dangerouslyAllowBrowser: true });
     }
 
     public cancelRequest() {

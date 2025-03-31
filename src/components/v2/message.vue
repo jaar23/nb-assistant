@@ -26,12 +26,12 @@ const markdown = new MarkdownIt()
     'ul': 'line-height: 1.75; padding: 0rem 1rem;',
     'ol': 'line-height: 1.75; padding: 0rem 1rem;',
     'img': 'border-radius: var(--b3-border-radius);',
-    'h1': 'line-height: 2;',
-    'h2': 'line-height: 2;',
-    'h3': 'line-height: 2;',
-    'h4': 'line-height: 2;',
-    'h5': 'line-height: 2;',
-    'h6': 'line-height: 2;',
+    'h1': 'line-height: 2; font-size: 1.0rem',
+    'h2': 'line-height: 2; font-size: 1.0rem',
+    'h3': 'line-height: 2; font-size: 1.0rem',
+    'h4': 'line-height: 2; font-size: 1.0rem',
+    'h5': 'line-height: 2; font-size: 0.9rem',
+    'h6': 'line-height: 2; font-size: 0.9rem',
   });
 const props = defineProps({
   id: {

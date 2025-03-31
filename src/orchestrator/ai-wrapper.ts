@@ -3,6 +3,7 @@ import { OpenAIModel } from './openai-model';
 import { ClaudeModel } from './claude-model';
 import { DeepseekModel } from './deepseek-model';
 import { OllamaModel } from './ollama-model';
+import { CustomAIModel } from './customai-model';
 
 export class AIWrapper {
     private model: AIModelInterface;
@@ -20,6 +21,9 @@ export class AIWrapper {
                 break;
             case 'ollama':
                 this.model = new OllamaModel(config);
+                break;
+            case 'customai':
+                this.model = new CustomAIModel(config);
                 break;
             default:
                 throw new Error(`Unsupported model type: ${provider}`);

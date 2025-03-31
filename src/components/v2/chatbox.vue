@@ -200,7 +200,9 @@ async function prompt(stream = true, withHistory = true) {
         const result = new Map();
         for (const [key, value] of map) {
           if (key.startsWith(keyPrefix)) {
-            result.set(key, value);
+            const key2 = key.replace(keyPrefix, "");
+            console.log(key2);
+            result.set(key2, value);
           }
         }
         return result;
@@ -899,10 +901,16 @@ async function loadModels() {
   const settings = plugin.value.settingUtils.settings;
   const ollamaApiURL = settings.get("ollama.url")?.trim();
   const ollamaModel = settings.get("ollama.model")?.trim();
+  const customApiURL = settings.get("customai.url")?.trim();
+  const customModel = settings.get("customai.model")?.trim();
+  const customApiKey = settings.get("customai.apiKey")?.trim();
   const frontEnd = getFrontend();
   isMobile.value = frontEnd === "mobile" || frontEnd === "browser-mobile";
   if (ollamaApiURL && ollamaModel && !isMobile.value) {
     models.value.push({ label: ollamaModel, value: ollamaModel, apiKey: "", apiURL: ollamaApiURL, provider: "ollama" });
+  }
+  if (customApiURL && customModel && customApiKey) {
+    models.value.push({ label: customModel, value: customModel, apiKey: customApiKey, apiURL: customApiURL, provider: "customai" });
   }
 
   const addModel = (apiKey: string | undefined, model: string | undefined, provider: string, models: any[]) => {

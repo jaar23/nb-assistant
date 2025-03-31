@@ -160,3 +160,5 @@ documentName: 文档名
 noteSaved: 聊天记录已保存至文档
 quckAct1: 快速执行操作： 生成向量嵌入
 newHistoryCreate: 聊天记录丢失，新的聊天记录档案重新写入
+customAiDisclaimer: "**重要通知** 为了确保与自定义AI提供商的无缝集成，您的AI提供商必须兼容OpenAI API。"
+customaiApiUrl: "AI服务API的基础URL端点，必须兼容OpenAI API, 例如： https://api.openai.com/v1， https://api.deepseek.com/v1"

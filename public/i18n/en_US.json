@@ -160,5 +160,6 @@
     "documentName": "Document Name",
     "noteSaved": "Chat saved to note",
     "quckAct1": "Quick Action: Generating index for search",
-    "newHistoryCreate": "Saved chat history not found, create new history index file"
+    "newHistoryCreate": "Saved chat history not found, create new history index file",
+    "customAiDisclaimer": "[Important notice] To ensure seamless integration with the custom AI provider, it is essential that your AI provder is compatible with the OpenAI API"
 }
