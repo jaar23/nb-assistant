@@ -236,7 +236,7 @@ export class OpenAIModel extends BaseAIModel {
                     break;
             }
         }
-        messages.push({ role: "user", content: request.prompt });
+        messages.push({ role: "user", content: `${request.prompt}, response in JSON format` });
         let request_body = {
             model: request.model,
             messages: messages,

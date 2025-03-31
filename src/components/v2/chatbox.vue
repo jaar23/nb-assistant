@@ -7,13 +7,10 @@ import {
   getAllDocsByNotebook,
   transformDocToList,
   exportMdContent,
-  insertBlock,
   getFile,
   putFile,
   checkBlockExist,
   pushMsg,
-  fullTextSearchBlock,
-  getBlocksByIds,
   createDocWithMd,
 } from "@/api";
 import { ref, onMounted, watch, nextTick } from "vue";
@@ -21,21 +18,16 @@ import Loading from "vue-loading-overlay";
 import "vue-loading-overlay/dist/css/index.css";
 import {
   countWords,
-  searchNotebook,
-  tokenize,
-  rephrasePrompt,
-  sleep,
   generateUUID,
   getCurrentTabs,
   strToFile,
   cosineSimilarity,
-  pluginCreateEmbedding,
-  parseTags
+  pluginCreateEmbedding
 } from "@/utils";
 import history from "./history.vue";
 import { CircleStop, Settings2, History, Plus, MessageCircle, Database, Search, SquareArrowUp } from 'lucide-vue-next';
 import { AIWrapper } from "@/orchestrator/ai-wrapper";
-import { CompletionRequest, ImageSize2, ImageStyle } from "@/orchestrator/types";
+import { CompletionRequest } from "@/orchestrator/types";
 import { Message } from "../history.vue";
 import savedchat from "./savedchat.vue";
 import vectordb from "./vectordb.vue";
@@ -50,11 +42,7 @@ const plugin: any = defineModel<any>("plugin");
 const emit = defineEmits(["response", "streamChunk"]);
 const isLoading = ref(false);
 const enterToSend = defineModel("enterToSend");
-const previousRole = ref("");
-const selectedNotebook = ref("");
-const selectedDocument = ref([]);
 
-const rephrasedInput = ref("");
 // 0.1.4
 const isMobile = ref(false);
 const vectorizedDb = ref([]);
@@ -152,7 +140,7 @@ Example: A computer is a machine that can be programmed to automatically carry o
 Response: computer, computer system, technology
 Example: Physics is the natural science of matter, involving the study of matter, its fundamental constituents, its motion and behavior through space and time, and the related entities of energy and force.[1] Physics is one of the most fundamental scientific disciplines.[2][3][4] A scientist who specializes in the field of physics is called a physicist. 
 Response: Physics, Natural Science, Science
-ALWAYS RESPONSE ONLY IN PLAINTEXT FORMAT
+ALWAYS RESPONSE ONLY IN JSON FORMAT
 
 Input: {text}
 `;
@@ -256,7 +244,7 @@ async function prompt(stream = true, withHistory = true) {
         const recentMessages = messages.value.slice(-historyLimit); // Take only the most recent messages
         
         const chatHistory = recentMessages.reduce((box, m) => {
-          if (m.question[m.questionIndex] && m.answer[m.answerIndex]) {
+          if (m.actionType !== "generate_image" && m.question[m.questionIndex] && m.answer[m.answerIndex]) {
             box.push({ role: "user", content: m.question[m.questionIndex] });
             box.push({ role: "assistant", content: m.answer[m.answerIndex] });
           }

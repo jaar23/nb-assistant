@@ -207,22 +207,22 @@ export class ClaudeModel extends BaseAIModel {
         this.validateRequest(request);
         this.abortController = new AbortController();
         let messages = [];
-        if (request.systemPrompt) {
-            switch (request.systemPrompt.role) {
-                case "system":
-                    messages.push({ role: "system", content: request.systemPrompt.content });
-                    break;
-                case "developer":
-                    messages.push({ role: "developer", content: request.systemPrompt.content });
-                    break;
-                case "assistant":
-                    messages.push({ role: "assistant", content: request.systemPrompt.content });
-                    break;
-                default:
-                    messages.push({ role: request.systemPrompt.role, content: request.systemPrompt.content });
-                    break;
-            }
-        }
+        // if (request.systemPrompt) {
+        //     switch (request.systemPrompt.role) {
+        //         case "system":
+        //             messages.push({ role: "system", content: request.systemPrompt.content });
+        //             break;
+        //         case "developer":
+        //             messages.push({ role: "developer", content: request.systemPrompt.content });
+        //             break;
+        //         case "assistant":
+        //             messages.push({ role: "assistant", content: request.systemPrompt.content });
+        //             break;
+        //         default:
+        //             messages.push({ role: request.systemPrompt.role, content: request.systemPrompt.content });
+        //             break;
+        //     }
+        // }
         messages.push({ role: "user", content: `${request.prompt}\n JSON Schema Output format: ${jsonSchema}` });
 
         let request_body = {
