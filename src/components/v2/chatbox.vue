@@ -2186,7 +2186,7 @@ h2 {
   .page-container {
     display: flex;
     flex-direction: column;
-    height: calc(91vh - env(safe-area-inset-bottom));
+    height: calc(92vh - env(safe-area-inset-bottom));
     /* Adjust for safe area */
   }
   .tutorial-tooltip {
