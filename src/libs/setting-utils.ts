@@ -116,23 +116,57 @@ export class SettingUtils {
         });
     }
 
+    resetSettings() {
+        this.settings = new Map();
+        this.settings.set("aiEmoji", "[AI]");
+        this.settings.set("chatSaveNotebook", this.settings.get("chatSaveNotebook"));
+        this.settings.set("enterToSend", true);
+        this.settings.set("claude.apiKey", "");
+        this.settings.set("claude.model", "");
+        this.settings.set("claude.maxTokens", 4096);
+        this.settings.set("deepseek.apiKey", "");
+        this.settings.set("deepseek.model", "");
+        this.settings.set("claude.maxTokens", 4096);
+        this.settings.set("ollama.model", "");
+        this.settings.set("ollama.url", "http://127.0.0.1:11434");
+        this.settings.set("openai.apiKey", "");
+        this.settings.set("openai.maxTokens", 4096);
+        this.settings.set("openai.model", "");
+        this.settings.set("selectedModel", "");
+        this.settings.set("embedding.provider", "xenova");
+        this.settings.set("embedding.model", "Xenova/all-MiniLM-L6-v2");
+        this.settings.set("embedding.used_in", "local");
+        this.settings.set("chatHistoryTruncate", 6);
+        this.settings.set("customai.url", "");
+        this.settings.set("customai.apiKey", "");
+        this.settings.set("customai.model", "");
+        this.settings.set("customai.temperature", 0.2);
+        this.settings.set("customai.temperature", 2048);
+        this.settings.set("customai.customSystemPrompt", "");
+    }
+
     async load() {
-        let data = await this.plugin.loadData(this.file);
-        console.debug('Load config:', data);
-        if (data) {
-            for (const key of Object.keys(data)) {
-                this.settings.set(key, data[key]);
-            }
-            for (let [key, item] of this.settings) {
-                if (item.value) {
-                    item.value = data?.[key] ?? item.value;
-                } else {
-                    data[key] = item;
+        try {
+            let data = await this.plugin.loadData(this.file);
+            console.debug('Load config:', data);
+            if (data) {
+                for (const key of Object.keys(data)) {
+                    this.settings.set(key, data[key]);
+                }
+                for (let [key, item] of this.settings) {
+                    if (item.value) {
+                        item.value = data?.[key] ?? item.value;
+                    } else {
+                        data[key] = item;
+                    }
                 }
             }
+            this.plugin.data[this.name] = this.dump();
+            return data;
+        } catch (err) {
+            console.log("error getting settings, resetting it instead");
+            this.resetSettings();
         }
-        this.plugin.data[this.name] = this.dump();
-        return data;
     }
 
     async save(data?: any) {

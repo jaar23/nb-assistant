@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { lsNotebooks } from '@/api';
+import { lsNotebooks, pushErrMsg } from '@/api';
 import { onMounted, onUnmounted, ref } from 'vue';
 import { AIWrapper } from '@/orchestrator/ai-wrapper';
 import Loading from "vue-loading-overlay";
@@ -18,7 +18,7 @@ const sections = ref([
 ]);
 
 const isLoading = ref(false);
-const enterToSend = ref(true);
+const enterToSend = ref(false);
 const aiEmoji = ref("aiEmoji");
 const truncateHistory = ref(7);
 const selectedNotebook = ref("-");
@@ -137,71 +137,78 @@ const ollamaModels = ref([]);
 const openaiModels = ref([]);
 
 async function listModels(aiProvider: string) {
-    switch (aiProvider) {
-        case "claude":
-            if (claudeModels.value.length > 0) {
-                return;
-            }
-            const claude = new AIWrapper("claude", {
-                apiKey: claudeSettings.value.apiKey
-            });
-            console.log("list claude models");
-            const list1 = await claude.listModels({});
-            console.log("list", list1);
-            for (const m of list1.models) {
-                claudeModels.value.push({ value: m.id, label: m.name });
-            }
-            break;
-        case "deepseek":
-            if (deepseekModels.value.length > 0) {
-                return;
-            }
-            const deepseek = new AIWrapper("deepseek", {
-                apiKey: deepseekSettings.value.apiKey
-            });
-            console.log("list deepseek models");
-            const list2 = await deepseek.listModels({});
-            console.log("list", list2);
-            for (const m of list2.models) {
-                deepseekModels.value.push({ value: m.id, label: m.name });
-            }
-            break;
-        case "ollama":
-            if (ollamaModels.value.length > 0) {
-                return;
-            }
-            const ollama = new AIWrapper("ollama", {
-                apiKey: "",
-                baseUrl: ollamaSettings.value.url
-            });
-            if (! await ollama.locallyInstalled({})) return;
-            console.log("list ollma models");
-            const list3 = await ollama.listModels({});
-            console.log("list", list3);
-            for (const m of list3.models) {
-                ollamaModels.value.push({ value: m.id, label: m.name });
-            }
-            break;
-        case "openai":
-            if (openaiModels.value.length > 0) {
-                return;
-            }
-            const openai = new AIWrapper("openai", {
-                apiKey: openaiSettings.value.apiKey
-            });
-            console.log("list openai models");
-            const list4 = await openai.listModels({});
-            console.log("list", list4);
-            for (const m of list4.models) {
-                openaiModels.value.push({ value: m.id, label: m.name });
-            }
-            break;
-        default:
-            throw new Error("unrecognize ai provider");
+    try {
+        switch (aiProvider) {
+            case "claude":
+                if (claudeModels.value.length > 0) {
+                    return;
+                }
+                const claude = new AIWrapper("claude", {
+                    apiKey: claudeSettings.value.apiKey
+                });
+                console.log("list claude models");
+                const list1 = await claude.listModels({});
+                console.log("list", list1);
+                for (const m of list1.models) {
+                    claudeModels.value.push({ value: m.id, label: m.name });
+                }
+                break;
+            case "deepseek":
+                if (deepseekModels.value.length > 0) {
+                    return;
+                }
+                const deepseek = new AIWrapper("deepseek", {
+                    apiKey: deepseekSettings.value.apiKey
+                });
+                console.log("list deepseek models");
+                const list2 = await deepseek.listModels({});
+                console.log("list", list2);
+                for (const m of list2.models) {
+                    deepseekModels.value.push({ value: m.id, label: m.name });
+                }
+                break;
+            case "ollama":
+                if (ollamaModels.value.length > 0) {
+                    return;
+                }
+                const ollama = new AIWrapper("ollama", {
+                    apiKey: "",
+                    baseUrl: ollamaSettings.value.url
+                });
+                if (! await ollama.locallyInstalled({})) return;
+                console.log("list ollma models");
+                const list3 = await ollama.listModels({});
+                console.log("list", list3);
+                for (const m of list3.models) {
+                    ollamaModels.value.push({ value: m.id, label: m.name });
+                }
+                break;
+            case "openai":
+                if (openaiModels.value.length > 0) {
+                    return;
+                }
+                const openai = new AIWrapper("openai", {
+                    apiKey: openaiSettings.value.apiKey
+                });
+                console.log("list openai models");
+                const list4 = await openai.listModels({});
+                console.log("list", list4);
+                for (const m of list4.models) {
+                    openaiModels.value.push({ value: m.id, label: m.name });
+                }
+                break;
+            default:
+                throw new Error("unrecognize ai provider");
+    }
+    } catch (err) {
+        await pushErrMsg(err)
+    } finally {
+        isLoading.value = false;
     }
 }
 
 async function saveSetting() {
+    console.log("enter to send check", enterToSend.value);
     plugin.value.settingUtils.settings.set("chatSaveNotebook", selectedNotebook.value);
     plugin.value.settingUtils.settings.set("aiEmoji", aiEmoji.value);
     plugin.value.settingUtils.settings.set("enterToSend", enterToSend.value);
@@ -332,116 +339,135 @@ function loadingCancel() {
 }
 
 onMounted(async () => {
-    isLoading.value = true;
-    await plugin.value.settingUtils.load();
-    if (!plugin.value.settingUtils.settings.get("aiEmoji")) {
-        await plugin.value.settingUtils.settings.set("aiEmoji", "[AI]");
-    }
-    aiEmoji.value = plugin.value.settingUtils.settings.get("aiEmoji");
+    try {
+        isLoading.value = true;
+        await plugin.value.settingUtils.load();
+        if (!plugin.value.settingUtils.settings.get("aiEmoji")) {
+            await plugin.value.settingUtils.settings.set("aiEmoji", "[AI]");
+        }
+        aiEmoji.value = plugin.value.settingUtils.settings.get("aiEmoji");
+        
+        const notebooks = await lsNotebooks();
+        nbOptions.value = [{ value: "-", label: plugin.value.i18n.pleaseSelect }];
+        for (const nb of notebooks.notebooks) {
+            nbOptions.value.push({ label: nb.name, value: nb.id });
+        }
 
-    const notebooks = await lsNotebooks();
-    nbOptions.value = [{ value: "-", label: plugin.value.i18n.pleaseSelect }];
-    for (const nb of notebooks.notebooks) {
-        nbOptions.value.push({ label: nb.name, value: nb.id });
-    }
+        if (!plugin.value.settingUtils.settings.get("chatSaveNotebook")) {
+            await plugin.value.settingUtils.settings.set("chatSaveNotebook", "-");
+        }
+        selectedNotebook.value = plugin.value.settingUtils.settings.get("chatSaveNotebook");
 
-    if (!plugin.value.settingUtils.settings.get("chatSaveNotebook")) {
-        await plugin.value.settingUtils.settings.set("chatSaveNotebook", "-");
-    }
-    selectedNotebook.value = plugin.value.settingUtils.settings.get("chatSaveNotebook");
+        if (!plugin.value.settingUtils.settings.get("enterToSend")) {
+            await plugin.value.settingUtils.settings.set("enterToSend", enterToSend.value);
+        }
+        enterToSend.value = plugin.value.settingUtils.settings.get("enterToSend");
 
-    if (!plugin.value.settingUtils.settings.get("enterToSend")) {
-        await plugin.value.settingUtils.settings.set("enterToSend", true);
-    }
-    enterToSend.value = plugin.value.settingUtils.settings.get("enterToSend");
+        if (!plugin.value.settingUtils.settings.get("chatHistoryTruncate")) {
+            await plugin.value.settingUtils.settings.set("chatHistoryTruncate", 7);
+        }
+        truncateHistory.value = plugin.value.settingUtils.settings.get("chatHistoryTruncate");
 
-    if (!plugin.value.settingUtils.settings.get("chatHistoryTruncate")) {
-        await plugin.value.settingUtils.settings.set("chatHistoryTruncate", 7);
-    }
-    truncateHistory.value = plugin.value.settingUtils.settings.get("chatHistoryTruncate");
-
-    claudeSettings.value.customSystemPrompt = plugin.value.settingUtils.settings.get("claude.customSystemPrompt") || '';
-    claudeSettings.value.customUserPrompt = plugin.value.settingUtils.settings.get("claude.customUserPrompt") || '';
-    claudeSettings.value.model = plugin.value.settingUtils.settings.get("claude.model") || 'claude-3-5-haiku-20241022';
-    claudeSettings.value.apiKey = plugin.value.settingUtils.settings.get("claude.apiKey") || '';
-    claudeSettings.value.url = plugin.value.settingUtils.settings.get("claude.url") || 'https://api.anthropic.com';
-    claudeSettings.value.max_tokens = plugin.value.settingUtils.settings.get("claude.max_tokens") || 2048;
-    claudeSettings.value.temperature = plugin.value.settingUtils.settings.get("claude.temperature") || 0;
-    claudeSettings.value.top_k = plugin.value.settingUtils.settings.get("claude.top_k") || 40;
-    claudeSettings.value.top_p = plugin.value.settingUtils.settings.get("claude.top_p") || 0.5;
-    claudeSettings.value.stop = plugin.value.settingUtils.settings.get("claude.stop") || "";
-
-
-    deepseekSettings.value.customSystemPrompt = plugin.value.settingUtils.settings.get("deepseek.customSystemPrompt") || '';
-    deepseekSettings.value.customUserPrompt = plugin.value.settingUtils.settings.get("deepseek.customUserPrompt") || '';
-    deepseekSettings.value.model = plugin.value.settingUtils.settings.get("deepseek.model") || '';
-    deepseekSettings.value.apiKey = plugin.value.settingUtils.settings.get("deepseek.apiKey") || '';
-    deepseekSettings.value.url = plugin.value.settingUtils.settings.get("deepseek.url") || 'https://api.deepseek.com';
-    deepseekSettings.value.max_tokens = plugin.value.settingUtils.settings.get("deepseek.max_tokens") || 2048;
-    deepseekSettings.value.temperature = plugin.value.settingUtils.settings.get("deepseek.temperature") || 0;
-    deepseekSettings.value.top_p = plugin.value.settingUtils.settings.get("deepseek.top_p") || 0.5;
-    deepseekSettings.value.presence_penalty = plugin.value.settingUtils.settings.get("deepseek.presence_penalty") || 0.5;
-    deepseekSettings.value.stop = plugin.value.settingUtils.settings.get("deepseek.stop") || "";
+        claudeSettings.value.customSystemPrompt = plugin.value.settingUtils.settings.get("claude.customSystemPrompt") || '';
+        claudeSettings.value.customUserPrompt = plugin.value.settingUtils.settings.get("claude.customUserPrompt") || '';
+        claudeSettings.value.model = plugin.value.settingUtils.settings.get("claude.model") || 'claude-3-5-haiku-20241022';
+        claudeSettings.value.apiKey = plugin.value.settingUtils.settings.get("claude.apiKey") || '';
+        claudeSettings.value.url = plugin.value.settingUtils.settings.get("claude.url") || 'https://api.anthropic.com';
+        claudeSettings.value.max_tokens = plugin.value.settingUtils.settings.get("claude.max_tokens") || 2048;
+        claudeSettings.value.temperature = plugin.value.settingUtils.settings.get("claude.temperature") || 0;
+        claudeSettings.value.top_k = plugin.value.settingUtils.settings.get("claude.top_k") || 40;
+        claudeSettings.value.top_p = plugin.value.settingUtils.settings.get("claude.top_p") || 0.5;
+        claudeSettings.value.stop = plugin.value.settingUtils.settings.get("claude.stop") || "";
 
 
-    ollamaSettings.value.customSystemPrompt = plugin.value.settingUtils.settings.get("ollama.customSystemPrompt") || '';
-    ollamaSettings.value.customUserPrompt = plugin.value.settingUtils.settings.get("ollama.customUserPrompt") || '';
-    ollamaSettings.value.model = plugin.value.settingUtils.settings.get("ollama.model") || '';
-    ollamaSettings.value.apiKey = plugin.value.settingUtils.settings.get("ollama.apiKey") || '';
-    ollamaSettings.value.url = plugin.value.settingUtils.settings.get("ollama.url") || 'http://localhost:11434';
-    ollamaSettings.value.max_tokens = plugin.value.settingUtils.settings.get("ollama.max_tokens") || 2048;
-    ollamaSettings.value.temperature = plugin.value.settingUtils.settings.get("ollama.temperature") || 0;
-    ollamaSettings.value.top_k = plugin.value.settingUtils.settings.get("ollama.top_k") || 40;
-    ollamaSettings.value.top_p = plugin.value.settingUtils.settings.get("ollama.top_p") || 0.5;
-    ollamaSettings.value.presence_penalty = plugin.value.settingUtils.settings.get("ollama.presence_penalty") || 0.5;
-    ollamaSettings.value.frequency_penalty = plugin.value.settingUtils.settings.get("ollama.frequency_penalty") || 0.5;
-    ollamaSettings.value.stop = plugin.value.settingUtils.settings.get("ollama.stop") || "";
+        deepseekSettings.value.customSystemPrompt = plugin.value.settingUtils.settings.get("deepseek.customSystemPrompt") || '';
+        deepseekSettings.value.customUserPrompt = plugin.value.settingUtils.settings.get("deepseek.customUserPrompt") || '';
+        deepseekSettings.value.model = plugin.value.settingUtils.settings.get("deepseek.model") || '';
+        deepseekSettings.value.apiKey = plugin.value.settingUtils.settings.get("deepseek.apiKey") || '';
+        deepseekSettings.value.url = plugin.value.settingUtils.settings.get("deepseek.url") || 'https://api.deepseek.com';
+        deepseekSettings.value.max_tokens = plugin.value.settingUtils.settings.get("deepseek.max_tokens") || 2048;
+        deepseekSettings.value.temperature = plugin.value.settingUtils.settings.get("deepseek.temperature") || 0;
+        deepseekSettings.value.top_p = plugin.value.settingUtils.settings.get("deepseek.top_p") || 0.5;
+        deepseekSettings.value.presence_penalty = plugin.value.settingUtils.settings.get("deepseek.presence_penalty") || 0.5;
+        deepseekSettings.value.stop = plugin.value.settingUtils.settings.get("deepseek.stop") || "";
 
-    openaiSettings.value.customSystemPrompt = plugin.value.settingUtils.settings.get("openai.customSystemPrompt") || '';
-    openaiSettings.value.customUserPrompt = plugin.value.settingUtils.settings.get("openai.customUserPrompt") || '';
-    openaiSettings.value.model = plugin.value.settingUtils.settings.get("openai.model") || '';
-    openaiSettings.value.apiKey = plugin.value.settingUtils.settings.get("openai.apiKey") || '';
-    openaiSettings.value.url = plugin.value.settingUtils.settings.get("openai.url") || 'https://api.openai.com';
-    openaiSettings.value.max_tokens = plugin.value.settingUtils.settings.get("openai.max_tokens") || 2048;
-    openaiSettings.value.temperature = plugin.value.settingUtils.settings.get("openai.temperature") || 0;
-    openaiSettings.value.top_p = plugin.value.settingUtils.settings.get("openai.top_p") || 0.5;
-    openaiSettings.value.presence_penalty = plugin.value.settingUtils.settings.get("openai.presence_penalty") || 0.5;
-    openaiSettings.value.stop = plugin.value.settingUtils.settings.get("openai.stop") || "";
 
-    customAiSettings.value.customSystemPrompt = plugin.value.settingUtils.settings.get("customai.customSystemPrompt") || '';
-    customAiSettings.value.customUserPrompt = plugin.value.settingUtils.settings.get("customai.customUserPrompt") || '';
-    customAiSettings.value.model = plugin.value.settingUtils.settings.get("customai.model") || '';
-    customAiSettings.value.apiKey = plugin.value.settingUtils.settings.get("customai.apiKey") || '';
-    customAiSettings.value.url = plugin.value.settingUtils.settings.get("customai.url") || '';
-    customAiSettings.value.max_tokens = plugin.value.settingUtils.settings.get("customai.max_tokens") || 2048;
-    customAiSettings.value.temperature = plugin.value.settingUtils.settings.get("customai.temperature") || 0;
-    customAiSettings.value.top_p = plugin.value.settingUtils.settings.get("customai.top_p") || 0.5;
-    customAiSettings.value.presence_penalty = plugin.value.settingUtils.settings.get("customai.presence_penalty") || 0.5;
-    customAiSettings.value.stop = plugin.value.settingUtils.settings.get("customai.stop") || "";
+        ollamaSettings.value.customSystemPrompt = plugin.value.settingUtils.settings.get("ollama.customSystemPrompt") || '';
+        ollamaSettings.value.customUserPrompt = plugin.value.settingUtils.settings.get("ollama.customUserPrompt") || '';
+        ollamaSettings.value.model = plugin.value.settingUtils.settings.get("ollama.model") || '';
+        ollamaSettings.value.apiKey = plugin.value.settingUtils.settings.get("ollama.apiKey") || '';
+        ollamaSettings.value.url = plugin.value.settingUtils.settings.get("ollama.url") || 'http://localhost:11434';
+        ollamaSettings.value.max_tokens = plugin.value.settingUtils.settings.get("ollama.max_tokens") || 2048;
+        ollamaSettings.value.temperature = plugin.value.settingUtils.settings.get("ollama.temperature") || 0;
+        ollamaSettings.value.top_k = plugin.value.settingUtils.settings.get("ollama.top_k") || 40;
+        ollamaSettings.value.top_p = plugin.value.settingUtils.settings.get("ollama.top_p") || 0.5;
+        ollamaSettings.value.presence_penalty = plugin.value.settingUtils.settings.get("ollama.presence_penalty") || 0.5;
+        ollamaSettings.value.frequency_penalty = plugin.value.settingUtils.settings.get("ollama.frequency_penalty") || 0.5;
+        ollamaSettings.value.stop = plugin.value.settingUtils.settings.get("ollama.stop") || "";
 
-    embeddingSettings.value.used_in = plugin.value.settingUtils.settings.get("embedding.used_in") || "";
-    embeddingSettings.value.provider = plugin.value.settingUtils.settings.get("embedding.provider") || "";
-    if (embeddingSettings.value.used_in === "local") {
-        embeddingSettings.value.model = `${embeddingSettings.value.used_in}|${embeddingSettings.value.provider}|${plugin.value.settingUtils.settings.get("embedding.model")}` || "";
-    } else {
-        embeddingSettings.value.model = `${embeddingSettings.value.used_in}|${embeddingSettings.value.provider}|${embeddingSettings.value.provider}/${plugin.value.settingUtils.settings.get("embedding.model")}` || "";
-    }
-    isLoading.value = false;
+        openaiSettings.value.customSystemPrompt = plugin.value.settingUtils.settings.get("openai.customSystemPrompt") || '';
+        openaiSettings.value.customUserPrompt = plugin.value.settingUtils.settings.get("openai.customUserPrompt") || '';
+        openaiSettings.value.model = plugin.value.settingUtils.settings.get("openai.model") || '';
+        openaiSettings.value.apiKey = plugin.value.settingUtils.settings.get("openai.apiKey") || '';
+        openaiSettings.value.url = plugin.value.settingUtils.settings.get("openai.url") || 'https://api.openai.com';
+        openaiSettings.value.max_tokens = plugin.value.settingUtils.settings.get("openai.max_tokens") || 2048;
+        openaiSettings.value.temperature = plugin.value.settingUtils.settings.get("openai.temperature") || 0;
+        openaiSettings.value.top_p = plugin.value.settingUtils.settings.get("openai.top_p") || 0.5;
+        openaiSettings.value.presence_penalty = plugin.value.settingUtils.settings.get("openai.presence_penalty") || 0.5;
+        openaiSettings.value.stop = plugin.value.settingUtils.settings.get("openai.stop") || "";
 
-    const frontEnd = getFrontend();
-    const isMobile = frontEnd === "mobile" || frontEnd === "browser-mobile";
-    if (isMobile) {
-        sections.value = sections.value.map(s => {
-            if (s.id === 'ollama') {
-                s.visible = false;
+        customAiSettings.value.customSystemPrompt = plugin.value.settingUtils.settings.get("customai.customSystemPrompt") || '';
+        customAiSettings.value.customUserPrompt = plugin.value.settingUtils.settings.get("customai.customUserPrompt") || '';
+        customAiSettings.value.model = plugin.value.settingUtils.settings.get("customai.model") || '';
+        customAiSettings.value.apiKey = plugin.value.settingUtils.settings.get("customai.apiKey") || '';
+        customAiSettings.value.url = plugin.value.settingUtils.settings.get("customai.url") || '';
+        customAiSettings.value.max_tokens = plugin.value.settingUtils.settings.get("customai.max_tokens") || 2048;
+        customAiSettings.value.temperature = plugin.value.settingUtils.settings.get("customai.temperature") || 0;
+        customAiSettings.value.top_p = plugin.value.settingUtils.settings.get("customai.top_p") || 0.5;
+        customAiSettings.value.presence_penalty = plugin.value.settingUtils.settings.get("customai.presence_penalty") || 0.5;
+        customAiSettings.value.stop = plugin.value.settingUtils.settings.get("customai.stop") || "";
+
+        embeddingSettings.value.used_in = plugin.value.settingUtils.settings.get("embedding.used_in") || "";
+        embeddingSettings.value.provider = plugin.value.settingUtils.settings.get("embedding.provider") || "";
+        if ((embeddingSettings.value.used_in || "local") === "local") {
+            // patch for 0.1.3 to 0.1.4
+            if (!embeddingSettings.value.used_in) {
+                embeddingSettings.value.model = "Xenova/all-MiniLM-L6-v2";
+                embeddingSettings.value.used_in = "local";
+                embeddingSettings.value.provider = "xenova";
+            } else {
+                embeddingSettings.value.model = `${embeddingSettings.value.used_in}|${embeddingSettings.value.provider}|${plugin.value.settingUtils.settings.get("embedding.model")}` || "";
             }
-            return s;
-        });
+        } else {
+            embeddingSettings.value.model = `${embeddingSettings.value.used_in}|${embeddingSettings.value.provider}|${embeddingSettings.value.provider}/${plugin.value.settingUtils.settings.get("embedding.model")}` || "";
+        }
+        isLoading.value = false;
+
+        const frontEnd = getFrontend();
+        const isMobile = frontEnd === "mobile" || frontEnd === "browser-mobile";
+        if (isMobile) {
+            sections.value = sections.value.map(s => {
+                if (s.id === 'ollama') {
+                    s.visible = false;
+                }
+                return s;
+            });
+        }
+    } catch (err) {
+        await pushErrMsg(err);
+    } finally {
+        isLoading.value = false;
     }
 })
 
 onUnmounted(async () => {
-    await saveSetting();
+    try {
+        await saveSetting();
+    } catch (err) {
+        await pushErrMsg(err);
+    } finally {
+        isLoading.value = false;
+    }
 })
 </script>
 

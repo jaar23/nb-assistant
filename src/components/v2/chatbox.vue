@@ -1206,7 +1206,7 @@ onMounted(async () => {
     await loadModels();
     // await checkVectorizedDb();
     await checkAllDocuments();
-    enterToSend.value = plugin.value.settingUtils.settings.get("enterToSend") ? plugin.value.settingUtils.settings.get("enterToSend") : true;
+    enterToSend.value = plugin.value.settingUtils.settings.get("enterToSend") ?? true;
     isLoading.value = false;
     messages.value = [];
     if (models.value.length > 0) {
